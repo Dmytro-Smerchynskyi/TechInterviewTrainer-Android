@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">Tech Trainer</string>
+    <string name="title_activity_auth">Authentication Activity</string>
+
+    <string name="app_slogan">Focused practice for your next tech interview.</string>
+
+    <string name="preparing_your_workspace">Preparing your workspace</string>
+
+    <string name="sign_up_slogan">Master tech interviews with focused practice</string>
+
+    <string name="create_your_account">Create your account</string>
+
+    <string name="create_your_account_subtext">Save progress and sync your interview preparation.</string>
+
+    <string name="name">Name</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+
+    <string name="create_account">Create account</string>
+    <string name="creating_account">Creating account…</string>
+
+    <string name="already_have_an_account">Already have an account?</string>
+
+    <string name="sign_in">Sign in</string>
+    <string name="signing_in">Signing in…</string>
+
+    <string name="welcome_back">Welcome back</string>
+    <string name="welcome_back_subtext">Sign in to continue your interview preparation.</string>
+
+    <string name="do_not_have_an_account">Don\'t have an account?</string>
+
+    <string name="forgot_password">Forgot password?</string>
+</resources>

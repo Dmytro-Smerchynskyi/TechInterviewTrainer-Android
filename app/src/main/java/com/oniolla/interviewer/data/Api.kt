@@ -1,5 +1,7 @@
 package com.oniolla.interviewer.data
 
+import com.oniolla.interviewer.data.model.DashboardResponse
+import com.oniolla.interviewer.data.model.TopicResponse
 import com.oniolla.interviewer.data.model.ForgotPasswordResponse
 import com.oniolla.interviewer.data.model.LoginResponse
 import com.oniolla.interviewer.data.model.MeResponse
@@ -20,6 +22,12 @@ import retrofit2.http.GET
 import retrofit2.http.PUT
 
 interface Api {
+
+    @GET("dashboard")
+    suspend fun dashboard(): DashboardResponse
+
+    @GET("topics")
+    suspend fun topics(): List<TopicResponse>
 
     @PUT("me/preparation-language")
     suspend fun selectPreparationLanguage(@Body payload: PreparationLanguagePayload): MeResponse

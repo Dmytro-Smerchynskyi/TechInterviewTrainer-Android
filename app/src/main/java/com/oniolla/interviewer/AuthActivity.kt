@@ -15,11 +15,9 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -53,9 +51,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
@@ -1589,67 +1584,6 @@ fun LinkText(
         fontSize = 10.sp,
         fontWeight = FontWeight.SemiBold
     )
-}
-
-@Composable
-fun MainButton(
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit = { },
-    buttonText: String = "",
-    loadingButtonText: String = buttonText,
-    isLoading: Boolean = false,
-    textSize: TextUnit = 10.sp
-) {
-    val focusManager = LocalFocusManager.current
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    Button(
-        modifier = modifier
-            .height(50.dp)
-            .background(
-                brush = Brush.horizontalGradient(
-                    Pair(0f, AppTheme.colors.leftGradient),
-                    Pair(1f, AppTheme.colors.rightGradient)
-                ),
-                RoundedCornerShape(50.dp)
-            ),
-        onClick = {
-            focusManager.clearFocus()
-            keyboardController?.hide()
-            onClick()
-        },
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent
-        ),
-        enabled = !isLoading
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AnimatedVisibility(
-                visible = isLoading,
-                enter = fadeIn() + expandHorizontally(),
-                exit = fadeOut() + shrinkHorizontally()
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(12.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-
-                    Spacer(modifier = Modifier.width(6.dp))
-                }
-            }
-
-            Text(
-                text = if (isLoading) loadingButtonText else buttonText,
-                color = Color.White,
-                fontSize = textSize,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-    }
 }
 
 @Composable

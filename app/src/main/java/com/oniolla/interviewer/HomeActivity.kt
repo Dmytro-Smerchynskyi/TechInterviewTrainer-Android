@@ -1,39 +1,58 @@
 package com.oniolla.interviewer
 
+import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import com.oniolla.interviewer.ui.theme.AppTheme
+import androidx.activity.viewModels
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import com.oniolla.interviewer.ui.UiEvent
+import com.oniolla.interviewer.ui.home.HomeScreen
+import com.oniolla.interviewer.ui.home.HomeTab
+import com.oniolla.interviewer.ui.home.HomeViewModel
 import com.oniolla.interviewer.ui.theme.InterviewTrainerTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class HomeActivity : ComponentActivity() {
+    private val viewModel: HomeViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             InterviewTrainerTheme {
-                Scaffold(containerColor = AppTheme.colors.background) { innerPadding ->
-                    Box(
-                        modifier = Modifier.fillMaxSize().padding(innerPadding),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = stringResource(R.string.home),
-                            color = AppTheme.colors.primaryText
-                        )
+                val state by viewModel.stateFlow.collectAsStateWithLifecycle()
+                LaunchedEffect(Unit) {
+                    lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                        viewModel.uiEventsFlow.collect { event ->
+                            if (event is UiEvent.Toast) Toast.makeText(
+                                this@HomeActivity, event.message, Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
+                LaunchedEffect(state.sessionExpired) {
+                    if (state.sessionExpired && !isFinishing) {
+                        startActivity(Intent(this@HomeActivity, AuthActivity::class.java))
+                        finish()
+                    }
+                }
+                BackHandler(enabled = state.tab != HomeTab.HOME) { viewModel.selectTab(HomeTab.HOME) }
+                HomeScreen(
+                    state = state,
+                    onTabSelected = viewModel::selectTab,
+                    onTopicQuestions = viewModel::openTopicQuestions,
+                    onQuestionSearch = viewModel::updateQuestionSearch,
+                    onRetryDashboard = viewModel::loadDashboard,
+                    onRetryTopics = viewModel::loadTopics
+                )
             }
         }
     }

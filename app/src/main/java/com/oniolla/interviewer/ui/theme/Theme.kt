@@ -31,6 +31,13 @@ data class AppColors(
     val heroStart: Color,
     val heroEnd: Color,
     val info: Color,
+    val navigation: Color,
+    val homeIcon: Color,
+    val shimmerBase: Color,
+    val shimmerHighlight: Color,
+    val homeTrack: Color,
+    val warning: Color,
+    val isDark: Boolean,
 )
 
 val LocalAppColors = staticCompositionLocalOf<AppColors> {
@@ -57,7 +64,14 @@ private val DarkAppColors = AppColors(
     success = SuccessDark,
     heroStart = HeroStartDark,
     heroEnd = HeroEndDark,
-    info = InfoDark
+    info = InfoDark,
+    navigation = NavigationDark,
+    homeIcon = HomeIconDark,
+    shimmerBase = ShimmerBaseDark,
+    shimmerHighlight = ShimmerHighlightDark,
+    homeTrack = HomeTrackDark,
+    warning = WarningDark,
+    isDark = true
 )
 
 private val LightAppColors = AppColors(
@@ -80,7 +94,14 @@ private val LightAppColors = AppColors(
     success = SuccessLight,
     heroStart = HeroStartLight,
     heroEnd = HeroEndLight,
-    info = InfoLight
+    info = InfoLight,
+    navigation = NavigationLight,
+    homeIcon = HomeIconLight,
+    shimmerBase = ShimmerBaseLight,
+    shimmerHighlight = ShimmerHighlightLight,
+    homeTrack = HomeTrackLight,
+    warning = WarningLight,
+    isDark = false
 )
 
 private val DarkColorScheme = darkColorScheme(

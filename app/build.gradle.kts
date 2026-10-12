@@ -34,6 +34,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 }
@@ -53,6 +54,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.retrofit.rxjava3)
+    implementation(libs.okhttp.logging.interceptor)
     implementation(libs.rxjava3)
     implementation(libs.rxandroid3)
     ksp(libs.hilt.compiler)

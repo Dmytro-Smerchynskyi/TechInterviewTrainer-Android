@@ -1,5 +1,6 @@
 package com.oniolla.interviewer.di
 
+import com.oniolla.interviewer.BuildConfig
 import com.oniolla.interviewer.data.Api
 import com.oniolla.interviewer.data.TokenStorage
 import com.oniolla.interviewer.data.SessionTokenStorage
@@ -8,6 +9,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.adapter.rxjava3.RxJava3CallAdapterFactory
 import retrofit2.converter.gson.GsonConverterFactory
@@ -36,6 +38,14 @@ object NetworkModule {
                         request.header("Authorization", "Bearer $token")
                     }
                     it.proceed(request.build())
+                }
+                .apply {
+                    if (BuildConfig.DEBUG) {
+                        addInterceptor(HttpLoggingInterceptor().apply {
+                            level = HttpLoggingInterceptor.Level.BODY
+                            redactHeader("Authorization")
+                        })
+                    }
                 }
                 .build())
             .build()

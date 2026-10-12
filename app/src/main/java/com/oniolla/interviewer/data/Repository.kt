@@ -82,6 +82,7 @@ sealed class ApiException(message: String?) : Exception(message) {
 }
 
 fun Throwable.toApiException() = when (this) {
+    is ApiException -> this
     is HttpException -> {
         val customError = getCustomError()
 

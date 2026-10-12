@@ -1,8 +1,10 @@
 package com.oniolla.interviewer.data
 
+import com.oniolla.interviewer.data.model.ForgotPasswordResponse
 import com.oniolla.interviewer.data.model.LoginResponse
 import com.oniolla.interviewer.data.model.ResendCodeResponse
 import com.oniolla.interviewer.data.model.SignupResponse
+import com.oniolla.interviewer.data.payload.ForgotPasswordPayload
 import com.oniolla.interviewer.data.payload.LoginPayload
 import com.oniolla.interviewer.data.payload.ResendCodePayload
 import com.oniolla.interviewer.data.payload.SignupPayload
@@ -12,6 +14,9 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 
 interface Api {
+
+    @POST("auth/password/forgot")
+    suspend fun forgotPassword(@Body forgotPasswordPayload: ForgotPasswordPayload): ForgotPasswordResponse
 
     @POST("auth/login")
     suspend fun login(@Body loginPayload: LoginPayload): LoginResponse

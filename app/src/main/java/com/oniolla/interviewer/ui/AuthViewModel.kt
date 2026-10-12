@@ -7,6 +7,7 @@ import com.oniolla.interviewer.data.payload.LoginPayload
 import com.oniolla.interviewer.data.payload.SignupPayload
 import com.oniolla.interviewer.data.toApiException
 import com.oniolla.interviewer.data.toAuthState
+import com.oniolla.interviewer.domain.ForgotPasswordUseCase
 import com.oniolla.interviewer.domain.LoginUseCase
 import com.oniolla.interviewer.domain.RestoreSessionUseCase
 import com.oniolla.interviewer.domain.SignupUseCase
@@ -29,7 +30,8 @@ import javax.inject.Inject
 class AuthViewModel @Inject constructor(
     private val restoreSessionUseCase: RestoreSessionUseCase,
     private val loginUseCase: LoginUseCase,
-    private val signupUseCase: SignupUseCase
+    private val signupUseCase: SignupUseCase,
+    private val forgotPasswordUseCase: ForgotPasswordUseCase
 ) : ViewModel() {
 
     private val _stateFlow: MutableStateFlow<AuthViewState> = MutableStateFlow(
@@ -57,11 +59,64 @@ class AuthViewModel @Inject constructor(
     }
 
     fun showLogin() {
+        if ((_stateFlow.value as? AuthViewState.Unauthorized.ForgotPassword)?.isLoading == true) return
         _stateFlow.value = AuthViewState.Unauthorized.Login()
     }
 
     fun showSignup() {
         _stateFlow.value = AuthViewState.Unauthorized.SignUp()
+    }
+
+    fun showForgotPassword() {
+        if ((_stateFlow.value as? AuthViewState.Unauthorized.Login)?.isLoading == true) return
+        _stateFlow.value = AuthViewState.Unauthorized.ForgotPassword()
+    }
+
+    fun forgotPassword(email: String) {
+        val state = _stateFlow.value as? AuthViewState.Unauthorized.ForgotPassword ?: return
+        if (state.isLoading) return
+
+        if (!isValidEmail(email)) {
+            _stateFlow.value = state.copy(
+                emailError = if (email.trim().isBlank()) "Email cannot be empty" else "Invalid email format"
+            )
+            return
+        }
+
+        _stateFlow.value = state.copy(isLoading = true, emailError = null)
+        viewModelScope.launch {
+            val result = forgotPasswordUseCase(email)
+            when (val viewState = result.toUi()) {
+                is AuthViewState.Error -> {
+                    _stateFlow.value = state.copy(emailError = null)
+                    _uiEventsFlow.emit(UiEvent.Toast(viewState.message ?: "Unknown error"))
+                }
+
+                is AuthViewState.Unauthorized.ForgotPassword -> {
+                    _stateFlow.value = viewState
+                    if (result is AuthState.PasswordResetLinkSent) {
+                        _uiEventsFlow.emit(UiEvent.Toast(result.message))
+                    }
+                }
+
+                else -> {
+                    _stateFlow.value = state.copy(emailError = null)
+                    _uiEventsFlow.emit(UiEvent.Toast("Unknown error"))
+                }
+            }
+        }
+    }
+
+    fun resendPasswordResetLink() {
+        val state = _stateFlow.value as? AuthViewState.Unauthorized.ForgotPassword ?: return
+        state.sentEmail?.let(::forgotPassword)
+    }
+
+    fun onRecoveryEmailChanged() {
+        val state = _stateFlow.value as? AuthViewState.Unauthorized.ForgotPassword ?: return
+        if (!state.isLoading) {
+            _stateFlow.value = state.copy(resetLinkSent = false, sentEmail = null)
+        }
     }
 
     fun signup(name: String, email: String, password: String) {
@@ -194,6 +249,9 @@ class AuthViewModel @Inject constructor(
             if (state is AuthViewState.Unauthorized.SignUp) {
                 _stateFlow.value = state.copy(emailError = null)
             }
+            if (state is AuthViewState.Unauthorized.ForgotPassword) {
+                _stateFlow.value = state.copy(emailError = null)
+            }
         }
     }
 
@@ -229,6 +287,13 @@ class AuthViewModel @Inject constructor(
                 val isLoading: Boolean = false
             ) : Unauthorized()
 
+            data class ForgotPassword(
+                val emailError: String? = null,
+                val isLoading: Boolean = false,
+                val resetLinkSent: Boolean = false,
+                val sentEmail: String? = null
+            ) : Unauthorized()
+
             data class SignUp(
                 val nameError: String? = null,
                 val emailError: String? = null,
@@ -249,5 +314,9 @@ fun AuthState.toUi(): AuthViewState =
         is AuthState.Loading -> AuthViewState.Loading(progress)
         is AuthState.Error -> AuthViewState.Error(message)
         is AuthState.VerificationEmailSent -> AuthViewState.VerificationEmailSent
+        is AuthState.PasswordResetLinkSent -> AuthViewState.Unauthorized.ForgotPassword(
+            resetLinkSent = true,
+            sentEmail = email
+        )
         else -> AuthViewState.Error()
     }

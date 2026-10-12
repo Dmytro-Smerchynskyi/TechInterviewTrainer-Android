@@ -50,3 +50,6 @@ val AccentLight = Color(0xFF0D8EF0)
 
 val RedLight = Color(0xFFE5484D)
 val RedDark = Color(0xFFFF4D6D)
+
+val SuccessLight = Color(0xFF12B76A)
+val SuccessDark = Color(0xFF13D68B)

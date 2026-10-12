@@ -30,4 +30,15 @@
     <string name="do_not_have_an_account">Don\'t have an account?</string>
 
     <string name="forgot_password">Forgot password?</string>
+    <string name="reset_your_password">Reset your password</string>
+    <string name="reset_password_subtext">Enter the email associated with your account.\nWe\'ll send you a secure reset link.</string>
+    <string name="send_reset_link">Send reset link</string>
+    <string name="sending_reset_link">Sending reset link…</string>
+    <string name="reset_link_sent">Reset link sent</string>
+    <string name="reset_link_sent_subtext">Check your inbox and follow the link to create a new password.</string>
+    <string name="did_not_receive_reset_link">Didn\'t receive it?</string>
+    <string name="send_again">Send again</string>
+    <string name="email_placeholder">you@example.com</string>
+    <string name="name_placeholder">username</string>
+    <string name="password_placeholder">8-64 characters</string>
 </resources>

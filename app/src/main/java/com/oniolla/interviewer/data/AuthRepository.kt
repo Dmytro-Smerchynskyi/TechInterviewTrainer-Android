@@ -1,8 +1,10 @@
 package com.oniolla.interviewer.data
 
+import com.oniolla.interviewer.data.model.ForgotPasswordResponse
 import com.oniolla.interviewer.data.model.LoginResponse
 import com.oniolla.interviewer.data.model.ResendCodeResponse
 import com.oniolla.interviewer.data.model.SignupResponse
+import com.oniolla.interviewer.data.payload.ForgotPasswordPayload
 import com.oniolla.interviewer.data.payload.LoginPayload
 import com.oniolla.interviewer.data.payload.ResendCodePayload
 import com.oniolla.interviewer.data.payload.SignupPayload
@@ -31,6 +33,10 @@ class AuthRepository @Inject constructor(
     }.apply {
         tokenStorage.accessToken = accessToken
         tokenStorage.refreshToken = refreshToken
+    }
+
+    suspend fun forgotPassword(email: String): ForgotPasswordResponse = apiCall {
+        api.forgotPassword(ForgotPasswordPayload(email))
     }
 
     suspend fun sendVerificationEmail(email: String): ResendCodeResponse = apiCall {

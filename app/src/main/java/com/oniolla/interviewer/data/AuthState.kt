@@ -5,6 +5,7 @@ sealed interface AuthState {
     object Unauthorized : AuthState
     object EmailVerificationNeeded : AuthState
     object VerificationEmailSent : AuthState
+    data class PasswordResetLinkSent(val message: String, val email: String) : AuthState
     data class Loading(val progress: Float) : AuthState
     data class Error(val message: String? = null) : AuthState
     object OfflineAuthorized : AuthState

@@ -3,6 +3,7 @@ package com.oniolla.interviewer
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -33,6 +34,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -48,6 +50,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -73,6 +76,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -128,6 +132,10 @@ fun Screen(viewModel: AuthViewModel) {
     val emailText = rememberSaveable { mutableStateOf("") }
     val passwordText = rememberSaveable { mutableStateOf("") }
 
+    BackHandler(enabled = state.value is AuthViewModel.AuthViewState.Unauthorized.ForgotPassword) {
+        viewModel.showLogin()
+    }
+
     AnimatedContent(
         targetState = state.value,
         contentKey = { state ->
@@ -135,7 +143,7 @@ fun Screen(viewModel: AuthViewModel) {
         },
         transitionSpec = {
             when (initialState) {
-                is AuthViewModel.AuthViewState.Unauthorized.Login if targetState is AuthViewModel.AuthViewState.Unauthorized.SignUp -> {
+                is AuthViewModel.AuthViewState.Unauthorized.Login if (targetState is AuthViewModel.AuthViewState.Unauthorized.SignUp || targetState is AuthViewModel.AuthViewState.Unauthorized.ForgotPassword) -> {
 
                     slideInHorizontally { it } togetherWith
                             slideOutHorizontally { -it }
@@ -143,6 +151,11 @@ fun Screen(viewModel: AuthViewModel) {
 
                 is AuthViewModel.AuthViewState.Unauthorized.SignUp if targetState is AuthViewModel.AuthViewState.Unauthorized.Login -> {
 
+                    slideInHorizontally { -it } togetherWith
+                            slideOutHorizontally { it }
+                }
+
+                is AuthViewModel.AuthViewState.Unauthorized.ForgotPassword if targetState is AuthViewModel.AuthViewState.Unauthorized.Login -> {
                     slideInHorizontally { -it } togetherWith
                             slideOutHorizontally { it }
                 }
@@ -189,9 +202,23 @@ fun Screen(viewModel: AuthViewModel) {
                         emailError = state.emailError,
                         passwordError = state.passwordError,
                         onSignUpClicked = viewModel::showSignup,
+                        onForgotPasswordClicked = viewModel::showForgotPassword,
                         onLoginRequested = viewModel::login,
                         onEmailFocused = viewModel::clearEmailError,
                         onPasswordFocused = viewModel::clearPasswordError
+                    )
+
+                is AuthViewModel.AuthViewState.Unauthorized.ForgotPassword ->
+                    PasswordRecovery(
+                        isLoading = state.isLoading,
+                        emailText = emailText,
+                        emailError = state.emailError,
+                        resetLinkSent = state.resetLinkSent,
+                        onBackClicked = viewModel::showLogin,
+                        onResetRequested = viewModel::forgotPassword,
+                        onSendAgainClicked = viewModel::resendPasswordResetLink,
+                        onEmailFocused = viewModel::clearEmailError,
+                        onEmailChanged = viewModel::onRecoveryEmailChanged
                     )
 
                 else -> {
@@ -377,6 +404,7 @@ fun SignUp(
                     .padding(top = 12.dp),
                 text = nameText,
                 header = stringResource(R.string.name),
+                placeholder = stringResource(R.string.name_placeholder),
                 icon = ImageVector.vectorResource(id = R.drawable.user),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Text,
@@ -392,6 +420,7 @@ fun SignUp(
                     .padding(top = 6.dp),
                 text = emailText,
                 header = stringResource(R.string.email),
+                placeholder = stringResource(R.string.email_placeholder),
                 icon = ImageVector.vectorResource(id = R.drawable.mail),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
@@ -407,6 +436,7 @@ fun SignUp(
                     .padding(top = 6.dp),
                 text = passwordText,
                 header = stringResource(R.string.password),
+                placeholder = stringResource(R.string.password_placeholder),
                 icon = ImageVector.vectorResource(id = R.drawable.lock),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
@@ -464,6 +494,7 @@ fun Login(
     emailError: String? = null,
     passwordError: String? = null,
     onSignUpClicked: () -> Unit = {},
+    onForgotPasswordClicked: () -> Unit = {},
     onLoginRequested: (String, String) -> Unit = { _, _ -> },
     onEmailFocused: () -> Unit = {},
     onPasswordFocused: () -> Unit = {},
@@ -508,6 +539,7 @@ fun Login(
                     .padding(top = 12.dp),
                 text = emailText,
                 header = stringResource(R.string.email),
+                placeholder = stringResource(R.string.email_placeholder),
                 icon = ImageVector.vectorResource(id = R.drawable.mail),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
@@ -523,6 +555,7 @@ fun Login(
                     .padding(top = 6.dp),
                 text = passwordText,
                 header = stringResource(R.string.password),
+                placeholder = stringResource(R.string.password_placeholder),
                 icon = ImageVector.vectorResource(id = R.drawable.lock),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
@@ -541,7 +574,7 @@ fun Login(
                     .padding(top = 4.dp),
                 text = stringResource(R.string.forgot_password),
                 enabled = !isLoading,
-                onClick = { }
+                onClick = onForgotPasswordClicked
             )
 
             MainButton(
@@ -582,11 +615,222 @@ fun Login(
 }
 
 @Composable
+fun PasswordRecovery(
+    isLoading: Boolean = false,
+    emailText: MutableState<String> = mutableStateOf(""),
+    emailError: String? = null,
+    resetLinkSent: Boolean = false,
+    onBackClicked: () -> Unit = {},
+    onResetRequested: (String) -> Unit = {},
+    onSendAgainClicked: () -> Unit = {},
+    onEmailFocused: () -> Unit = {},
+    onEmailChanged: () -> Unit = {}
+) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize().imePadding(),
+        containerColor = AppTheme.colors.background
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+        ) {
+            TextButton(
+                modifier = Modifier.padding(top = 10.dp).size(36.dp),
+                onClick = onBackClicked,
+                enabled = !isLoading,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+            ) {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Start,
+                    text = "‹",
+                    color = AppTheme.colors.secondaryText,
+                    fontSize = 28.sp,
+                    lineHeight = 36.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(Modifier.height(36.dp))
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .size(80.dp)
+                    .background(AppTheme.colors.link.copy(alpha = 0.11f), CircleShape)
+                    .border(1.dp, AppTheme.colors.stroke, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = ImageVector.vectorResource(R.drawable.recovery_mail),
+                    contentDescription = null,
+                    tint = AppTheme.colors.link,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Spacer(Modifier.height(34.dp))
+
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = stringResource(R.string.reset_your_password),
+                color = AppTheme.colors.primaryText,
+                textAlign = TextAlign.Center,
+                fontSize = 23.sp,
+                lineHeight = 29.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(Modifier.height(11.dp))
+
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = stringResource(R.string.reset_password_subtext),
+                color = AppTheme.colors.secondaryText,
+                textAlign = TextAlign.Center,
+                fontSize = 10.sp,
+                lineHeight = 15.sp
+            )
+
+            Spacer(Modifier.height(40.dp))
+
+            AppTextField(
+                modifier = Modifier,
+                text = emailText,
+                header = stringResource(R.string.email),
+                icon = ImageVector.vectorResource(R.drawable.mail),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Done
+                ),
+                error = emailError,
+                onFocused = onEmailFocused,
+                onDone = { onResetRequested(emailText.value) },
+                onValueChanged = onEmailChanged,
+                placeholder = stringResource(R.string.email_placeholder),
+                fieldHeight = 50.dp,
+                headerSpacing = 7.dp,
+                headerLineHeight = 13.sp,
+                enabled = !isLoading
+            )
+
+            MainButton(
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                buttonText = stringResource(R.string.send_reset_link),
+                loadingButtonText = stringResource(R.string.sending_reset_link),
+                onClick = { onResetRequested(emailText.value) },
+                isLoading = isLoading,
+                textSize = 12.sp
+            )
+
+            AnimatedVisibility(
+                visible = resetLinkSent,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .padding(top = 34.dp)
+                            .fillMaxWidth()
+                            .heightIn(min = 112.dp)
+                            .background(AppTheme.colors.success.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                            .padding(start = 16.dp, end = 28.dp, top = 16.dp, bottom = 16.dp)
+                    ) {
+                        Icon(
+                            imageVector = ImageVector.vectorResource(R.drawable.recovery_check),
+                            contentDescription = null,
+                            tint = AppTheme.colors.success,
+                            modifier = Modifier.padding(top = 2.dp).size(24.dp)
+                        )
+                        Spacer(Modifier.width(14.dp))
+                        Column {
+                            Text(
+                                text = stringResource(R.string.reset_link_sent),
+                                color = AppTheme.colors.success,
+                                fontSize = 13.sp,
+                                lineHeight = 17.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                text = stringResource(R.string.reset_link_sent_subtext),
+                                color = AppTheme.colors.secondaryText,
+                                fontSize = 9.sp,
+                                lineHeight = 14.sp
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 34.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.did_not_receive_reset_link),
+                            color = AppTheme.colors.secondaryText,
+                            fontSize = 10.sp,
+                            lineHeight = 13.sp
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        LinkText(
+                            text = stringResource(R.string.send_again),
+                            enabled = !isLoading,
+                            onClick = onSendAgainClicked,
+                            lineHeight = 13.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(40.dp))
+        }
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun PasswordRecoveryLightPreview() {
+    InterviewTrainerTheme(darkTheme = false) {
+        PasswordRecovery(resetLinkSent = true)
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun PasswordRecoveryDarkPreview() {
+    InterviewTrainerTheme(darkTheme = true) {
+        PasswordRecovery(resetLinkSent = true)
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun PasswordRecoveryLoadingPreview() {
+    InterviewTrainerTheme(darkTheme = true) {
+        PasswordRecovery(isLoading = true)
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun PasswordRecoveryErrorPreview() {
+    InterviewTrainerTheme(darkTheme = false) {
+        PasswordRecovery(emailError = "Invalid email format")
+    }
+}
+
+@Composable
 fun LinkText(
     modifier: Modifier = Modifier,
     text: String = "",
     enabled: Boolean = true,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    lineHeight: TextUnit = TextUnit.Unspecified
 ) {
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -594,10 +838,12 @@ fun LinkText(
         modifier = modifier
             .clickable(
                 interactionSource = interactionSource,
-                indication = null
-            ) { if (!enabled) return@clickable else onClick() },
+                indication = null,
+                enabled = enabled
+            ) { onClick() },
         text = text,
         color = AppTheme.colors.link,
+        lineHeight = lineHeight,
         fontSize = 10.sp,
         fontWeight = FontWeight.SemiBold
     )
@@ -609,7 +855,8 @@ fun MainButton(
     onClick: () -> Unit = { },
     buttonText: String = "",
     loadingButtonText: String = buttonText,
-    isLoading: Boolean = false
+    isLoading: Boolean = false,
+    textSize: TextUnit = 10.sp
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -655,7 +902,7 @@ fun MainButton(
             Text(
                 text = if (isLoading) loadingButtonText else buttonText,
                 color = Color.White,
-                fontSize = 10.sp,
+                fontSize = textSize,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -674,7 +921,12 @@ fun AppTextField(
     error: String? = null,
     onFocused: () -> Unit = {},
     onDone: () -> Unit = {},
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    placeholder: String? = null,
+    onValueChanged: () -> Unit = {},
+    fieldHeight: Dp? = null,
+    headerSpacing: Dp = 0.dp,
+    headerLineHeight: TextUnit = TextUnit.Unspecified
 ) {
 //    val bringIntoViewRequester = remember {
 //        BringIntoViewRequester()
@@ -692,6 +944,7 @@ fun AppTextField(
     ) {
         Text(
             text = header,
+            lineHeight = headerLineHeight,
             color = AppTheme.colors.secondaryText,
             fontSize = 10.sp,
             fontWeight = FontWeight.Normal
@@ -729,8 +982,19 @@ fun AppTextField(
 
         TextField(
             value = text.value,
-            onValueChange = { text.value = it },
+            onValueChange = {
+                text.value = it
+                onValueChanged()
+            },
+            placeholder = {
+                placeholder?.let { hint ->
+                    Text(text = hint, style = TextStyle(fontFamily = fonts, fontSize = 11.sp),
+                        color = AppTheme.colors.secondaryText.copy(alpha = 0.5f))
+                }
+            },
             modifier = Modifier
+                .padding(top = headerSpacing)
+                .then(if (fieldHeight != null) Modifier.height(fieldHeight) else Modifier)
                 .fillMaxWidth()
                 .border(
                     width = 1.dp,
@@ -793,7 +1057,7 @@ fun AppTextField(
         AnimatedVisibility(
             visible = error != null,
             enter = fadeIn(),
-            exit = fadeOut()
+            exit = fadeOut() + shrinkVertically()
         ) {
             Text(
                 text = error.orEmpty(),

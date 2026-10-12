@@ -27,6 +27,7 @@ data class AppColors(
     val link: Color,
     val accent: Color,
     val red: Color,
+    val success: Color,
 )
 
 val LocalAppColors = staticCompositionLocalOf<AppColors> {
@@ -49,7 +50,8 @@ private val DarkAppColors = AppColors(
     strokeDisabled = StrokeDisabledDark,
     link = LinkDark,
     accent = AccentDark,
-    red = RedDark
+    red = RedDark,
+    success = SuccessDark
 )
 
 private val LightAppColors = AppColors(
@@ -68,7 +70,8 @@ private val LightAppColors = AppColors(
     strokeDisabled = StrokeDisabledLight,
     link = LinkLight,
     accent = AccentLight,
-    red = RedLight
+    red = RedLight,
+    success = SuccessLight
 )
 
 private val DarkColorScheme = darkColorScheme(

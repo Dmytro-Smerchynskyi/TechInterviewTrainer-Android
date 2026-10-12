@@ -41,4 +41,17 @@
     <string name="email_placeholder">you@example.com</string>
     <string name="name_placeholder">username</string>
     <string name="password_placeholder">8-64 characters</string>
+    <string name="confirm_your_email">Confirm your email</string>
+    <string name="email_confirmation_subtext">Enter the 6-digit code we sent to your email</string>
+    <string name="six_digit_email_code">6-digit code</string>
+    <string name="email_code_expiry">Code expires in 10 minutes</string>
+    <string name="confirm_email">Confirm email</string>
+    <string name="confirming_email">Confirming email…</string>
+    <string name="sending_verification_code">Sending code…</string>
+    <string name="did_not_get_email_code">Didn\'t get the code?</string>
+    <string name="resend_email_code">Resend</string>
+    <string name="change_email_address">Change email address</string>
+    <string name="paste_email_code">Paste code from clipboard</string>
+    <string name="session_loading_failed">Unable to load your session</string>
+    <string name="retry">Retry</string>
 </resources>

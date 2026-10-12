@@ -2,37 +2,48 @@ package com.oniolla.interviewer.data
 
 import com.oniolla.interviewer.data.model.ForgotPasswordResponse
 import com.oniolla.interviewer.data.model.LoginResponse
+import com.oniolla.interviewer.data.model.MeResponse
 import com.oniolla.interviewer.data.model.ResendCodeResponse
 import com.oniolla.interviewer.data.model.SignupResponse
 import com.oniolla.interviewer.data.payload.ForgotPasswordPayload
 import com.oniolla.interviewer.data.payload.LoginPayload
+import com.oniolla.interviewer.data.payload.RefreshPayload
 import com.oniolla.interviewer.data.payload.ResendCodePayload
 import com.oniolla.interviewer.data.payload.SignupPayload
+import com.oniolla.interviewer.data.payload.VerifyEmailPayload
 import io.reactivex.rxjava3.core.Single
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
-import kotlin.time.Duration.Companion.milliseconds
 
 class AuthRepository @Inject constructor(
-    private val tokenStorage: TokenStorage,
+    private val tokenStorage: SessionTokenStorage,
     private val api: Api
 ) {
 
-    suspend fun refreshSession(): Flow<AuthState> = flow {
-        for (i in 0..100) {
-            emit(AuthState.Loading(i / 100f))
-            delay(10.milliseconds)
+    suspend fun refreshSession(): Boolean {
+        val refreshToken = tokenStorage.refreshToken
+        if (refreshToken.isNullOrBlank()) {
+            clearSession()
+            return false
         }
-        emit(AuthState.Unauthorized)
+        apiCall { api.refresh(RefreshPayload(refreshToken)) }.also(::saveTokens)
+        return true
     }
 
-    suspend fun login(loginPayload: LoginPayload): LoginResponse = apiCall {
-        api.login(loginPayload)
-    }.apply {
-        tokenStorage.accessToken = accessToken
-        tokenStorage.refreshToken = refreshToken
+    fun clearSession() {
+        tokenStorage.clear()
+    }
+
+    suspend fun login(loginPayload: LoginPayload): LoginResponse =
+        apiCall { api.login(loginPayload) }.also(::saveTokens)
+
+    suspend fun verifyEmail(payload: VerifyEmailPayload): LoginResponse =
+        apiCall { api.verifyEmail(payload) }.also(::saveTokens)
+
+    suspend fun getMe(): MeResponse = apiCall { api.me() }
+
+    private fun saveTokens(response: LoginResponse) {
+        tokenStorage.accessToken = response.accessToken
+        tokenStorage.refreshToken = response.refreshToken
     }
 
     suspend fun forgotPassword(email: String): ForgotPasswordResponse = apiCall {

@@ -1,29 +1,34 @@
 package com.oniolla.interviewer.domain
 
-import com.oniolla.interviewer.data.ApiException
 import com.oniolla.interviewer.data.AuthRepository
 import com.oniolla.interviewer.data.AuthState
 import com.oniolla.interviewer.data.payload.LoginPayload
+import com.oniolla.interviewer.data.toApiException
 import com.oniolla.interviewer.data.toAuthState
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
 class LoginUseCase @Inject constructor(
     private val authRepository: AuthRepository,
-    private val resendVerificationCodeUseCase: ResendVerificationCodeUseCase
+    private val resendVerificationCodeUseCase: ResendVerificationCodeUseCase,
+    private val resolveAuthStateUseCase: ResolveAuthStateUseCase
 ) : UseCase<LoginPayload, AuthState> {
-
     override suspend fun invoke(input: LoginPayload): AuthState {
-        return try {
+        try {
             authRepository.login(input)
-            AuthState.Authorized
-        } catch (e: ApiException) {
-            e.toAuthState().let { authState ->
-                if (authState is AuthState.EmailVerificationNeeded) {
-                    resendVerificationCodeUseCase(input.email)
-                } else {
-                    authState
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return when (val state = e.toApiException().toAuthState()) {
+                AuthState.EmailVerificationNeeded -> {
+                    when (val result = resendVerificationCodeUseCase(input.email)) {
+                        is AuthState.Error -> AuthState.EmailVerificationPending(input.email, result.message)
+                        else -> result
+                    }
                 }
+                else -> state
             }
         }
+        return resolveAuthStateUseCase(Unit)
     }
 }

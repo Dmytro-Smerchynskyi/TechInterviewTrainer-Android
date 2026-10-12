@@ -5,9 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.oniolla.interviewer.data.AuthState
 import com.oniolla.interviewer.data.payload.LoginPayload
 import com.oniolla.interviewer.data.payload.SignupPayload
+import com.oniolla.interviewer.data.payload.VerifyEmailPayload
 import com.oniolla.interviewer.data.toApiException
 import com.oniolla.interviewer.data.toAuthState
 import com.oniolla.interviewer.domain.ForgotPasswordUseCase
+import com.oniolla.interviewer.domain.ClearSessionUseCase
+import com.oniolla.interviewer.domain.ResendVerificationCodeUseCase
+import com.oniolla.interviewer.domain.VerifyEmailUseCase
 import com.oniolla.interviewer.domain.LoginUseCase
 import com.oniolla.interviewer.domain.RestoreSessionUseCase
 import com.oniolla.interviewer.domain.SignupUseCase
@@ -17,13 +21,14 @@ import com.oniolla.interviewer.isValidEmail
 import com.oniolla.interviewer.ui.AuthViewModel.AuthViewState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.schedulers.Schedulers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import javax.inject.Inject
 
 @HiltViewModel
@@ -31,7 +36,10 @@ class AuthViewModel @Inject constructor(
     private val restoreSessionUseCase: RestoreSessionUseCase,
     private val loginUseCase: LoginUseCase,
     private val signupUseCase: SignupUseCase,
-    private val forgotPasswordUseCase: ForgotPasswordUseCase
+    private val forgotPasswordUseCase: ForgotPasswordUseCase,
+    private val verifyEmailUseCase: VerifyEmailUseCase,
+    private val resendVerificationCodeUseCase: ResendVerificationCodeUseCase,
+    private val clearSessionUseCase: ClearSessionUseCase
 ) : ViewModel() {
 
     private val _stateFlow: MutableStateFlow<AuthViewState> = MutableStateFlow(
@@ -44,26 +52,38 @@ class AuthViewModel @Inject constructor(
     private val _uiEventsFlow: MutableSharedFlow<UiEvent> = MutableSharedFlow()
     val uiEventsFlow = _uiEventsFlow.asSharedFlow()
 
+    private var loadingJob: Job? = null
+    private var signupDisposable: Disposable? = null
+
+    override fun onCleared() {
+        signupDisposable?.dispose()
+        super.onCleared()
+    }
+
     init {
         load()
     }
 
     fun load() {
-        viewModelScope.launch {
-            restoreSessionUseCase(Unit)
-                .map { it.toUi() }
-                .collect {
-                    _stateFlow.value = it
+        loadingJob?.cancel()
+        _stateFlow.value = AuthViewState.Loading(0f)
+        loadingJob = viewModelScope.launch {
+            restoreSessionUseCase(Unit).collect { result ->
+                _stateFlow.value = result.toUi()
+                if (result is AuthState.EmailVerificationPending && result.message != null) {
+                    _uiEventsFlow.emit(UiEvent.Toast(result.message))
                 }
+            }
         }
     }
 
     fun showLogin() {
-        if ((_stateFlow.value as? AuthViewState.Unauthorized.ForgotPassword)?.isLoading == true) return
+        if (isBusy()) return
         _stateFlow.value = AuthViewState.Unauthorized.Login()
     }
 
     fun showSignup() {
+        if (isBusy()) return
         _stateFlow.value = AuthViewState.Unauthorized.SignUp()
     }
 
@@ -120,6 +140,8 @@ class AuthViewModel @Inject constructor(
     }
 
     fun signup(name: String, email: String, password: String) {
+        val state = _stateFlow.value as? AuthViewState.Unauthorized.SignUp ?: return
+        if (state.isLoading) return
         var localValidationPassed = true
 
         if (!isNameValid(name)) {
@@ -158,15 +180,15 @@ class AuthViewModel @Inject constructor(
         if (localValidationPassed) {
             setLoading(true)
             viewModelScope.launch {
-                signupUseCase(SignupPayload(email, password, name))
+                signupDisposable = signupUseCase(SignupPayload(email.trim(), password, name))
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe(
                         {
                             setLoading(false)
                             viewModelScope.launch {
+                                _stateFlow.value = AuthState.VerificationEmailSent(email.trim()).toUi()
                                 _uiEventsFlow.emit(UiEvent.Toast(it.message))
-                                _stateFlow.value = AuthViewState.VerificationEmailSent
                             }
                         },
                         {
@@ -188,6 +210,8 @@ class AuthViewModel @Inject constructor(
     }
 
     fun login(email: String, password: String) {
+        val state = _stateFlow.value as? AuthViewState.Unauthorized.Login ?: return
+        if (state.isLoading) return
         var localValidationPassed = true
 
         if (!isValidEmail(email)) {
@@ -216,7 +240,7 @@ class AuthViewModel @Inject constructor(
         if (localValidationPassed) {
             setLoading(true)
             viewModelScope.launch {
-                loginUseCase(LoginPayload(email, password)).toUi().let { state ->
+                loginUseCase(LoginPayload(email.trim(), password)).toUi().let { state ->
                     setLoading(false)
                     when (state) {
                         is AuthViewState.Error ->
@@ -228,6 +252,88 @@ class AuthViewModel @Inject constructor(
 
                         else -> _stateFlow.value = state
                     }
+                }
+            }
+        }
+    }
+
+    private fun isBusy(): Boolean = when (val state = _stateFlow.value) {
+        is AuthViewState.Unauthorized.Login -> state.isLoading
+        is AuthViewState.Unauthorized.SignUp -> state.isLoading
+        is AuthViewState.Unauthorized.ForgotPassword -> state.isLoading
+        is AuthViewState.Unauthorized.EmailConfirmation -> state.isLoading
+        else -> false
+    }
+
+    fun changeEmailAddress() {
+        if (isBusy()) return
+        viewModelScope.launch {
+            clearSessionUseCase(Unit)
+            showLogin()
+        }
+    }
+
+    fun updateEmailCode(value: String) {
+        val state = _stateFlow.value as? AuthViewState.Unauthorized.EmailConfirmation ?: return
+        if (!state.isLoading) {
+            _stateFlow.value = state.copy(code = normalizeEmailCode(value), codeError = null)
+        }
+    }
+
+    fun pasteEmailCode(value: String?) {
+        if (isBusy()) return
+        val code = normalizeEmailCode(value.orEmpty())
+        if (isEmailCodeValid(code)) {
+            updateEmailCode(code)
+        } else {
+            viewModelScope.launch {
+                _uiEventsFlow.emit(UiEvent.Toast("No 6-digit code in clipboard"))
+            }
+        }
+    }
+
+    fun clearEmailCodeError() {
+        val state = _stateFlow.value as? AuthViewState.Unauthorized.EmailConfirmation ?: return
+        _stateFlow.value = state.copy(codeError = null)
+    }
+
+    fun confirmEmail() {
+        val state = _stateFlow.value as? AuthViewState.Unauthorized.EmailConfirmation ?: return
+        if (state.isLoading) return
+        if (!isEmailCodeValid(state.code)) {
+            _stateFlow.value = state.copy(codeError = "Enter the 6-digit code")
+            return
+        }
+        _stateFlow.value = state.copy(isLoading = true, isResending = false, codeError = null)
+        viewModelScope.launch {
+            when (val result = verifyEmailUseCase(VerifyEmailPayload(state.email, state.code))) {
+                is AuthState.EmailVerificationFailed -> {
+                    val message = result.message ?: "Unknown error"
+                    _stateFlow.value = state.copy(codeError = message)
+                    _uiEventsFlow.emit(UiEvent.Toast(message))
+                }
+                else -> _stateFlow.value = result.toUi()
+            }
+        }
+    }
+
+    fun resendEmailCode() {
+        val state = _stateFlow.value as? AuthViewState.Unauthorized.EmailConfirmation ?: return
+        if (state.isLoading) return
+        _stateFlow.value = state.copy(isLoading = true, isResending = true, codeError = null)
+        viewModelScope.launch {
+            when (val result = resendVerificationCodeUseCase(state.email)) {
+                is AuthState.VerificationEmailSent -> {
+                    _stateFlow.value = result.toUi()
+                    result.message?.let { _uiEventsFlow.emit(UiEvent.Toast(it)) }
+                }
+                is AuthState.Error -> {
+                    _stateFlow.value = state.copy(codeError = null)
+                    _uiEventsFlow.emit(UiEvent.Toast(result.message ?: "Unknown error"))
+                }
+                else -> {
+                    _stateFlow.value = state.copy(codeError = null)
+                    _uiEventsFlow.emit(UiEvent.Toast("Unable to send verification code"))
                 }
             }
         }
@@ -287,6 +393,14 @@ class AuthViewModel @Inject constructor(
                 val isLoading: Boolean = false
             ) : Unauthorized()
 
+            data class EmailConfirmation(
+                val email: String,
+                val code: String = "",
+                val codeError: String? = null,
+                val isLoading: Boolean = false,
+                val isResending: Boolean = false
+            ) : Unauthorized()
+
             data class ForgotPassword(
                 val emailError: String? = null,
                 val isLoading: Boolean = false,
@@ -302,7 +416,7 @@ class AuthViewModel @Inject constructor(
             ) : Unauthorized()
         }
 
-        object VerificationEmailSent : AuthViewState
+        object OnboardingRequired : AuthViewState
         data class Error(val message: String? = null) : AuthViewState
     }
 }
@@ -313,7 +427,10 @@ fun AuthState.toUi(): AuthViewState =
         is AuthState.Unauthorized -> AuthViewState.Unauthorized.Login()
         is AuthState.Loading -> AuthViewState.Loading(progress)
         is AuthState.Error -> AuthViewState.Error(message)
-        is AuthState.VerificationEmailSent -> AuthViewState.VerificationEmailSent
+        is AuthState.VerificationEmailSent -> AuthViewState.Unauthorized.EmailConfirmation(email)
+        is AuthState.EmailVerificationPending -> AuthViewState.Unauthorized.EmailConfirmation(email, codeError = message)
+        is AuthState.EmailVerificationFailed -> AuthViewState.Error(message)
+        is AuthState.OnboardingRequired -> AuthViewState.OnboardingRequired
         is AuthState.PasswordResetLinkSent -> AuthViewState.Unauthorized.ForgotPassword(
             resetLinkSent = true,
             sentEmail = email

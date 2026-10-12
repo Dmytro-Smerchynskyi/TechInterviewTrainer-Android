@@ -1,5 +1,6 @@
 package com.oniolla.interviewer
 
+import android.content.ClipboardManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -40,9 +41,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -66,15 +70,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
@@ -89,6 +102,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oniolla.interviewer.ui.AuthViewModel
 import com.oniolla.interviewer.ui.UiEvent
+import com.oniolla.interviewer.ui.EMAIL_CODE_LENGTH
+import com.oniolla.interviewer.ui.normalizeEmailCode
 import com.oniolla.interviewer.ui.theme.AppTheme
 import com.oniolla.interviewer.ui.theme.InterviewTrainerTheme
 import com.oniolla.interviewer.ui.theme.fonts
@@ -132,8 +147,15 @@ fun Screen(viewModel: AuthViewModel) {
     val emailText = rememberSaveable { mutableStateOf("") }
     val passwordText = rememberSaveable { mutableStateOf("") }
 
-    BackHandler(enabled = state.value is AuthViewModel.AuthViewState.Unauthorized.ForgotPassword) {
-        viewModel.showLogin()
+    BackHandler(
+        enabled = state.value is AuthViewModel.AuthViewState.Unauthorized.ForgotPassword ||
+                state.value is AuthViewModel.AuthViewState.Unauthorized.EmailConfirmation
+    ) {
+        if (state.value is AuthViewModel.AuthViewState.Unauthorized.EmailConfirmation) {
+            viewModel.changeEmailAddress()
+        } else {
+            viewModel.showLogin()
+        }
     }
 
     AnimatedContent(
@@ -158,6 +180,14 @@ fun Screen(viewModel: AuthViewModel) {
                 is AuthViewModel.AuthViewState.Unauthorized.ForgotPassword if targetState is AuthViewModel.AuthViewState.Unauthorized.Login -> {
                     slideInHorizontally { -it } togetherWith
                             slideOutHorizontally { it }
+                }
+
+                is AuthViewModel.AuthViewState.Unauthorized.EmailConfirmation if targetState is AuthViewModel.AuthViewState.Unauthorized.Login -> {
+                    slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+                }
+
+                is AuthViewModel.AuthViewState.Unauthorized if targetState is AuthViewModel.AuthViewState.Unauthorized.EmailConfirmation -> {
+                    slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
                 }
 
                 is AuthViewModel.AuthViewState.Loading -> {
@@ -221,6 +251,24 @@ fun Screen(viewModel: AuthViewModel) {
                         onEmailChanged = viewModel::onRecoveryEmailChanged
                     )
 
+                is AuthViewModel.AuthViewState.Unauthorized.EmailConfirmation ->
+                    EmailConfirmation(
+                        email = state.email,
+                        code = state.code,
+                        codeError = state.codeError,
+                        isLoading = state.isLoading,
+                        isResending = state.isResending,
+                        onCodeChanged = viewModel::updateEmailCode,
+                        onCodeFocused = viewModel::clearEmailCodeError,
+                        onConfirmClicked = viewModel::confirmEmail,
+                        onResendClicked = viewModel::resendEmailCode,
+                        onChangeEmailClicked = viewModel::changeEmailAddress,
+                        onPasteRequested = viewModel::pasteEmailCode
+                    )
+
+                is AuthViewModel.AuthViewState.Error ->
+                    AuthError(state.message, viewModel::load)
+
                 else -> {
                     Scaffold {
                         Box(
@@ -233,7 +281,7 @@ fun Screen(viewModel: AuthViewModel) {
                                 when (state) {
                                     is AuthViewModel.AuthViewState.Error -> "Error"
                                     is AuthViewModel.AuthViewState.Authorized -> "Authorized"
-                                    is AuthViewModel.AuthViewState.VerificationEmailSent -> "Email sent"
+                                    is AuthViewModel.AuthViewState.OnboardingRequired -> "Onboarding required"
                                     else -> "Unknown state"
                                 }
                             )
@@ -825,6 +873,349 @@ fun PasswordRecoveryErrorPreview() {
 }
 
 @Composable
+fun EmailConfirmation(
+    email: String,
+    code: String = "",
+    codeError: String? = null,
+    isLoading: Boolean = false,
+    isResending: Boolean = false,
+    onCodeChanged: (String) -> Unit = {},
+    onCodeFocused: () -> Unit = {},
+    onConfirmClicked: () -> Unit = {},
+    onResendClicked: () -> Unit = {},
+    onChangeEmailClicked: () -> Unit = {},
+    onPasteRequested: (String?) -> Unit = {}
+) {
+    val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var codeFocused by remember { mutableStateOf(false) }
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize().imePadding(),
+        containerColor = AppTheme.colors.background,
+        bottomBar = {
+            AnimatedVisibility(
+                visible = imeVisible && codeFocused && !isLoading,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(AppTheme.colors.container)
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    LinkText(
+                        text = stringResource(R.string.paste_email_code),
+                        onClick = {
+                            val clipboard = context.getSystemService(ClipboardManager::class.java)
+                            val text = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }
+                                ?.getItemAt(0)?.coerceToText(context)?.toString()
+                            onPasteRequested(text)
+                        }
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(30.dp))
+            AuthHeader(iconSize = 32.dp, iconResource = R.drawable.email_confirmation_questions)
+            Spacer(Modifier.height(35.dp))
+
+            Text(
+                text = stringResource(R.string.confirm_your_email),
+                color = AppTheme.colors.primaryText,
+                textAlign = TextAlign.Center,
+                fontSize = 22.sp,
+                lineHeight = 28.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.email_confirmation_subtext),
+                color = AppTheme.colors.secondaryText,
+                textAlign = TextAlign.Center,
+                fontSize = 10.sp,
+                lineHeight = 13.sp
+            )
+            Spacer(Modifier.height(45.dp))
+
+            EmailCodeField(
+                email = email,
+                code = code,
+                error = codeError,
+                enabled = !isLoading,
+                onCodeChanged = onCodeChanged,
+                onFocused = {
+                    codeFocused = it
+                    if (it) onCodeFocused()
+                },
+                onDone = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    onConfirmClicked()
+                }
+            )
+
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = stringResource(R.string.email_code_expiry),
+                color = AppTheme.colors.secondaryText,
+                fontSize = 10.sp,
+                lineHeight = 13.sp
+            )
+
+            MainButton(
+                modifier = Modifier.fillMaxWidth().padding(top = 27.dp),
+                buttonText = stringResource(R.string.confirm_email),
+                loadingButtonText = stringResource(
+                    if (isResending) R.string.sending_verification_code else R.string.confirming_email
+                ),
+                isLoading = isLoading,
+                textSize = 12.sp,
+                onClick = onConfirmClicked
+            )
+
+            Row(
+                modifier = Modifier.padding(top = 26.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = stringResource(R.string.did_not_get_email_code),
+                    color = AppTheme.colors.secondaryText,
+                    fontSize = 10.sp,
+                    lineHeight = 13.sp
+                )
+                Spacer(Modifier.width(8.dp))
+                LinkText(
+                    text = stringResource(R.string.resend_email_code),
+                    enabled = !isLoading,
+                    lineHeight = 13.sp,
+                    onClick = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        onResendClicked()
+                    }
+                )
+            }
+
+            LinkText(
+                modifier = Modifier.padding(top = 23.dp),
+                text = stringResource(R.string.change_email_address),
+                enabled = !isLoading,
+                lineHeight = 13.sp,
+                onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    onChangeEmailClicked()
+                }
+            )
+            Spacer(Modifier.height(40.dp))
+        }
+    }
+}
+
+@Composable
+fun EmailCodeField(
+    email: String,
+    code: String,
+    error: String?,
+    enabled: Boolean,
+    onCodeChanged: (String) -> Unit,
+    onFocused: (Boolean) -> Unit,
+    onDone: () -> Unit
+) {
+    var value by rememberSaveable(email, stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(code, TextRange(code.length)))
+    }
+    var focused by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val label = stringResource(R.string.six_digit_email_code)
+
+    LaunchedEffect(code) {
+        if (value.text != code) value = TextFieldValue(code, TextRange(code.length))
+    }
+
+    val containerColor by animateColorAsState(
+        if (enabled) AppTheme.colors.container else AppTheme.colors.containerDisabled,
+        animationSpec = tween(300)
+    )
+    val textColor by animateColorAsState(
+        if (error != null) AppTheme.colors.red
+        else if (enabled) AppTheme.colors.secondaryText
+        else AppTheme.colors.secondaryDisabledText,
+        animationSpec = tween(300)
+    )
+
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            color = AppTheme.colors.secondaryText,
+            fontSize = 10.sp,
+            lineHeight = 13.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(Modifier.height(13.dp))
+
+        BasicTextField(
+            value = value,
+            onValueChange = { newValue ->
+                val text = normalizeEmailCode(newValue.text)
+                val selectionStart = normalizeEmailCode(newValue.text.take(newValue.selection.start)).length
+                val selectionEnd = normalizeEmailCode(newValue.text.take(newValue.selection.end)).length
+                value = TextFieldValue(text, TextRange(selectionStart, selectionEnd))
+                onCodeChanged(text)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .focusRequester(focusRequester)
+                .onFocusChanged {
+                    focused = it.isFocused
+                    onFocused(it.isFocused)
+                }
+                .semantics { contentDescription = label },
+            enabled = enabled,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(onDone = { onDone() }),
+            textStyle = TextStyle(fontFamily = fonts, fontSize = 20.sp),
+            cursorBrush = SolidColor(Color.Transparent),
+            decorationBox = { innerTextField ->
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.matchParentSize().alpha(0f)) {
+                        innerTextField()
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        repeat(EMAIL_CODE_LENGTH) { index ->
+                            val active = focused && value.selection.start.coerceAtMost(EMAIL_CODE_LENGTH - 1) == index
+                            val borderColor by animateColorAsState(
+                                if (active) AppTheme.colors.accent
+                                else if (error != null) AppTheme.colors.red
+                                else if (enabled) AppTheme.colors.stroke
+                                else AppTheme.colors.strokeDisabled,
+                                animationSpec = tween(300)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(56.dp)
+                                    .background(containerColor, RoundedCornerShape(14.dp))
+                                    .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+                                    .clickable(
+                                        enabled = enabled,
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        focusRequester.requestFocus()
+                                        val start = index.coerceAtMost(value.text.length)
+                                        val end = (index + 1).coerceAtMost(value.text.length)
+                                        value = value.copy(selection = TextRange(start, end))
+                                        keyboardController?.show()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = value.text.getOrNull(index)?.toString().orEmpty(),
+                                    color = textColor,
+                                    fontSize = 20.sp,
+                                    lineHeight = 24.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        )
+        AnimatedVisibility(
+            visible = error != null,
+            enter = fadeIn(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Text(
+                text = error.orEmpty(),
+                color = AppTheme.colors.red,
+                fontSize = 10.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun AuthError(message: String?, onRetry: () -> Unit) {
+    Scaffold(containerColor = AppTheme.colors.background) { innerPadding ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = message ?: stringResource(R.string.session_loading_failed),
+                color = AppTheme.colors.secondaryText,
+                textAlign = TextAlign.Center
+            )
+            MainButton(
+                modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+                buttonText = stringResource(R.string.retry),
+                onClick = onRetry
+            )
+        }
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun EmailConfirmationLightPreview() {
+    InterviewTrainerTheme(darkTheme = false) {
+        EmailConfirmation(email = "developer@example.com", code = "123456")
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun EmailConfirmationDarkPreview() {
+    InterviewTrainerTheme(darkTheme = true) {
+        EmailConfirmation(email = "developer@example.com", code = "123456")
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun EmailConfirmationErrorPreview() {
+    InterviewTrainerTheme(darkTheme = false) {
+        EmailConfirmation(email = "developer@example.com", code = "123456", codeError = "Invalid verification code")
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun EmailConfirmationLoadingPreview() {
+    InterviewTrainerTheme(darkTheme = true) {
+        EmailConfirmation(email = "developer@example.com", code = "123456", isLoading = true)
+    }
+}
+
+@Composable
 fun LinkText(
     modifier: Modifier = Modifier,
     text: String = "",
@@ -1070,7 +1461,11 @@ fun AppTextField(
 }
 
 @Composable
-fun AuthHeader(modifier: Modifier = Modifier) {
+fun AuthHeader(
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 24.dp,
+    iconResource: Int = R.drawable.questions
+) {
     Column(
         modifier = modifier
             .fillMaxWidth(),
@@ -1088,7 +1483,7 @@ fun AuthHeader(modifier: Modifier = Modifier) {
                 ),
             contentAlignment = Alignment.Center
         ) {
-            QuestionIcon(24.dp)
+            QuestionIcon(iconSize, iconResource)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -1105,9 +1500,9 @@ fun AuthHeader(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun QuestionIcon(size: Dp) {
+fun QuestionIcon(size: Dp, iconResource: Int = R.drawable.questions) {
     Icon(
-        imageVector = ImageVector.vectorResource(id = R.drawable.questions),
+        imageVector = ImageVector.vectorResource(id = iconResource),
         contentDescription = null,
         tint = Color.White,
         modifier = Modifier.size(size)

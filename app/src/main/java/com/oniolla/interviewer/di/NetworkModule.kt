@@ -2,6 +2,7 @@ package com.oniolla.interviewer.di
 
 import com.oniolla.interviewer.data.Api
 import com.oniolla.interviewer.data.TokenStorage
+import com.oniolla.interviewer.data.SessionTokenStorage
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,7 +19,11 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideApi(tokenStorage: TokenStorage): Api {
+    fun provideSessionTokenStorage(storage: TokenStorage): SessionTokenStorage = storage
+
+    @Provides
+    @Singleton
+    fun provideApi(tokenStorage: SessionTokenStorage): Api {
         val retrofit = Retrofit
             .Builder()
             .baseUrl("http://192.168.0.117:8080/")
@@ -26,7 +31,11 @@ object NetworkModule {
             .addCallAdapterFactory(RxJava3CallAdapterFactory.create())
             .client(OkHttpClient.Builder()
                 .addInterceptor {
-                    it.proceed(it.request().newBuilder().addHeader("Authorization", "Bearer ${tokenStorage.accessToken}").build())
+                    val request = it.request().newBuilder()
+                    tokenStorage.accessToken?.takeIf { token -> token.isNotBlank() }?.let { token ->
+                        request.header("Authorization", "Bearer $token")
+                    }
+                    it.proceed(request.build())
                 }
                 .build())
             .build()

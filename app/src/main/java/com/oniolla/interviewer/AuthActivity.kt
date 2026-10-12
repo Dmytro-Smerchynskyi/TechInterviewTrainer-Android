@@ -1,6 +1,7 @@
 package com.oniolla.interviewer
 
 import android.content.ClipboardManager
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -23,6 +24,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,6 +46,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -56,6 +59,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -88,6 +92,8 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
@@ -100,6 +106,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.oniolla.interviewer.data.model.Specialization
 import com.oniolla.interviewer.ui.AuthViewModel
 import com.oniolla.interviewer.ui.UiEvent
 import com.oniolla.interviewer.ui.EMAIL_CODE_LENGTH
@@ -119,14 +126,21 @@ class AuthActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             InterviewTrainerTheme {
-                Screen(viewModel)
+                Screen(viewModel, onAuthorized = ::openHome)
             }
+        }
+    }
+
+    private fun openHome() {
+        if (!isFinishing) {
+            startActivity(Intent(this, HomeActivity::class.java))
+            finish()
         }
     }
 }
 
 @Composable
-fun Screen(viewModel: AuthViewModel) {
+fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -142,6 +156,12 @@ fun Screen(viewModel: AuthViewModel) {
     }
 
     val state = viewModel.stateFlow.collectAsStateWithLifecycle()
+
+    LaunchedEffect(state.value) {
+        if (state.value is AuthViewModel.AuthViewState.Authorized) onAuthorized()
+    }
+
+    BackHandler(enabled = state.value is AuthViewModel.AuthViewState.SpecializationSelection) { }
 
     val nameText = rememberSaveable { mutableStateOf("") }
     val emailText = rememberSaveable { mutableStateOf("") }
@@ -187,6 +207,10 @@ fun Screen(viewModel: AuthViewModel) {
                 }
 
                 is AuthViewModel.AuthViewState.Unauthorized if targetState is AuthViewModel.AuthViewState.Unauthorized.EmailConfirmation -> {
+                    slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
+                }
+
+                is AuthViewModel.AuthViewState.Unauthorized if targetState is AuthViewModel.AuthViewState.SpecializationSelection -> {
                     slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
                 }
 
@@ -265,6 +289,18 @@ fun Screen(viewModel: AuthViewModel) {
                         onChangeEmailClicked = viewModel::changeEmailAddress,
                         onPasteRequested = viewModel::pasteEmailCode
                     )
+
+                is AuthViewModel.AuthViewState.SpecializationSelection ->
+                    SpecializationSelection(
+                        selectedSpecialization = state.selectedSpecialization,
+                        isLoading = state.isLoading,
+                        error = state.error,
+                        onSpecializationSelected = viewModel::selectSpecialization,
+                        onContinueClicked = viewModel::continueWithSpecialization
+                    )
+
+                is AuthViewModel.AuthViewState.Authorized ->
+                    Box(Modifier.fillMaxSize().background(AppTheme.colors.background))
 
                 is AuthViewModel.AuthViewState.Error ->
                     AuthError(state.message, viewModel::load)
@@ -1212,6 +1248,321 @@ fun EmailConfirmationErrorPreview() {
 fun EmailConfirmationLoadingPreview() {
     InterviewTrainerTheme(darkTheme = true) {
         EmailConfirmation(email = "developer@example.com", code = "123456", isLoading = true)
+    }
+}
+
+@Composable
+fun SpecializationSelection(
+    selectedSpecialization: Specialization = Specialization.ANDROID,
+    isLoading: Boolean = false,
+    error: String? = null,
+    onSpecializationSelected: (Specialization) -> Unit = {},
+    onContinueClicked: () -> Unit = {}
+) {
+    Scaffold(containerColor = AppTheme.colors.background) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+        ) {
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.specialization),
+                color = AppTheme.colors.primaryText,
+                fontSize = 18.sp,
+                lineHeight = 23.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(27.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.horizontalGradient(listOf(AppTheme.colors.heroStart, AppTheme.colors.heroEnd)),
+                        RoundedCornerShape(20.dp)
+                    )
+                    .border(1.dp, AppTheme.colors.stroke, RoundedCornerShape(20.dp))
+                    .padding(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 10.dp)
+            ) {
+                Icon(
+                    imageVector = ImageVector.vectorResource(R.drawable.specialization_grade),
+                    contentDescription = null,
+                    tint = AppTheme.colors.info,
+                    modifier = Modifier.size(34.dp)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.choose_your_specialization),
+                    color = AppTheme.colors.primaryText,
+                    fontSize = 20.sp,
+                    lineHeight = 25.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    text = stringResource(R.string.specialization_subtext),
+                    color = AppTheme.colors.secondaryText,
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp
+                )
+            }
+
+            Spacer(Modifier.height(18.dp))
+            Text(
+                text = stringResource(R.string.choose_one_specialization),
+                color = AppTheme.colors.primaryText,
+                fontSize = 14.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(10.dp))
+
+            Column(
+                modifier = Modifier.fillMaxWidth().selectableGroup(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Specialization.entries.chunked(2).forEach { row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        row.forEach { specialization ->
+                            SpecializationOption(
+                                modifier = Modifier.weight(1f),
+                                specialization = specialization,
+                                selected = selectedSpecialization == specialization,
+                                enabled = !isLoading,
+                                onClick = { onSpecializationSelected(specialization) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .fillMaxWidth()
+                    .heightIn(min = 42.dp)
+                    .background(AppTheme.colors.info.copy(alpha = 0.07f), RoundedCornerShape(13.dp))
+                    .padding(horizontal = 12.dp, vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = stringResource(R.string.specialization_can_be_changed),
+                    color = AppTheme.colors.secondaryText,
+                    fontSize = 10.sp,
+                    lineHeight = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            AnimatedVisibility(
+                visible = error != null,
+                enter = fadeIn(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Text(
+                    modifier = Modifier.padding(top = 8.dp),
+                    text = error.orEmpty(),
+                    color = AppTheme.colors.red,
+                    fontSize = 10.sp
+                )
+            }
+
+            MainButton(
+                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                buttonText = stringResource(R.string.continue_onboarding),
+                loadingButtonText = stringResource(R.string.saving_specialization),
+                isLoading = isLoading,
+                textSize = 12.sp,
+                onClick = onContinueClicked
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = stringResource(R.string.specialization_personalizes_app),
+                color = AppTheme.colors.primaryText,
+                fontSize = 9.sp,
+                lineHeight = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(40.dp))
+        }
+    }
+}
+
+@Composable
+fun SpecializationOption(
+    modifier: Modifier = Modifier,
+    specialization: Specialization,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val containerColor by animateColorAsState(
+        targetValue = when {
+            selected -> AppTheme.colors.leftGradient.copy(alpha = if (enabled) 0.1f else 0.04f)
+            enabled -> AppTheme.colors.container
+            else -> AppTheme.colors.containerDisabled
+        },
+        animationSpec = tween(300)
+    )
+    val borderColor by animateColorAsState(
+        targetValue = when {
+            selected -> AppTheme.colors.leftGradient.copy(alpha = if (enabled) 1f else 0.42f)
+            enabled -> AppTheme.colors.stroke
+            else -> AppTheme.colors.strokeDisabled
+        },
+        animationSpec = tween(300)
+    )
+    val titleColor by animateColorAsState(
+        targetValue = AppTheme.colors.primaryText.copy(alpha = if (enabled) 1f else 0.42f),
+        animationSpec = tween(300)
+    )
+    val descriptionColor by animateColorAsState(
+        targetValue = if (enabled) AppTheme.colors.secondaryText else AppTheme.colors.secondaryDisabledText,
+        animationSpec = tween(300)
+    )
+    val badgeColor by animateColorAsState(
+        targetValue = AppTheme.colors.success.copy(alpha = if (enabled) 0.14f else 0.06f),
+        animationSpec = tween(300)
+    )
+
+    Surface(
+        selected = selected,
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(82.dp).semantics { role = Role.RadioButton },
+        shape = RoundedCornerShape(16.dp),
+        color = containerColor,
+        contentColor = titleColor,
+        border = BorderStroke(1.dp, borderColor)
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .padding(start = 12.dp, top = 10.dp)
+                    .size(32.dp)
+                    .background(badgeColor, RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = specialization.badge,
+                    color = titleColor,
+                    fontSize = 9.sp,
+                    lineHeight = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Text(
+                modifier = Modifier.padding(start = 50.dp, end = 12.dp, top = 12.dp),
+                text = stringResource(specialization.titleResource),
+                color = titleColor,
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+            Text(
+                modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 55.dp),
+                text = stringResource(specialization.descriptionResource),
+                color = descriptionColor,
+                fontSize = 9.sp,
+                lineHeight = 12.sp
+            )
+
+            AnimatedVisibility(
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 9.dp, end = 12.dp),
+                visible = selected,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(AppTheme.colors.leftGradient.copy(alpha = if (enabled) 0.15f else 0.06f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(R.drawable.specialization_check),
+                        contentDescription = null,
+                        tint = AppTheme.colors.leftGradient.copy(alpha = if (enabled) 1f else 0.42f),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private val Specialization.badge: String
+    get() = when (this) {
+        Specialization.ANDROID -> "AD"
+        Specialization.IOS -> "iOS"
+        Specialization.DOTNET -> ".NET"
+        Specialization.FRONTEND -> "FE"
+        Specialization.BACKEND -> "BE"
+        Specialization.QA -> "QA"
+        Specialization.DATA_ML -> "ML"
+        Specialization.DEVOPS -> "DO"
+    }
+
+private val Specialization.titleResource: Int
+    get() = when (this) {
+        Specialization.ANDROID -> R.string.specialization_android
+        Specialization.IOS -> R.string.specialization_ios
+        Specialization.DOTNET -> R.string.specialization_dotnet
+        Specialization.FRONTEND -> R.string.specialization_frontend
+        Specialization.BACKEND -> R.string.specialization_backend
+        Specialization.QA -> R.string.specialization_qa
+        Specialization.DATA_ML -> R.string.specialization_data_ml
+        Specialization.DEVOPS -> R.string.specialization_devops
+    }
+
+private val Specialization.descriptionResource: Int
+    get() = when (this) {
+        Specialization.ANDROID -> R.string.specialization_android_description
+        Specialization.IOS -> R.string.specialization_ios_description
+        Specialization.DOTNET -> R.string.specialization_dotnet_description
+        Specialization.FRONTEND -> R.string.specialization_frontend_description
+        Specialization.BACKEND -> R.string.specialization_backend_description
+        Specialization.QA -> R.string.specialization_qa_description
+        Specialization.DATA_ML -> R.string.specialization_data_ml_description
+        Specialization.DEVOPS -> R.string.specialization_devops_description
+    }
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun SpecializationSelectionLightPreview() {
+    InterviewTrainerTheme(darkTheme = false) { SpecializationSelection() }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun SpecializationSelectionDarkPreview() {
+    InterviewTrainerTheme(darkTheme = true) { SpecializationSelection() }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun SpecializationSelectionLoadingPreview() {
+    InterviewTrainerTheme(darkTheme = true) {
+        SpecializationSelection(selectedSpecialization = Specialization.DATA_ML, isLoading = true)
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun SpecializationSelectionErrorPreview() {
+    InterviewTrainerTheme(darkTheme = false) {
+        SpecializationSelection(selectedSpecialization = Specialization.IOS, error = "Unable to save specialization")
     }
 }
 

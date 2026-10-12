@@ -3,6 +3,7 @@ package com.oniolla.interviewer.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.oniolla.interviewer.data.AuthState
+import com.oniolla.interviewer.data.model.Specialization
 import com.oniolla.interviewer.data.payload.LoginPayload
 import com.oniolla.interviewer.data.payload.SignupPayload
 import com.oniolla.interviewer.data.payload.VerifyEmailPayload
@@ -15,6 +16,7 @@ import com.oniolla.interviewer.domain.VerifyEmailUseCase
 import com.oniolla.interviewer.domain.LoginUseCase
 import com.oniolla.interviewer.domain.RestoreSessionUseCase
 import com.oniolla.interviewer.domain.SignupUseCase
+import com.oniolla.interviewer.domain.SelectSpecializationUseCase
 import com.oniolla.interviewer.isNameValid
 import com.oniolla.interviewer.isPasswordValid
 import com.oniolla.interviewer.isValidEmail
@@ -39,7 +41,8 @@ class AuthViewModel @Inject constructor(
     private val forgotPasswordUseCase: ForgotPasswordUseCase,
     private val verifyEmailUseCase: VerifyEmailUseCase,
     private val resendVerificationCodeUseCase: ResendVerificationCodeUseCase,
-    private val clearSessionUseCase: ClearSessionUseCase
+    private val clearSessionUseCase: ClearSessionUseCase,
+    private val selectSpecializationUseCase: SelectSpecializationUseCase
 ) : ViewModel() {
 
     private val _stateFlow: MutableStateFlow<AuthViewState> = MutableStateFlow(
@@ -262,7 +265,36 @@ class AuthViewModel @Inject constructor(
         is AuthViewState.Unauthorized.SignUp -> state.isLoading
         is AuthViewState.Unauthorized.ForgotPassword -> state.isLoading
         is AuthViewState.Unauthorized.EmailConfirmation -> state.isLoading
+        is AuthViewState.SpecializationSelection -> state.isLoading
         else -> false
+    }
+
+    fun selectSpecialization(specialization: Specialization) {
+        val state = _stateFlow.value as? AuthViewState.SpecializationSelection ?: return
+        if (!state.isLoading) {
+            _stateFlow.value = state.copy(selectedSpecialization = specialization, error = null)
+        }
+    }
+
+    fun continueWithSpecialization() {
+        val state = _stateFlow.value as? AuthViewState.SpecializationSelection ?: return
+        if (state.isLoading) return
+        _stateFlow.value = state.copy(isLoading = true, error = null)
+        viewModelScope.launch {
+            when (val result = selectSpecializationUseCase(state.selectedSpecialization)) {
+                is AuthState.Error -> {
+                    val message = result.message ?: "Unknown error"
+                    _stateFlow.value = state.copy(error = message)
+                    _uiEventsFlow.emit(UiEvent.Toast(message))
+                }
+                AuthState.SpecializationSelectionRequired -> {
+                    val message = "Specialization was not saved"
+                    _stateFlow.value = state.copy(error = message)
+                    _uiEventsFlow.emit(UiEvent.Toast(message))
+                }
+                else -> _stateFlow.value = result.toUi()
+            }
+        }
     }
 
     fun changeEmailAddress() {
@@ -416,6 +448,12 @@ class AuthViewModel @Inject constructor(
             ) : Unauthorized()
         }
 
+        data class SpecializationSelection(
+            val selectedSpecialization: Specialization = Specialization.ANDROID,
+            val isLoading: Boolean = false,
+            val error: String? = null
+        ) : AuthViewState
+
         object OnboardingRequired : AuthViewState
         data class Error(val message: String? = null) : AuthViewState
     }
@@ -430,6 +468,8 @@ fun AuthState.toUi(): AuthViewState =
         is AuthState.VerificationEmailSent -> AuthViewState.Unauthorized.EmailConfirmation(email)
         is AuthState.EmailVerificationPending -> AuthViewState.Unauthorized.EmailConfirmation(email, codeError = message)
         is AuthState.EmailVerificationFailed -> AuthViewState.Error(message)
+        is AuthState.SpecializationSelectionRequired -> AuthViewState.SpecializationSelection()
+        is AuthState.PreparationLanguageSelectionRequired -> AuthViewState.OnboardingRequired
         is AuthState.OnboardingRequired -> AuthViewState.OnboardingRequired
         is AuthState.PasswordResetLinkSent -> AuthViewState.Unauthorized.ForgotPassword(
             resetLinkSent = true,

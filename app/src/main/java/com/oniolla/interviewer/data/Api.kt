@@ -7,16 +7,25 @@ import com.oniolla.interviewer.data.model.ResendCodeResponse
 import com.oniolla.interviewer.data.model.SignupResponse
 import com.oniolla.interviewer.data.payload.ForgotPasswordPayload
 import com.oniolla.interviewer.data.payload.LoginPayload
+import com.oniolla.interviewer.data.payload.PreparationLanguagePayload
 import com.oniolla.interviewer.data.payload.RefreshPayload
 import com.oniolla.interviewer.data.payload.ResendCodePayload
 import com.oniolla.interviewer.data.payload.SignupPayload
+import com.oniolla.interviewer.data.payload.SpecializationPayload
 import com.oniolla.interviewer.data.payload.VerifyEmailPayload
 import io.reactivex.rxjava3.core.Single
 import retrofit2.http.Body
 import retrofit2.http.POST
 import retrofit2.http.GET
+import retrofit2.http.PUT
 
 interface Api {
+
+    @PUT("me/preparation-language")
+    suspend fun selectPreparationLanguage(@Body payload: PreparationLanguagePayload): MeResponse
+
+    @PUT("me/specialization")
+    suspend fun selectSpecialization(@Body payload: SpecializationPayload): MeResponse
 
     @POST("auth/refresh")
     suspend fun refresh(@Body refreshPayload: RefreshPayload): LoginResponse

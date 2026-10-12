@@ -3,13 +3,16 @@ package com.oniolla.interviewer.data
 import com.oniolla.interviewer.data.model.ForgotPasswordResponse
 import com.oniolla.interviewer.data.model.LoginResponse
 import com.oniolla.interviewer.data.model.MeResponse
+import com.oniolla.interviewer.data.model.Specialization
 import com.oniolla.interviewer.data.model.ResendCodeResponse
 import com.oniolla.interviewer.data.model.SignupResponse
 import com.oniolla.interviewer.data.payload.ForgotPasswordPayload
 import com.oniolla.interviewer.data.payload.LoginPayload
+import com.oniolla.interviewer.data.payload.PreparationLanguagePayload
 import com.oniolla.interviewer.data.payload.RefreshPayload
 import com.oniolla.interviewer.data.payload.ResendCodePayload
 import com.oniolla.interviewer.data.payload.SignupPayload
+import com.oniolla.interviewer.data.payload.SpecializationPayload
 import com.oniolla.interviewer.data.payload.VerifyEmailPayload
 import io.reactivex.rxjava3.core.Single
 import javax.inject.Inject
@@ -40,6 +43,14 @@ class AuthRepository @Inject constructor(
         apiCall { api.verifyEmail(payload) }.also(::saveTokens)
 
     suspend fun getMe(): MeResponse = apiCall { api.me() }
+
+    suspend fun selectSpecialization(specialization: Specialization): MeResponse = apiCall {
+        api.selectSpecialization(SpecializationPayload(specialization.code))
+    }
+
+    suspend fun selectPreparationLanguage(language: String): MeResponse = apiCall {
+        api.selectPreparationLanguage(PreparationLanguagePayload(language))
+    }
 
     private fun saveTokens(response: LoginResponse) {
         tokenStorage.accessToken = response.accessToken

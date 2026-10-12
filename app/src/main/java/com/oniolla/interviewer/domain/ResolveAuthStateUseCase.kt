@@ -15,7 +15,7 @@ class ResolveAuthStateUseCase @Inject constructor(
 ) : UseCase<Unit, AuthState> {
     override suspend fun invoke(input: Unit): AuthState {
         val state = try {
-            authRepository.getMe().toAuthState()
+            resolveProfile(authRepository.getMe())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -28,11 +28,23 @@ class ResolveAuthStateUseCase @Inject constructor(
             }
         }
         return when (state) {
-            is AuthState.EmailVerificationPending -> requestEmailConfirmation(state.email)
             AuthState.EmailVerificationNeeded -> {
                 authRepository.clearSession()
                 AuthState.Unauthorized
             }
+            else -> state
+        }
+    }
+
+    suspend fun resolveProfile(profile: MeResponse): AuthState {
+        val resolvedProfile = if (profile.toAuthState() == AuthState.PreparationLanguageSelectionRequired) {
+            authRepository.selectPreparationLanguage("en")
+        } else {
+            profile
+        }
+        return when (val state = resolvedProfile.toAuthState()) {
+            is AuthState.EmailVerificationPending -> requestEmailConfirmation(state.email)
+            AuthState.PreparationLanguageSelectionRequired -> AuthState.Error("Preparation language was not saved")
             else -> state
         }
     }
@@ -48,6 +60,8 @@ class ResolveAuthStateUseCase @Inject constructor(
 
 fun MeResponse.toAuthState(): AuthState = when {
     !emailVerified -> AuthState.EmailVerificationPending(email)
-    !onboardingCompleted -> AuthState.OnboardingRequired
-    else -> AuthState.Authorized
+    onboardingCompleted -> AuthState.Authorized
+    specialization == null -> AuthState.SpecializationSelectionRequired
+    preparationLanguage == null -> AuthState.PreparationLanguageSelectionRequired
+    else -> AuthState.OnboardingRequired
 }

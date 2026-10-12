@@ -53,3 +53,10 @@ val RedDark = Color(0xFFFF4D6D)
 
 val SuccessLight = Color(0xFF12B76A)
 val SuccessDark = Color(0xFF13D68B)
+
+val HeroStartLight = Color(0xFFE5F2FF)
+val HeroEndLight = Color(0xFFF0E8FF)
+val HeroStartDark = Color(0xFF0A2849)
+val HeroEndDark = Color(0xFF341548)
+val InfoLight = Color(0xFF06AED4)
+val InfoDark = Color(0xFF18D9FF)

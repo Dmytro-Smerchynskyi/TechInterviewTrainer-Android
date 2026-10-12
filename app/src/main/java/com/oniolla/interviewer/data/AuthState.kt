@@ -8,6 +8,8 @@ sealed interface AuthState {
     data class EmailVerificationPending(val email: String, val message: String? = null) : AuthState
     data class EmailVerificationFailed(val message: String? = null) : AuthState
     object OnboardingRequired : AuthState
+    object SpecializationSelectionRequired : AuthState
+    object PreparationLanguageSelectionRequired : AuthState
     data class PasswordResetLinkSent(val message: String, val email: String) : AuthState
     data class Loading(val progress: Float) : AuthState
     data class Error(val message: String? = null) : AuthState

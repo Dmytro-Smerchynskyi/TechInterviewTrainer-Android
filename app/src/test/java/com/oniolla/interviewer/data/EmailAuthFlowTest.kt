@@ -1,6 +1,10 @@
 package com.oniolla.interviewer.data
 
 import com.google.gson.JsonParser
+import com.google.gson.Gson
+import com.oniolla.interviewer.data.model.Specialization
+import com.oniolla.interviewer.domain.SelectSpecializationUseCase
+import com.oniolla.interviewer.domain.toAuthState
 import com.oniolla.interviewer.data.payload.LoginPayload
 import com.oniolla.interviewer.data.payload.SignupPayload
 import com.oniolla.interviewer.data.payload.VerifyEmailPayload
@@ -49,6 +53,13 @@ class EmailAuthFlowTest {
         val requests = mutableListOf<Pair<String, String>>()
         var emailVerified = true
         var onboardingCompleted = true
+        var specialization: String? = "ANDROID"
+        var preparationLanguage: String? = "en"
+        var specializationStatus = 200
+        var completeOnSpecializationSave = true
+        var preparationLanguageStatus = 200
+        var completeOnLanguageSave = true
+        var ignoreLanguageSave = false
         var refreshStatus = 200
         var refreshErrorCode = "INVALID_REFRESH_TOKEN"
         var loginStatus = 200
@@ -68,7 +79,8 @@ class EmailAuthFlowTest {
                 val path = request.url.encodedPath
                 val buffer = Buffer()
                 request.body?.writeTo(buffer)
-                requests.add(path to buffer.readUtf8())
+                val requestBody = buffer.readUtf8()
+                requests.add(path to requestBody)
                 if (path == networkFailurePath) throw IOException("Offline")
                 if (path == "/me") tokensUsedForMe.add(tokens.accessToken)
                 if (path == "/auth/refresh") assertEquals("POST", request.method)
@@ -76,9 +88,24 @@ class EmailAuthFlowTest {
                     "/auth/refresh" -> refreshStatus
                     "/auth/login" -> loginStatus
                     "/me" -> meStatus
+                    "/me/specialization" -> specializationStatus
+                    "/me/preparation-language" -> preparationLanguageStatus
                     "/auth/email/resend-code" -> resendStatus
                     "/auth/email/verify" -> verifyStatus
                     else -> 200
+                }
+                if (path == "/me/specialization" && status < 400) {
+                    assertEquals("PUT", request.method)
+                    specialization = JsonParser.parseString(requestBody).asJsonObject["specialization"].asString
+                    onboardingCompleted = completeOnSpecializationSave
+                }
+                if (path == "/me/preparation-language" && status < 400) {
+                    assertEquals("PUT", request.method)
+                    val payload = JsonParser.parseString(requestBody).asJsonObject
+                    assertEquals(setOf("language"), payload.keySet())
+                    assertEquals("en", payload["language"].asString)
+                    if (!ignoreLanguageSave) preparationLanguage = payload["language"].asString
+                    onboardingCompleted = completeOnLanguageSave
                 }
                 val body = if (status >= 400) {
                     val code = when (path) {
@@ -88,7 +115,7 @@ class EmailAuthFlowTest {
                     }
                     """{"error":{"code":"$code","message":"Request failed"}}"""
                 } else when (path) {
-                    "/me" -> """{"id":"user-id","email":"developer@example.com","displayName":"Developer","emailVerified":$emailVerified,"specialization":"ANDROID","createdAt":"2026-10-12T11:20:59.310Z","updatedAt":"2026-10-12T11:20:59.310Z","onboardingCompleted":$onboardingCompleted,"linkedProviders":["PASSWORD"],"preparationLanguage":"en"}"""
+                    "/me", "/me/specialization", "/me/preparation-language" -> profileResponseBody()
                     "/auth/refresh" -> if (badRefreshBody) "invalid JSON" else """{"accessToken":"new-access","refreshToken":"new-refresh","expiresIn":900}"""
                     "/auth/login", "/auth/email/verify" -> """{"accessToken":"new-access","refreshToken":"new-refresh","expiresIn":900}"""
                     else -> """{"message":"Email sent"}"""
@@ -105,6 +132,12 @@ class EmailAuthFlowTest {
             repository = AuthRepository(tokens, api)
             resend = ResendVerificationCodeUseCase(repository)
             resolve = ResolveAuthStateUseCase(repository, resend)
+        }
+
+        private fun profileResponseBody(): String {
+            val specializationJson = Gson().toJson(specialization)
+            val languageJson = Gson().toJson(preparationLanguage)
+            return """{"id":"user-id","email":"developer@example.com","displayName":"Developer","emailVerified":$emailVerified,"specialization":$specializationJson,"createdAt":"2026-10-12T11:20:59.310Z","updatedAt":"2026-10-12T11:20:59.310Z","onboardingCompleted":$onboardingCompleted,"linkedProviders":["PASSWORD"],"preparationLanguage":$languageJson}"""
         }
 
         fun paths() = requests.map { it.first }
@@ -445,6 +478,243 @@ class EmailAuthFlowTest {
         assertTrue(fixture.requests.isEmpty())
         fixture.tokens.refreshReadFailure = null
         assertEquals("stored-refresh", fixture.tokens.refreshToken)
+    }
+
+    @Test
+    fun incompleteOnboardingWithoutSpecializationOpensSelectionWithAndroidDefault() = runBlocking {
+        val fixture = Fixture().apply { onboardingCompleted = false; specialization = null }
+        val result = fixture.resolve(Unit)
+        assertSame(AuthState.SpecializationSelectionRequired, result)
+        assertEquals(Specialization.ANDROID,
+            (result.toUi() as AuthViewState.SpecializationSelection).selectedSpecialization)
+        assertEquals(listOf("/me"), fixture.paths())
+    }
+
+    @Test
+    fun missingSpecializationTakesPriorityOverMissingLanguage() = runBlocking {
+        val fixture = Fixture().apply {
+            onboardingCompleted = false
+            specialization = null
+            preparationLanguage = null
+        }
+        assertSame(AuthState.SpecializationSelectionRequired, fixture.resolve(Unit))
+        assertEquals(listOf("/me"), fixture.paths())
+    }
+
+    @Test
+    fun missingLanguageIsDetectedWhenSpecializationAlreadyExists() = runBlocking {
+        val fixture = Fixture().apply { onboardingCompleted = false; preparationLanguage = null }
+        assertSame(AuthState.PreparationLanguageSelectionRequired, fixture.repository.getMe().toAuthState())
+    }
+
+    @Test
+    fun completedOnboardingAuthorizesWithoutPromptingForMissingFields() = runBlocking {
+        val fixture = Fixture().apply { specialization = null; preparationLanguage = null }
+        assertSame(AuthState.Authorized, fixture.resolve(Unit))
+        assertEquals(listOf("/me"), fixture.paths())
+    }
+
+    @Test
+    fun unverifiedEmailIsHandledBeforeSpecializationSelection() = runBlocking {
+        val fixture = Fixture().apply {
+            emailVerified = false
+            onboardingCompleted = false
+            specialization = null
+        }
+        assertTrue(fixture.resolve(Unit) is AuthState.VerificationEmailSent)
+        assertEquals(listOf("/me", "/auth/email/resend-code"), fixture.paths())
+    }
+
+    @Test
+    fun loginWithMissingSpecializationOpensSelection() = runBlocking {
+        val fixture = Fixture().apply { onboardingCompleted = false; specialization = null }
+        val useCase = LoginUseCase(fixture.repository, fixture.resend, fixture.resolve)
+        assertSame(AuthState.SpecializationSelectionRequired,
+            useCase(LoginPayload("developer@example.com", "password")))
+        assertEquals(listOf("/auth/login", "/me"), fixture.paths())
+    }
+
+    @Test
+    fun startupWithMissingSpecializationOpensSelectionAfterRefresh() = runBlocking {
+        val fixture = Fixture().apply {
+            tokens.refreshToken = "refresh"
+            onboardingCompleted = false
+            specialization = null
+        }
+        assertSame(AuthState.SpecializationSelectionRequired,
+            RestoreSessionUseCase(fixture.repository, fixture.resolve)(Unit).toList().last())
+        assertEquals(listOf("/auth/refresh", "/me"), fixture.paths())
+    }
+
+    @Test
+    fun allEightSpecializationsCanBeSavedWithTheirExactApiCodes() = runBlocking {
+        assertEquals(listOf("ANDROID", "IOS", "DOTNET", "FRONTEND", "BACKEND", "QA", "DATA_ML", "DEVOPS"),
+            Specialization.entries.map { it.code })
+        Specialization.entries.forEach { specialization ->
+            val fixture = Fixture().apply { onboardingCompleted = false; this.specialization = null }
+            assertSame(AuthState.Authorized,
+                SelectSpecializationUseCase(fixture.repository, fixture.resolve)(specialization))
+            assertEquals(listOf("/me/specialization"), fixture.paths())
+            val payload = JsonParser.parseString(fixture.requests.single().second).asJsonObject
+            assertEquals(setOf("specialization"), payload.keySet())
+            assertEquals(specialization.code, payload["specialization"].asString)
+        }
+    }
+
+    @Test
+    fun specializationSaveDoesNotAuthorizeIfServerOnboardingFlagIsFalse() = runBlocking {
+        val fixture = Fixture().apply { onboardingCompleted = false; completeOnSpecializationSave = false }
+        assertSame(AuthState.OnboardingRequired,
+            SelectSpecializationUseCase(fixture.repository, fixture.resolve)(Specialization.QA))
+        assertEquals(listOf("/me/specialization"), fixture.paths())
+    }
+
+    @Test
+    fun specializationHttpErrorDoesNotAuthorizeOrIssueFurtherRequests() = runBlocking {
+        val fixture = Fixture().apply { specializationStatus = 500 }
+        assertEquals(AuthState.Error("Request failed"),
+            SelectSpecializationUseCase(fixture.repository, fixture.resolve)(Specialization.FRONTEND))
+        assertEquals(listOf("/me/specialization"), fixture.paths())
+    }
+
+    @Test
+    fun specializationNetworkErrorIsHandled() = runBlocking {
+        val fixture = Fixture().apply { networkFailurePath = "/me/specialization" }
+        assertEquals(AuthState.Error("Something unexpected happened"),
+            SelectSpecializationUseCase(fixture.repository, fixture.resolve)(Specialization.DEVOPS))
+    }
+
+    @Test
+    fun missingLanguageIsSavedAsEnglishBeforeAuthorization() = runBlocking {
+        val fixture = Fixture().apply { onboardingCompleted = false; preparationLanguage = null }
+        assertSame(AuthState.Authorized, fixture.resolve(Unit))
+        assertEquals(listOf("/me", "/me/preparation-language"), fixture.paths())
+        assertEquals("en", fixture.preparationLanguage)
+    }
+
+    @Test
+    fun specializationSaveThenLanguageSaveCompletesOnboardingForAllEightChoices() = runBlocking {
+        Specialization.entries.forEach { choice ->
+            val fixture = Fixture().apply {
+                onboardingCompleted = false
+                specialization = null
+                preparationLanguage = null
+                completeOnSpecializationSave = false
+            }
+            assertSame(AuthState.Authorized,
+                SelectSpecializationUseCase(fixture.repository, fixture.resolve)(choice))
+            assertEquals(listOf("/me/specialization", "/me/preparation-language"), fixture.paths())
+            assertEquals(choice.code, fixture.specialization)
+            assertEquals("en", fixture.preparationLanguage)
+        }
+    }
+
+    @Test
+    fun startupSavesMissingLanguageAfterRefreshingAndFetchingProfile() = runBlocking {
+        val fixture = Fixture().apply {
+            tokens.refreshToken = "refresh"
+            onboardingCompleted = false
+            preparationLanguage = null
+        }
+        assertSame(AuthState.Authorized,
+            RestoreSessionUseCase(fixture.repository, fixture.resolve)(Unit).toList().last())
+        assertEquals(listOf("/auth/refresh", "/me", "/me/preparation-language"), fixture.paths())
+    }
+
+    @Test
+    fun loginSavesMissingLanguageBeforeAuthorization() = runBlocking {
+        val fixture = Fixture().apply { onboardingCompleted = false; preparationLanguage = null }
+        assertSame(AuthState.Authorized,
+            LoginUseCase(fixture.repository, fixture.resend, fixture.resolve)(
+                LoginPayload("developer@example.com", "password")))
+        assertEquals(listOf("/auth/login", "/me", "/me/preparation-language"), fixture.paths())
+    }
+
+    @Test
+    fun verificationSavesMissingLanguageBeforeAuthorization() = runBlocking {
+        val fixture = Fixture().apply { onboardingCompleted = false; preparationLanguage = null }
+        assertSame(AuthState.Authorized,
+            VerifyEmailUseCase(fixture.repository, fixture.resolve)(
+                VerifyEmailPayload("developer@example.com", "123456")))
+        assertEquals(listOf("/auth/email/verify", "/me", "/me/preparation-language"), fixture.paths())
+    }
+
+    @Test
+    fun existingPreparationLanguageIsNotOverwritten() = runBlocking {
+        val fixture = Fixture().apply {
+            onboardingCompleted = false
+            preparationLanguage = "de"
+        }
+        assertSame(AuthState.OnboardingRequired, fixture.resolve(Unit))
+        assertEquals(listOf("/me"), fixture.paths())
+        assertEquals("de", fixture.preparationLanguage)
+    }
+
+    @Test
+    fun languageSaveDoesNotAuthorizeWhileServerOnboardingFlagIsFalse() = runBlocking {
+        val fixture = Fixture().apply {
+            onboardingCompleted = false
+            preparationLanguage = null
+            completeOnLanguageSave = false
+        }
+        assertSame(AuthState.OnboardingRequired, fixture.resolve(Unit))
+        assertEquals(listOf("/me", "/me/preparation-language"), fixture.paths())
+        assertEquals("en", fixture.preparationLanguage)
+    }
+
+    @Test
+    fun languageHttpFailureAfterSpecializationDoesNotAuthorizeAndCanBeRetriedFromProfile() = runBlocking {
+        val fixture = Fixture().apply {
+            onboardingCompleted = false
+            specialization = null
+            preparationLanguage = null
+            completeOnSpecializationSave = false
+            preparationLanguageStatus = 500
+        }
+        assertEquals(AuthState.Error("Request failed"),
+            SelectSpecializationUseCase(fixture.repository, fixture.resolve)(Specialization.IOS))
+        assertEquals(listOf("/me/specialization", "/me/preparation-language"), fixture.paths())
+        assertEquals("IOS", fixture.specialization)
+        fixture.preparationLanguageStatus = 200
+        assertSame(AuthState.Authorized, fixture.resolve(Unit))
+        assertEquals(listOf("/me/specialization", "/me/preparation-language",
+            "/me", "/me/preparation-language"), fixture.paths())
+    }
+
+    @Test
+    fun languageNetworkFailurePreservesSessionForRetry() = runBlocking {
+        val fixture = Fixture().apply {
+            onboardingCompleted = false
+            preparationLanguage = null
+            tokens.refreshToken = "refresh"
+            networkFailurePath = "/me/preparation-language"
+        }
+        assertEquals(AuthState.Error("Something unexpected happened"), fixture.resolve(Unit))
+        assertEquals("refresh", fixture.tokens.refreshToken)
+        assertEquals(listOf("/me", "/me/preparation-language"), fixture.paths())
+    }
+
+    @Test
+    fun unchangedLanguageResponseProducesErrorWithoutRepeatingTheRequest() = runBlocking {
+        val fixture = Fixture().apply {
+            onboardingCompleted = false
+            preparationLanguage = null
+            ignoreLanguageSave = true
+            completeOnLanguageSave = false
+        }
+        assertEquals(AuthState.Error("Preparation language was not saved"), fixture.resolve(Unit))
+        assertEquals(listOf("/me", "/me/preparation-language"), fixture.paths())
+    }
+
+    @Test
+    fun unverifiedEmailDoesNotTriggerAutomaticLanguageSelection() = runBlocking {
+        val fixture = Fixture().apply {
+            emailVerified = false
+            onboardingCompleted = false
+            preparationLanguage = null
+        }
+        assertTrue(fixture.resolve(Unit) is AuthState.VerificationEmailSent)
+        assertEquals(listOf("/me", "/auth/email/resend-code"), fixture.paths())
     }
 
     @Test

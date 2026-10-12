@@ -52,8 +52,22 @@ private val previewDashboard = DashboardContent(
     )
 )
 
+private val previewQuestions = listOf(
+    QuestionResponse(1, "Cold vs Hot Flow", "ANDROID",
+        QuestionTopic(3, "flow", "Flow", previewVisuals[2]), "MEDIUM", "JUNIOR", "MIDDLE"),
+    QuestionResponse(2, "StateFlow vs SharedFlow", "ANDROID",
+        QuestionTopic(3, "flow", "Flow", previewVisuals[2]), "EASY", "JUNIOR", "JUNIOR", saved = true),
+    QuestionResponse(3, "inline vs crossinline", "ANDROID",
+        QuestionTopic(1, "kotlin", "Kotlin", previewVisuals[0]), "MEDIUM", "MIDDLE", "SENIOR"),
+    QuestionResponse(4, "What is backpressure in RxJava?", "ANDROID",
+        QuestionTopic(4, "rxjava", "RxJava", previewVisuals[1]), "HARD", "MIDDLE", "SENIOR"),
+    QuestionResponse(5, "When to use suspend vs Flow?", "ANDROID",
+        QuestionTopic(3, "flow", "Flow", previewVisuals[2]), "EASY", "JUNIOR", "MIDDLE")
+)
+
 @Composable
-private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false, empty: Boolean = false) {
+private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false, empty: Boolean = false,
+    topic: QuestionTopicFilter? = null, appending: Boolean = false, appendError: String? = null) {
     // Preview renderer does not supply the status-bar inset.
     Box(Modifier.background(AppTheme.colors.background).padding(top = 24.dp)) {
         HomeScreen(
@@ -63,10 +77,19 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
                     else ContentViewState.Ready(if (empty) previewDashboard.copy(dashboard = DashboardResponse()) else previewDashboard),
                 topics = if (loading) ContentViewState.Loading
                     else ContentViewState.Ready(if (empty) emptyList() else previewTopics),
-                questionSearch = if (tab == HomeTab.QUESTIONS) "Coroutines" else ""
+                questionSearch = if (tab == HomeTab.QUESTIONS && topic == null) "flow" else "",
+                questionTopic = topic,
+                questions = if (loading) ContentViewState.Loading else ContentViewState.Ready(QuestionsContent(
+                    items = if (empty) emptyList() else previewQuestions.filter { topic == null || it.topic.id == topic.id },
+                    nextCursor = if (appending || appendError != null) "preview_cursor" else null,
+                    access = if (empty) null else QuestionTopicAccess(3, 45, 5, 40, true),
+                    isAppending = appending, appendError = appendError
+                ))
             ),
             onTabSelected = {}, onTopicQuestions = {}, onQuestionSearch = {},
-            onRetryDashboard = {}, onRetryTopics = {}
+            onRetryDashboard = {}, onRetryTopics = {},
+            onQuestionTopicSelected = { _, _ -> }, onClearQuestionTopic = {},
+            onRetryQuestions = {}, onLoadMoreQuestions = {}, onRetryQuestionPage = {}
         )
     }
 }
@@ -102,3 +125,31 @@ fun HomeEmptyPreview() { InterviewTrainerTheme(darkTheme = false) { PreviewConte
 @Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
 @Composable
 fun HomeQuestionsPreview() { InterviewTrainerTheme(darkTheme = true) { PreviewContent(HomeTab.QUESTIONS) } }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun QuestionsLightPreview() { InterviewTrainerTheme(darkTheme = false) { PreviewContent(HomeTab.QUESTIONS) } }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun QuestionsFilteredPreview() { InterviewTrainerTheme(darkTheme = false) {
+    PreviewContent(HomeTab.QUESTIONS, topic = QuestionTopicFilter(3, "Flow"))
+} }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun QuestionsLoadingPreview() { InterviewTrainerTheme(darkTheme = true) {
+    PreviewContent(HomeTab.QUESTIONS, loading = true)
+} }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun QuestionsEmptyPreview() { InterviewTrainerTheme(darkTheme = false) {
+    PreviewContent(HomeTab.QUESTIONS, empty = true)
+} }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun QuestionsPageErrorPreview() { InterviewTrainerTheme(darkTheme = true) {
+    PreviewContent(HomeTab.QUESTIONS, appendError = "Connection unavailable")
+} }

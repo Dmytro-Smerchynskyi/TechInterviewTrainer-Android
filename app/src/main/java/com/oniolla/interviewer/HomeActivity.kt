@@ -51,7 +51,12 @@ class HomeActivity : ComponentActivity() {
                     onTopicQuestions = viewModel::openTopicQuestions,
                     onQuestionSearch = viewModel::updateQuestionSearch,
                     onRetryDashboard = viewModel::loadDashboard,
-                    onRetryTopics = viewModel::loadTopics
+                    onRetryTopics = viewModel::loadTopics,
+                    onQuestionTopicSelected = viewModel::selectQuestionTopic,
+                    onClearQuestionTopic = viewModel::clearQuestionTopic,
+                    onRetryQuestions = viewModel::loadQuestions,
+                    onLoadMoreQuestions = viewModel::loadMoreQuestions,
+                    onRetryQuestionPage = viewModel::retryQuestionPage
                 )
             }
         }

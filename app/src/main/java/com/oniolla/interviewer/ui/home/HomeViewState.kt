@@ -1,6 +1,8 @@
 package com.oniolla.interviewer.ui.home
 
 import com.oniolla.interviewer.data.model.TopicResponse
+import com.oniolla.interviewer.data.model.QuestionResponse
+import com.oniolla.interviewer.data.model.QuestionTopicAccess
 import com.oniolla.interviewer.domain.ContentResult
 import com.oniolla.interviewer.domain.DashboardContent
 import java.util.Locale
@@ -14,11 +16,24 @@ sealed interface ContentViewState<out T> {
     data class Failed(val message: String) : ContentViewState<Nothing>
 }
 
+data class QuestionTopicFilter(val id: Long, val name: String)
+
+data class QuestionsContent(
+    val items: List<QuestionResponse> = emptyList(),
+    val nextCursor: String? = null,
+    val topics: List<QuestionTopicAccess> = emptyList(),
+    val access: QuestionTopicAccess? = null,
+    val isAppending: Boolean = false,
+    val appendError: String? = null
+)
+
 data class HomeViewState(
     val tab: HomeTab = HomeTab.HOME,
     val dashboard: ContentViewState<DashboardContent> = ContentViewState.Loading,
     val topics: ContentViewState<List<TopicResponse>> = ContentViewState.NotLoaded,
     val questionSearch: String = "",
+    val questionTopic: QuestionTopicFilter? = null,
+    val questions: ContentViewState<QuestionsContent> = ContentViewState.NotLoaded,
     val sessionExpired: Boolean = false
 ) {
     val displayName: String

@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import com.oniolla.interviewer.domain.ContentResult
 import com.oniolla.interviewer.domain.GetDashboardUseCase
 import com.oniolla.interviewer.domain.GetTopicsUseCase
+import com.oniolla.interviewer.domain.GetQuestionsUseCase
 import com.oniolla.interviewer.domain.loadContent
 import com.oniolla.interviewer.ui.home.ContentViewState
 import com.oniolla.interviewer.ui.home.HomeTab
@@ -101,6 +102,7 @@ class HomeFlowTest {
                 val status = when (path) {
                     "/dashboard" -> dashboardStatus
                     "/topics" -> topicsStatus
+                    "/questions" -> 200
                     "/me" -> meStatus
                     else -> error("Unexpected endpoint $path")
                 }
@@ -108,6 +110,7 @@ class HomeFlowTest {
                     else when (path) {
                         "/dashboard" -> dashboardBody
                         "/topics" -> topicsBody
+                        "/questions" -> """{"items":[],"nextCursor":null,"topics":[],"access":null}"""
                         else -> """{"id":"user","email":"developer@example.com","displayName":"Dmitry S",
                           "emailVerified":true,"specialization":"ANDROID","createdAt":"","updatedAt":"",
                           "onboardingCompleted":true,"linkedProviders":["PASSWORD"],"preparationLanguage":"en"}"""
@@ -127,7 +130,7 @@ class HomeFlowTest {
 
         fun paths() = requests.map { it.url.encodedPath }
         fun viewModel(handle: SavedStateHandle = SavedStateHandle()) =
-            HomeViewModel(dashboard, topics, handle)
+            HomeViewModel(dashboard, topics, GetQuestionsUseCase(home), handle)
     }
 
     @Test fun dashboardAndProfileUseGetWithoutPayloadOrQuery() = runBlocking {
@@ -250,6 +253,7 @@ class HomeFlowTest {
         val vm = fixture.viewModel(handle)
         vm.stateFlow.first { it.dashboard is ContentViewState.Ready }
         vm.openTopicQuestions("Coroutines")
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
         assertSame(HomeTab.QUESTIONS, vm.stateFlow.value.tab)
         assertEquals("Coroutines", vm.stateFlow.value.questionSearch)
         assertEquals("QUESTIONS", handle.get<String>("homeTab"))
@@ -258,6 +262,7 @@ class HomeFlowTest {
         vm.selectTab(HomeTab.QUESTIONS)
         assertEquals("Coroutines", vm.stateFlow.value.questionSearch)
         vm.updateQuestionSearch("")
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
         assertEquals("", handle.get<String>("questionSearch"))
         assertFalse(fixture.paths().contains("/topics"))
     }
@@ -267,7 +272,7 @@ class HomeFlowTest {
         val vm = fixture.viewModel(SavedStateHandle(mapOf("homeTab" to "QUESTIONS", "questionSearch" to "Flow")))
         assertSame(HomeTab.QUESTIONS, vm.stateFlow.value.tab)
         assertEquals("Flow", vm.stateFlow.value.questionSearch)
-        vm.stateFlow.first { it.dashboard is ContentViewState.Ready }
+        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready }
     }
 
     @Test fun topicsFailureKeepsDashboardAndRetryRecovers() = runTest(dispatcher) {

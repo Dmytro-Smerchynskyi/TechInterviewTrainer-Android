@@ -2,6 +2,7 @@ package com.oniolla.interviewer.data
 
 import com.oniolla.interviewer.data.model.DashboardResponse
 import com.oniolla.interviewer.data.model.TopicResponse
+import com.oniolla.interviewer.data.model.QuestionsResponse
 import com.oniolla.interviewer.data.model.ForgotPasswordResponse
 import com.oniolla.interviewer.data.model.LoginResponse
 import com.oniolla.interviewer.data.model.MeResponse
@@ -20,11 +21,23 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 import retrofit2.http.GET
 import retrofit2.http.PUT
+import retrofit2.http.Query
 
 interface Api {
 
     @GET("dashboard")
     suspend fun dashboard(): DashboardResponse
+
+    @GET("questions")
+    suspend fun questions(
+        @Query("topicId") topicId: Long? = null,
+        @Query("difficulty") difficulty: String? = null,
+        @Query("grade") grade: String? = null,
+        @Query("saved") saved: Boolean? = null,
+        @Query("search") search: String? = null,
+        @Query("limit") limit: Int = 20,
+        @Query("cursor") cursor: String? = null
+    ): QuestionsResponse
 
     @GET("topics")
     suspend fun topics(): List<TopicResponse>

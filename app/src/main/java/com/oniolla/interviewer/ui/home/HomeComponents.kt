@@ -23,6 +23,7 @@ import androidx.compose.ui.res.painterResource
 import com.oniolla.interviewer.BuildConfig
 import com.oniolla.interviewer.data.resolveTopicIconUrl
 import com.oniolla.interviewer.R
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -73,7 +74,8 @@ internal fun TopicIcon(
     visual: TopicVisual?,
     name: String,
     modifier: Modifier = Modifier,
-    badge: Boolean = true
+    badge: Boolean = true,
+    iconSize: Dp = 24.dp
 ) {
     val tint = topicTint(visual)
     val preview = LocalInspectionMode.current
@@ -96,13 +98,13 @@ internal fun TopicIcon(
         contentAlignment = Alignment.Center
     ) {
         if (preview && iconUrl?.startsWith("preview://figma/") == true) {
-            FigmaIcon(iconUrl.substringAfterLast('/').removeSuffix(".svg"), tint = tint)
+            FigmaIcon(iconUrl.substringAfterLast('/').removeSuffix(".svg"), Modifier.size(iconSize), tint)
         } else {
             if (iconUrl != null) {
                 AsyncImage(
                     model = request,
                     contentDescription = name,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(iconSize),
                     colorFilter = ColorFilter.tint(tint),
                     onLoading = { loading = true; failed = false },
                     onSuccess = { loading = false; failed = false },
@@ -114,7 +116,7 @@ internal fun TopicIcon(
                 )
             }
             if (loading) ShimmerAnimation { ShimmerBlock(Modifier.fillMaxSize()) }
-            if (failed) FigmaIcon("topics", Modifier.size(24.dp), tint)
+            if (failed) FigmaIcon("topics", Modifier.size(iconSize), tint)
         }
     }
 }

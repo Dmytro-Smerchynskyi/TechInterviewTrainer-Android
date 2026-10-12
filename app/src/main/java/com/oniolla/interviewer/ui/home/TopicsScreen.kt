@@ -28,7 +28,8 @@ import com.oniolla.interviewer.data.model.TopicResponse
 import com.oniolla.interviewer.ui.theme.AppTheme
 
 @Composable
-internal fun TopicsScreen(state: ContentViewState<List<TopicResponse>>, onRetry: () -> Unit) {
+internal fun TopicsScreen(state: ContentViewState<List<TopicResponse>>, onRetry: () -> Unit,
+    onTopicSelected: (TopicResponse) -> Unit) {
     AnimatedContent(targetState = state, contentKey = { it::class },
         transitionSpec = { fadeIn(tween(300)).togetherWith(fadeOut(tween(200))) }, label = "topics loading") { current ->
         when (current) {
@@ -43,7 +44,9 @@ internal fun TopicsScreen(state: ContentViewState<List<TopicResponse>>, onRetry:
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(current.content, key = { it.id }) { TopicCard(it) }
+                    items(current.content, key = { it.id }) { topic ->
+                        TopicCard(topic) { onTopicSelected(topic) }
+                    }
                 }
             }
         }
@@ -51,9 +54,9 @@ internal fun TopicsScreen(state: ContentViewState<List<TopicResponse>>, onRetry:
 }
 
 @Composable
-private fun TopicCard(topic: TopicResponse) {
+private fun TopicCard(topic: TopicResponse, onClick: () -> Unit) {
     Surface(
-        onClick = {},
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth().heightIn(min = 94.dp),
         shape = RoundedCornerShape(15.dp),
         color = AppTheme.colors.container,

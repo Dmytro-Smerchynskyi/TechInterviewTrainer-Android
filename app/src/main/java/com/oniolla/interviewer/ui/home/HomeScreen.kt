@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,7 +27,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,7 +34,6 @@ import androidx.compose.ui.unit.sp
 import com.oniolla.interviewer.MainButton
 import com.oniolla.interviewer.R
 import com.oniolla.interviewer.ui.theme.AppTheme
-import com.oniolla.interviewer.ui.theme.fonts
 
 @Composable
 fun HomeScreen(
@@ -45,7 +42,12 @@ fun HomeScreen(
     onTopicQuestions: (String) -> Unit,
     onQuestionSearch: (String) -> Unit,
     onRetryDashboard: () -> Unit,
-    onRetryTopics: () -> Unit
+    onRetryTopics: () -> Unit,
+    onQuestionTopicSelected: (Long, String) -> Unit,
+    onClearQuestionTopic: () -> Unit,
+    onRetryQuestions: () -> Unit,
+    onLoadMoreQuestions: () -> Unit,
+    onRetryQuestionPage: () -> Unit
 ) {
     Scaffold(
         containerColor = AppTheme.colors.background,
@@ -67,8 +69,11 @@ fun HomeScreen(
                     onSeeTopics = { onTabSelected(HomeTab.TOPICS) },
                     onSeeQuestions = { onTabSelected(HomeTab.QUESTIONS) },
                     onRetry = onRetryDashboard)
-                HomeTab.TOPICS -> TopicsScreen(state.topics, onRetryTopics)
-                HomeTab.QUESTIONS -> QuestionsTab(state.questionSearch, onQuestionSearch)
+                HomeTab.TOPICS -> TopicsScreen(state.topics, onRetryTopics) { topic ->
+                    onQuestionTopicSelected(topic.id, topic.name)
+                }
+                HomeTab.QUESTIONS -> QuestionsScreen(state, onQuestionSearch, onClearQuestionTopic,
+                    onRetryQuestions, onLoadMoreQuestions, onRetryQuestionPage)
                 HomeTab.STATS -> EmptyTab(stringResource(R.string.statistics_empty))
                 HomeTab.FAVORITES -> EmptyTab(stringResource(R.string.favorites_empty))
             }
@@ -183,39 +188,6 @@ private val HomeTab.label: Int get() = when (this) {
     HomeTab.QUESTIONS -> R.string.questions
     HomeTab.STATS -> R.string.stats
     HomeTab.FAVORITES -> R.string.favorites
-}
-
-@Composable
-private fun QuestionsTab(query: String, onQuery: (String) -> Unit) {
-    Column(Modifier.fillMaxSize().imePadding().padding(horizontal = 20.dp)) {
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = AppTheme.colors.container,
-            border = BorderStroke(1.dp, AppTheme.colors.stroke)
-        ) {
-            BasicTextField(
-                value = query, onValueChange = onQuery, singleLine = true,
-                textStyle = TextStyle(fontFamily = fonts, fontSize = 12.sp, color = AppTheme.colors.primaryText),
-                cursorBrush = androidx.compose.ui.graphics.SolidColor(AppTheme.colors.accent),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 42.dp).padding(horizontal = 12.dp, vertical = 10.dp),
-                decorationBox = { field ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        FigmaIcon("search", Modifier.size(20.dp), AppTheme.colors.homeIcon)
-                        Spacer(Modifier.width(10.dp))
-                        Box(Modifier.weight(1f)) {
-                            if (query.isEmpty()) Text(stringResource(R.string.questions_search_placeholder),
-                                color = AppTheme.colors.primaryText.copy(alpha = 0.5f), fontSize = 11.sp)
-                            field()
-                        }
-                    }
-                }
-            )
-        }
-        Text(stringResource(R.string.questions_topic_filter,
-            query.ifBlank { stringResource(R.string.all_topics) }),
-            modifier = Modifier.padding(top = 14.dp), fontSize = 9.sp, color = AppTheme.colors.secondaryText)
-        EmptyTab(stringResource(R.string.questions_empty))
-    }
 }
 
 @Composable

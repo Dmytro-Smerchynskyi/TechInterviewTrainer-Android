@@ -114,7 +114,20 @@
     <string name="questions_search_placeholder">Search questions</string>
     <string name="questions_topic_filter">Topic: %1$s</string>
     <string name="all_topics">All</string>
-    <string name="questions_empty">Your question library will appear here.</string>
+    <string name="questions_empty">No questions found. Try another search or topic.</string>
+    <string name="questions_clear_topic">Clear topic filter</string>
+    <string name="questions_more_failed">Unable to load more questions</string>
+    <string name="question_difficulty_easy">Easy</string>
+    <string name="question_difficulty_medium">Medium</string>
+    <string name="question_difficulty_hard">Hard</string>
+    <string name="question_grade_junior">Junior</string>
+    <string name="question_grade_middle">Middle</string>
+    <string name="question_grade_senior">Senior</string>
+    <string name="question_saved">Saved question</string>
+    <string name="question_not_saved">Not saved</string>
+    <string name="questions_pro_locked">+%1$d more questions with Pro</string>
+    <string name="questions_pro_description">Upgrade to Pro to unlock more questions.</string>
+    <string name="questions_pro">PRO</string>
     <string name="statistics_empty">Your practice statistics will appear here.</string>
     <string name="favorites_empty">Saved questions will appear here.</string>
 </resources>

@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.seconds
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -127,7 +128,7 @@ class HomeViewModel @Inject constructor(
         ) }
         questionsJob = viewModelScope.launch {
             if (debounce) {
-                delay(500)
+                delay(0.75.seconds)
                 _stateFlow.update { it.copy(questions = ContentViewState.Loading, isQuestionSearchPending = false) }
             }
             val result = getQuestionsUseCase(request)

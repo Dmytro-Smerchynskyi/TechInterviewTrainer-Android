@@ -10,18 +10,20 @@ class TokenStorage @Inject constructor(
     private val sharedPreferences: SharedPreferences,
     private val encryptor: Encryptor
 ) : SessionTokenStorage {
-    override var accessToken: String? = null
-    override var refreshToken: String? = null
-        get() = field ?: getRefresh()
-        set(value) {
-            field = value
-            setRefresh(value)
-        }
+    @get:Synchronized
+    @set:Synchronized
+    override var sessionVersion: Long = 0
 
-    override fun clear() {
-        accessToken = null
-        refreshToken = null
-    }
+    @get:Synchronized
+    @set:Synchronized
+    override var accessToken: String? = null
+
+    override var refreshToken: String? = null
+        @Synchronized get() = field ?: getRefresh()
+        @Synchronized set(value) {
+            setRefresh(value)
+            field = value
+        }
 
     private fun setRefresh(token: String?) {
         if (token == null) {

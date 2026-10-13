@@ -38,7 +38,6 @@ class RestoreSessionUseCase @Inject constructor(
     private fun refreshFailure(exception: Exception): AuthState {
         val error = exception.toApiException()
         if (error is ApiException.Unauthorized) {
-            authRepository.clearSession()
             return AuthState.Unauthorized
         }
         return when (val state = error.toAuthState()) {

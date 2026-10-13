@@ -36,6 +36,7 @@ import java.io.IOException
 
 class EmailAuthFlowTest {
     private class MemoryTokens : SessionTokenStorage {
+        override var sessionVersion: Long = 0
         override var accessToken: String? = null
         var refreshReadFailure: Exception? = null
         override var refreshToken: String? = null
@@ -43,10 +44,6 @@ class EmailAuthFlowTest {
                 refreshReadFailure?.let { throw it }
                 return field
             }
-        override fun clear() {
-            accessToken = null
-            refreshToken = null
-        }
     }
 
     private class Fixture {
@@ -130,7 +127,7 @@ class EmailAuthFlowTest {
                 .client(client).addConverterFactory(GsonConverterFactory.create())
                 .addCallAdapterFactory(RxJava3CallAdapterFactory.create())
                 .build().create(Api::class.java)
-            repository = AuthRepository(tokens, api)
+            repository = AuthRepository(tokens, api, SessionRefreshCoordinator(tokens, api))
             resend = ResendVerificationCodeUseCase(repository)
             resolve = ResolveAuthStateUseCase(repository, resend)
         }

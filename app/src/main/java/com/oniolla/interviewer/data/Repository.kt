@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonDeserializationContext
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonElement
+import com.google.gson.JsonParseException
 import com.google.gson.annotations.SerializedName
 import retrofit2.HttpException
 import java.io.IOException
@@ -43,12 +44,17 @@ class CustomError(
     @SerializedName("message") val message: String? = null
 )
 
-fun HttpException.getCustomError() = response()?.errorBody()?.let {
-    Gson()
-        .newBuilder()
-        .registerTypeAdapter(CustomError::class.java, CustomErrorDeserializer())
-        .create()
-        .fromJson(it.charStream(), CustomError::class.java)
+fun HttpException.getCustomError(): CustomError = response()?.errorBody()?.use {
+    try {
+        Gson().newBuilder()
+            .registerTypeAdapter(CustomError::class.java, CustomErrorDeserializer())
+            .create()
+            .fromJson(it.charStream(), CustomError::class.java) ?: CustomError()
+    } catch (_: JsonParseException) {
+        CustomError()
+    } catch (_: IllegalStateException) {
+        CustomError()
+    }
 } ?: CustomError()
 
 class CustomErrorDeserializer : JsonDeserializer<CustomError> {
@@ -57,18 +63,13 @@ class CustomErrorDeserializer : JsonDeserializer<CustomError> {
         json: JsonElement?,
         typeOf: Type?,
         context: JsonDeserializationContext?
-    ) = json?.let { errorBody ->
-        if (errorBody.asJsonObject.has("error")) {
-            errorBody.asJsonObject["error"].let {
-                CustomError(
-                    code = it.asJsonObject["code"].asString,
-                    message = it.asJsonObject["message"].asString
-                )
-            }
-        } else {
-            CustomError()
-        }
-    } ?: CustomError()
+    ): CustomError {
+        val error = json?.takeIf { it.isJsonObject }?.asJsonObject?.get("error")
+            ?.takeIf { it.isJsonObject }?.asJsonObject ?: return CustomError()
+        fun string(name: String): String? = error.get(name)
+            ?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
+        return CustomError(code = string("code"), message = string("message"))
+    }
 }
 
 sealed class ApiException(message: String?) : Exception(message) {

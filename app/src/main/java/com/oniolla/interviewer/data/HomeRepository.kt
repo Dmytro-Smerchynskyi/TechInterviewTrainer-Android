@@ -8,7 +8,8 @@ import javax.inject.Inject
 
 class HomeRepository @Inject constructor(
     private val api: Api,
-    private val topicCache: TopicCache
+    private val topicCache: TopicCache,
+    private val sessionRefresh: SessionRefreshCoordinator
 ) {
     fun observeTopicCatalog(scope: String) = topicCache.observe(scope)
 
@@ -17,13 +18,13 @@ class HomeRepository @Inject constructor(
         topicCache.replaceIfChanged(scope, topics)
     }
 
-    suspend fun getDashboard(): DashboardResponse = apiCall { api.dashboard() }
-    suspend fun getTopics(type: String? = null): List<TopicResponse> = apiCall { api.topics(type) }
+    suspend fun getDashboard(): DashboardResponse = sessionRefresh.authorizedApiCall { api.dashboard(it) }
+    suspend fun getTopics(type: String? = null): List<TopicResponse> = sessionRefresh.authorizedApiCall { api.topics(type, it) }
     suspend fun getQuestions(
         topicId: Long?,
         search: String?,
         cursor: String?
-    ): QuestionsResponse = apiCall {
-        api.questions(topicId = topicId, search = search, limit = 20, cursor = cursor)
+    ): QuestionsResponse = sessionRefresh.authorizedApiCall {
+        api.questions(topicId = topicId, search = search, limit = 20, cursor = cursor, session = it)
     }
 }

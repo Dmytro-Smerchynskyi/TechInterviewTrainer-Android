@@ -42,9 +42,9 @@ class PreparationLanguageFlowTest {
     @After fun tearDown() { Dispatchers.resetMain() }
 
     private class Tokens : SessionTokenStorage {
+        override var sessionVersion: Long = 0
         override var accessToken: String? = "access"
         override var refreshToken: String? = "refresh"
-        override fun clear() { accessToken = null; refreshToken = null }
     }
 
     private class Fixture {
@@ -117,7 +117,7 @@ class PreparationLanguageFlowTest {
             val api = Retrofit.Builder().baseUrl("https://api.example.test/").client(client)
                 .addConverterFactory(GsonConverterFactory.create())
                 .addCallAdapterFactory(RxJava3CallAdapterFactory.create()).build().create(Api::class.java)
-            repository = AuthRepository(tokens, api)
+            repository = AuthRepository(tokens, api, SessionRefreshCoordinator(tokens, api))
             resend = ResendVerificationCodeUseCase(repository)
             resolve = ResolveAuthStateUseCase(repository, resend)
         }

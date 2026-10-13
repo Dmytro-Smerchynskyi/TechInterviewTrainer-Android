@@ -22,7 +22,6 @@ class ResolveAuthStateUseCase @Inject constructor(
         } catch (e: Exception) {
             val error = e.toApiException()
             if (error is ApiException.Unauthorized) {
-                authRepository.clearSession()
                 AuthState.Unauthorized
             } else {
                 error.toAuthState()

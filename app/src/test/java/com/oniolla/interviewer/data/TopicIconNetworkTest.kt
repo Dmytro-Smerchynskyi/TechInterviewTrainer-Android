@@ -11,9 +11,9 @@ import org.junit.Test
 
 class TopicIconNetworkTest {
     private class Tokens : SessionTokenStorage {
+        override var sessionVersion: Long = 0
         override var accessToken: String? = "access"
         override var refreshToken: String? = "refresh"
-        override fun clear() { accessToken = null; refreshToken = null }
     }
 
     @Test fun relativeIconPathsResolveAgainstTheApiAndKeepVersionQueries() {

@@ -10,7 +10,6 @@ import com.oniolla.interviewer.data.model.SignupResponse
 import com.oniolla.interviewer.data.payload.ForgotPasswordPayload
 import com.oniolla.interviewer.data.payload.LoginPayload
 import com.oniolla.interviewer.data.payload.PreparationLanguagePayload
-import com.oniolla.interviewer.data.payload.RefreshPayload
 import com.oniolla.interviewer.data.payload.ResendCodePayload
 import com.oniolla.interviewer.data.payload.SignupPayload
 import com.oniolla.interviewer.data.payload.SpecializationPayload
@@ -20,18 +19,11 @@ import javax.inject.Inject
 
 class AuthRepository @Inject constructor(
     private val tokenStorage: SessionTokenStorage,
-    private val api: Api
+    private val api: Api,
+    private val sessionRefresh: SessionRefreshCoordinator
 ) {
 
-    suspend fun refreshSession(): Boolean {
-        val refreshToken = tokenStorage.refreshToken
-        if (refreshToken.isNullOrBlank()) {
-            clearSession()
-            return false
-        }
-        apiCall { api.refresh(RefreshPayload(refreshToken)) }.also(::saveTokens)
-        return true
-    }
+    suspend fun refreshSession(): Boolean = sessionRefresh.restoreSession()
 
     fun clearSession() {
         tokenStorage.clear()
@@ -43,21 +35,20 @@ class AuthRepository @Inject constructor(
     suspend fun verifyEmail(payload: VerifyEmailPayload): LoginResponse =
         apiCall { api.verifyEmail(payload) }.also(::saveTokens)
 
-    suspend fun getMe(): MeResponse = apiCall { api.me() }
+    suspend fun getMe(): MeResponse = sessionRefresh.authorizedApiCall { api.me(it) }
 
-    suspend fun selectSpecialization(specialization: Specialization): MeResponse = apiCall {
-        api.selectSpecialization(SpecializationPayload(specialization.code))
+    suspend fun selectSpecialization(specialization: Specialization): MeResponse = sessionRefresh.authorizedApiCall {
+        api.selectSpecialization(SpecializationPayload(specialization.code), it)
     }
 
-    suspend fun getPreparationLanguages(): PreparationLanguagesResponse = apiCall { api.preparationLanguages() }
+    suspend fun getPreparationLanguages(): PreparationLanguagesResponse = sessionRefresh.authorizedApiCall { api.preparationLanguages(it) }
 
-    suspend fun selectPreparationLanguage(language: String): MeResponse = apiCall {
-        api.selectPreparationLanguage(PreparationLanguagePayload(language))
+    suspend fun selectPreparationLanguage(language: String): MeResponse = sessionRefresh.authorizedApiCall {
+        api.selectPreparationLanguage(PreparationLanguagePayload(language), it)
     }
 
     private fun saveTokens(response: LoginResponse) {
-        tokenStorage.accessToken = response.accessToken
-        tokenStorage.refreshToken = response.refreshToken
+        tokenStorage.saveSession(response.accessToken, response.refreshToken)
     }
 
     suspend fun forgotPassword(email: String): ForgotPasswordResponse = apiCall {

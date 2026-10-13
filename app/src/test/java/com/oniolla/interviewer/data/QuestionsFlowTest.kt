@@ -46,12 +46,13 @@ class QuestionsFlowTest {
     @After fun tearDown() { Dispatchers.resetMain() }
 
     private class Tokens : SessionTokenStorage {
+        override var sessionVersion: Long = 0
         override var accessToken: String? = "access"
         override var refreshToken: String? = "refresh"
-        override fun clear() { accessToken = null; refreshToken = null }
     }
 
     private class Fixture {
+        val tokens = Tokens()
         val requests = CopyOnWriteArrayList<Request>()
         var initialStatus = 200
         var nextStatus = 200
@@ -91,9 +92,10 @@ class QuestionsFlowTest {
             }.build()
             val api = Retrofit.Builder().baseUrl("https://api.example.test/").client(client)
                 .addConverterFactory(GsonConverterFactory.create()).build().create(Api::class.java)
-            repository = HomeRepository(api, MemoryTopicCache())
+            val sessionRefresh = SessionRefreshCoordinator(tokens, api)
+            repository = HomeRepository(api, MemoryTopicCache(), sessionRefresh)
             getQuestions = GetQuestionsUseCase(repository)
-            auth = AuthRepository(Tokens(), api)
+            auth = AuthRepository(tokens, api, sessionRefresh)
         }
 
         fun viewModel(handle: SavedStateHandle = SavedStateHandle()) =

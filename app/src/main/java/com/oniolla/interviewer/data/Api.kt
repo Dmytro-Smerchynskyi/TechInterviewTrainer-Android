@@ -23,11 +23,12 @@ import retrofit2.http.POST
 import retrofit2.http.GET
 import retrofit2.http.PUT
 import retrofit2.http.Query
+import retrofit2.http.Tag
 
 interface Api {
 
     @GET("dashboard")
-    suspend fun dashboard(): DashboardResponse
+    suspend fun dashboard(@Tag session: SessionSnapshot? = null): DashboardResponse
 
     @GET("questions")
     suspend fun questions(
@@ -37,26 +38,27 @@ interface Api {
         @Query("saved") saved: Boolean? = null,
         @Query("search") search: String? = null,
         @Query("limit") limit: Int = 20,
-        @Query("cursor") cursor: String? = null
+        @Query("cursor") cursor: String? = null,
+        @Tag session: SessionSnapshot? = null
     ): QuestionsResponse
 
     @GET("topics")
-    suspend fun topics(@Query("type") type: String? = null): List<TopicResponse>
+    suspend fun topics(@Query("type") type: String? = null, @Tag session: SessionSnapshot? = null): List<TopicResponse>
 
     @GET("preparation-languages")
-    suspend fun preparationLanguages(): PreparationLanguagesResponse
+    suspend fun preparationLanguages(@Tag session: SessionSnapshot? = null): PreparationLanguagesResponse
 
     @PUT("me/preparation-language")
-    suspend fun selectPreparationLanguage(@Body payload: PreparationLanguagePayload): MeResponse
+    suspend fun selectPreparationLanguage(@Body payload: PreparationLanguagePayload, @Tag session: SessionSnapshot? = null): MeResponse
 
     @PUT("me/specialization")
-    suspend fun selectSpecialization(@Body payload: SpecializationPayload): MeResponse
+    suspend fun selectSpecialization(@Body payload: SpecializationPayload, @Tag session: SessionSnapshot? = null): MeResponse
 
     @POST("auth/refresh")
     suspend fun refresh(@Body refreshPayload: RefreshPayload): LoginResponse
 
     @GET("me")
-    suspend fun me(): MeResponse
+    suspend fun me(@Tag session: SessionSnapshot? = null): MeResponse
 
     @POST("auth/email/verify")
     suspend fun verifyEmail(@Body verifyEmailPayload: VerifyEmailPayload): LoginResponse

@@ -53,9 +53,9 @@ class HomeFlowTest {
     @After fun tearDown() { Dispatchers.resetMain() }
 
     private class MemoryTokens : SessionTokenStorage {
+        override var sessionVersion: Long = 0
         override var accessToken: String? = "access"
         override var refreshToken: String? = "refresh"
-        override fun clear() { accessToken = null; refreshToken = null }
     }
 
     private class Fixture {
@@ -99,6 +99,7 @@ class HomeFlowTest {
         ]"""
         var weakTopicsBody: String? = null
         var beforeTopics: ((Request) -> Unit)? = null
+        val tokens = MemoryTokens()
         val cache = MemoryTopicCache()
         val home: HomeRepository
         val dashboard: GetDashboardUseCase
@@ -135,8 +136,9 @@ class HomeFlowTest {
                 .addConverterFactory(GsonConverterFactory.create())
                 .addCallAdapterFactory(RxJava3CallAdapterFactory.create())
                 .build().create(Api::class.java)
-            home = HomeRepository(api, cache)
-            dashboard = GetDashboardUseCase(home, AuthRepository(MemoryTokens(), api))
+            val sessionRefresh = SessionRefreshCoordinator(tokens, api)
+            home = HomeRepository(api, cache, sessionRefresh)
+            dashboard = GetDashboardUseCase(home, AuthRepository(tokens, api, sessionRefresh))
             topics = GetTopicsUseCase(home)
         }
 

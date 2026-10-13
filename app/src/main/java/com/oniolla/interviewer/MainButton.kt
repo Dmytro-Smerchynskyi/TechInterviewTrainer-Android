@@ -42,7 +42,8 @@ fun MainButton(
     loadingButtonText: String = buttonText,
     isLoading: Boolean = false,
     textSize: TextUnit = 10.sp,
-    leadingIcon: (@Composable () -> Unit)? = null
+    leadingIcon: (@Composable () -> Unit)? = null,
+    enabled: Boolean = true
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -59,7 +60,7 @@ fun MainButton(
                 ),
                 shape = buttonShape
             )
-            .clickable(enabled = !isLoading, role = Role.Button) {
+            .clickable(enabled = enabled && !isLoading, role = Role.Button) {
                 focusManager.clearFocus()
                 keyboardController?.hide()
                 onClick()

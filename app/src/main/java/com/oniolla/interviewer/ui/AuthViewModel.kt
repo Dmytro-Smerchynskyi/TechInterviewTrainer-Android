@@ -4,6 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.oniolla.interviewer.data.AuthState
 import com.oniolla.interviewer.data.model.Specialization
+import com.oniolla.interviewer.data.model.PreparationLanguage
+import com.oniolla.interviewer.domain.ContentResult
+import com.oniolla.interviewer.domain.GetPreparationLanguagesUseCase
+import com.oniolla.interviewer.domain.SelectPreparationLanguageUseCase
 import com.oniolla.interviewer.data.payload.LoginPayload
 import com.oniolla.interviewer.data.payload.SignupPayload
 import com.oniolla.interviewer.data.payload.VerifyEmailPayload
@@ -31,6 +35,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import javax.inject.Inject
 
 @HiltViewModel
@@ -42,7 +48,9 @@ class AuthViewModel @Inject constructor(
     private val verifyEmailUseCase: VerifyEmailUseCase,
     private val resendVerificationCodeUseCase: ResendVerificationCodeUseCase,
     private val clearSessionUseCase: ClearSessionUseCase,
-    private val selectSpecializationUseCase: SelectSpecializationUseCase
+    private val selectSpecializationUseCase: SelectSpecializationUseCase,
+    private val getPreparationLanguagesUseCase: GetPreparationLanguagesUseCase,
+    private val selectPreparationLanguageUseCase: SelectPreparationLanguageUseCase
 ) : ViewModel() {
 
     private val _stateFlow: MutableStateFlow<AuthViewState> = MutableStateFlow(
@@ -57,6 +65,7 @@ class AuthViewModel @Inject constructor(
 
     private var loadingJob: Job? = null
     private var signupDisposable: Disposable? = null
+    private var preparationLanguagesJob: Job? = null
 
     override fun onCleared() {
         signupDisposable?.dispose()
@@ -69,10 +78,11 @@ class AuthViewModel @Inject constructor(
 
     fun load() {
         loadingJob?.cancel()
+        preparationLanguagesJob?.cancel()
         _stateFlow.value = AuthViewState.Loading(0f)
         loadingJob = viewModelScope.launch {
             restoreSessionUseCase(Unit).collect { result ->
-                _stateFlow.value = result.toUi()
+                showAuthState(result)
                 if (result is AuthState.EmailVerificationPending && result.message != null) {
                     _uiEventsFlow.emit(UiEvent.Toast(result.message))
                 }
@@ -243,7 +253,8 @@ class AuthViewModel @Inject constructor(
         if (localValidationPassed) {
             setLoading(true)
             viewModelScope.launch {
-                loginUseCase(LoginPayload(email.trim(), password)).toUi().let { state ->
+                val authState = loginUseCase(LoginPayload(email.trim(), password))
+                authState.toUi().let { state ->
                     setLoading(false)
                     when (state) {
                         is AuthViewState.Error ->
@@ -253,7 +264,7 @@ class AuthViewModel @Inject constructor(
                                 )
                             )
 
-                        else -> _stateFlow.value = state
+                        else -> showAuthState(authState)
                     }
                 }
             }
@@ -266,6 +277,7 @@ class AuthViewModel @Inject constructor(
         is AuthViewState.Unauthorized.ForgotPassword -> state.isLoading
         is AuthViewState.Unauthorized.EmailConfirmation -> state.isLoading
         is AuthViewState.SpecializationSelection -> state.isLoading
+        is AuthViewState.PreparationLanguageSelection -> state.isSaving
         else -> false
     }
 
@@ -292,7 +304,76 @@ class AuthViewModel @Inject constructor(
                     _stateFlow.value = state.copy(error = message)
                     _uiEventsFlow.emit(UiEvent.Toast(message))
                 }
-                else -> _stateFlow.value = result.toUi()
+                else -> showAuthState(result)
+            }
+        }
+    }
+
+    private fun showAuthState(result: AuthState) {
+        preparationLanguagesJob?.cancel()
+        _stateFlow.value = result.toUi()
+        if (result is AuthState.PreparationLanguageSelectionRequired) loadPreparationLanguages()
+    }
+
+    fun loadPreparationLanguages() {
+        val state = _stateFlow.value as? AuthViewState.PreparationLanguageSelection ?: return
+        if (state.isSaving || preparationLanguagesJob?.isActive == true) return
+        _stateFlow.value = state.copy(isLoadingLanguages = true, languagesError = null, error = null)
+        preparationLanguagesJob = viewModelScope.launch {
+            val result = getPreparationLanguagesUseCase(Unit)
+            currentCoroutineContext().ensureActive()
+            val current = _stateFlow.value as? AuthViewState.PreparationLanguageSelection ?: return@launch
+            when (result) {
+                is ContentResult.Success -> {
+                    val languages = result.content
+                    val selected = languages.firstOrNull { it.code == current.selectedLanguage }
+                        ?: languages.firstOrNull { it.code == "en" }
+                        ?: languages.firstOrNull()
+                    _stateFlow.value = current.copy(
+                        languages = languages, selectedLanguage = selected?.code,
+                        isLoadingLanguages = false, languagesError = null
+                    )
+                }
+                is ContentResult.Error -> {
+                    _stateFlow.value = current.copy(isLoadingLanguages = false, languagesError = result.message)
+                    _uiEventsFlow.emit(UiEvent.Toast(result.message))
+                }
+                ContentResult.SessionExpired -> {
+                    clearSessionUseCase(Unit)
+                    showAuthState(AuthState.Unauthorized)
+                }
+            }
+        }
+    }
+
+    fun selectPreparationLanguage(code: String) {
+        val state = _stateFlow.value as? AuthViewState.PreparationLanguageSelection ?: return
+        if (state.isSaving || state.isLoadingLanguages || state.languages.none { it.code == code }) return
+        _stateFlow.value = state.copy(selectedLanguage = code, error = null)
+    }
+
+    fun backToSpecialization() {
+        val state = _stateFlow.value as? AuthViewState.PreparationLanguageSelection ?: return
+        if (state.isSaving) return
+        preparationLanguagesJob?.cancel()
+        _stateFlow.value = AuthViewState.SpecializationSelection(selectedSpecialization = state.specialization)
+    }
+
+    fun continueWithPreparationLanguage() {
+        val state = _stateFlow.value as? AuthViewState.PreparationLanguageSelection ?: return
+        if (state.isSaving || state.isLoadingLanguages || state.languagesError != null) return
+        val language = state.languages.firstOrNull {
+            it.code == state.selectedLanguage && it.contentAvailable
+        } ?: return
+        _stateFlow.value = state.copy(isSaving = true, error = null)
+        viewModelScope.launch {
+            when (val result = selectPreparationLanguageUseCase(language.code)) {
+                is AuthState.Error -> {
+                    val message = result.message ?: "Unknown error"
+                    _stateFlow.value = state.copy(error = message)
+                    _uiEventsFlow.emit(UiEvent.Toast(message))
+                }
+                else -> showAuthState(result)
             }
         }
     }
@@ -344,7 +425,7 @@ class AuthViewModel @Inject constructor(
                     _stateFlow.value = state.copy(codeError = message)
                     _uiEventsFlow.emit(UiEvent.Toast(message))
                 }
-                else -> _stateFlow.value = result.toUi()
+                else -> showAuthState(result)
             }
         }
     }
@@ -454,6 +535,16 @@ class AuthViewModel @Inject constructor(
             val error: String? = null
         ) : AuthViewState
 
+        data class PreparationLanguageSelection(
+            val specialization: Specialization,
+            val languages: List<PreparationLanguage> = emptyList(),
+            val selectedLanguage: String? = null,
+            val isLoadingLanguages: Boolean = true,
+            val isSaving: Boolean = false,
+            val languagesError: String? = null,
+            val error: String? = null
+        ) : AuthViewState
+
         object OnboardingRequired : AuthViewState
         data class Error(val message: String? = null) : AuthViewState
     }
@@ -469,7 +560,9 @@ fun AuthState.toUi(): AuthViewState =
         is AuthState.EmailVerificationPending -> AuthViewState.Unauthorized.EmailConfirmation(email, codeError = message)
         is AuthState.EmailVerificationFailed -> AuthViewState.Error(message)
         is AuthState.SpecializationSelectionRequired -> AuthViewState.SpecializationSelection()
-        is AuthState.PreparationLanguageSelectionRequired -> AuthViewState.OnboardingRequired
+        is AuthState.PreparationLanguageSelectionRequired -> AuthViewState.PreparationLanguageSelection(
+            specialization = specialization, selectedLanguage = currentLanguage
+        )
         is AuthState.OnboardingRequired -> AuthViewState.OnboardingRequired
         is AuthState.PasswordResetLinkSent -> AuthViewState.Unauthorized.ForgotPassword(
             resetLinkSent = true,

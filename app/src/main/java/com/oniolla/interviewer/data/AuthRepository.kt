@@ -3,6 +3,7 @@ package com.oniolla.interviewer.data
 import com.oniolla.interviewer.data.model.ForgotPasswordResponse
 import com.oniolla.interviewer.data.model.LoginResponse
 import com.oniolla.interviewer.data.model.MeResponse
+import com.oniolla.interviewer.data.model.PreparationLanguagesResponse
 import com.oniolla.interviewer.data.model.Specialization
 import com.oniolla.interviewer.data.model.ResendCodeResponse
 import com.oniolla.interviewer.data.model.SignupResponse
@@ -47,6 +48,8 @@ class AuthRepository @Inject constructor(
     suspend fun selectSpecialization(specialization: Specialization): MeResponse = apiCall {
         api.selectSpecialization(SpecializationPayload(specialization.code))
     }
+
+    suspend fun getPreparationLanguages(): PreparationLanguagesResponse = apiCall { api.preparationLanguages() }
 
     suspend fun selectPreparationLanguage(language: String): MeResponse = apiCall {
         api.selectPreparationLanguage(PreparationLanguagePayload(language))

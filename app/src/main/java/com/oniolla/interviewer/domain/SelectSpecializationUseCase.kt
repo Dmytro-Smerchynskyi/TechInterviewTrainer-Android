@@ -15,7 +15,12 @@ class SelectSpecializationUseCase @Inject constructor(
     override suspend fun invoke(input: Specialization): AuthState {
         return try {
             val profile = authRepository.selectSpecialization(input)
-            resolveAuthStateUseCase.resolveProfile(profile)
+            if (profile.emailVerified && profile.specialization != null) {
+                AuthState.PreparationLanguageSelectionRequired(
+                    Specialization.entries.firstOrNull { it.code == profile.specialization } ?: input,
+                    profile.preparationLanguage
+                )
+            } else resolveAuthStateUseCase.resolveProfile(profile)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

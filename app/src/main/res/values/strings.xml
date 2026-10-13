@@ -55,6 +55,13 @@
     <string name="session_loading_failed">Unable to load your session</string>
     <string name="retry">Retry</string>
     <string name="home">Home</string>
+    <string name="preparation_language">Preparation language</string>
+    <string name="choose_preparation_language">Choose preparation language</string>
+    <string name="preparation_language_subtext">Questions, reference answers and interview practice will use this language.</string>
+    <string name="language_back_to_specialization">Back to specialization</string>
+    <string name="preparation_languages_empty">No languages available for this specialization. Choose another specialization or try again later.</string>
+    <string name="language_feedback_info">AI feedback follows the language of your answer.</string>
+    <string name="language_translation_info">A translation option appears when your device language is different.</string>
     <string name="specialization">Specialization</string>
     <string name="choose_your_specialization">Choose your specialization</string>
     <string name="specialization_subtext">Questions, interviews and statistics will adapt to your chosen career path.</string>

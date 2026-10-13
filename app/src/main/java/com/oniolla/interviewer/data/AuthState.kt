@@ -1,5 +1,7 @@
 package com.oniolla.interviewer.data
 
+import com.oniolla.interviewer.data.model.Specialization
+
 sealed interface AuthState {
     object Authorized : AuthState
     object Unauthorized : AuthState
@@ -9,7 +11,10 @@ sealed interface AuthState {
     data class EmailVerificationFailed(val message: String? = null) : AuthState
     object OnboardingRequired : AuthState
     object SpecializationSelectionRequired : AuthState
-    object PreparationLanguageSelectionRequired : AuthState
+    data class PreparationLanguageSelectionRequired(
+        val specialization: Specialization,
+        val currentLanguage: String? = null
+    ) : AuthState
     data class PasswordResetLinkSent(val message: String, val email: String) : AuthState
     data class Loading(val progress: Float) : AuthState
     data class Error(val message: String? = null) : AuthState

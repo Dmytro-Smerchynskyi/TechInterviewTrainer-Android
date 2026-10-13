@@ -6,6 +6,7 @@ import com.oniolla.interviewer.data.model.QuestionsResponse
 import com.oniolla.interviewer.data.model.ForgotPasswordResponse
 import com.oniolla.interviewer.data.model.LoginResponse
 import com.oniolla.interviewer.data.model.MeResponse
+import com.oniolla.interviewer.data.model.PreparationLanguagesResponse
 import com.oniolla.interviewer.data.model.ResendCodeResponse
 import com.oniolla.interviewer.data.model.SignupResponse
 import com.oniolla.interviewer.data.payload.ForgotPasswordPayload
@@ -41,6 +42,9 @@ interface Api {
 
     @GET("topics")
     suspend fun topics(): List<TopicResponse>
+
+    @GET("preparation-languages")
+    suspend fun preparationLanguages(): PreparationLanguagesResponse
 
     @PUT("me/preparation-language")
     suspend fun selectPreparationLanguage(@Body payload: PreparationLanguagePayload): MeResponse

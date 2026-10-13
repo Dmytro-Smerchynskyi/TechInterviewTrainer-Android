@@ -22,7 +22,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -157,6 +156,9 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
     }
 
     BackHandler(enabled = state.value is AuthViewModel.AuthViewState.SpecializationSelection) { }
+    BackHandler(enabled = state.value is AuthViewModel.AuthViewState.PreparationLanguageSelection) {
+        viewModel.backToSpecialization()
+    }
 
     val nameText = rememberSaveable { mutableStateOf("") }
     val emailText = rememberSaveable { mutableStateOf("") }
@@ -206,6 +208,18 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
                 }
 
                 is AuthViewModel.AuthViewState.Unauthorized if targetState is AuthViewModel.AuthViewState.SpecializationSelection -> {
+                    slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
+                }
+
+                is AuthViewModel.AuthViewState.SpecializationSelection if targetState is AuthViewModel.AuthViewState.PreparationLanguageSelection -> {
+                    slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
+                }
+
+                is AuthViewModel.AuthViewState.PreparationLanguageSelection if targetState is AuthViewModel.AuthViewState.SpecializationSelection -> {
+                    slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+                }
+
+                is AuthViewModel.AuthViewState.Unauthorized if targetState is AuthViewModel.AuthViewState.PreparationLanguageSelection -> {
                     slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
                 }
 
@@ -292,6 +306,15 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
                         error = state.error,
                         onSpecializationSelected = viewModel::selectSpecialization,
                         onContinueClicked = viewModel::continueWithSpecialization
+                    )
+
+                is AuthViewModel.AuthViewState.PreparationLanguageSelection ->
+                    PreparationLanguageSelection(
+                        state = state,
+                        onBack = viewModel::backToSpecialization,
+                        onLanguageSelected = viewModel::selectPreparationLanguage,
+                        onContinue = viewModel::continueWithPreparationLanguage,
+                        onRetry = viewModel::loadPreparationLanguages
                     )
 
                 is AuthViewModel.AuthViewState.Authorized ->
@@ -1400,101 +1423,15 @@ fun SpecializationOption(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    val containerColor by animateColorAsState(
-        targetValue = when {
-            selected -> AppTheme.colors.leftGradient.copy(alpha = if (enabled) 0.1f else 0.04f)
-            enabled -> AppTheme.colors.container
-            else -> AppTheme.colors.containerDisabled
-        },
-        animationSpec = tween(300)
-    )
-    val borderColor by animateColorAsState(
-        targetValue = when {
-            selected -> AppTheme.colors.leftGradient.copy(alpha = if (enabled) 1f else 0.42f)
-            enabled -> AppTheme.colors.stroke
-            else -> AppTheme.colors.strokeDisabled
-        },
-        animationSpec = tween(300)
-    )
-    val titleColor by animateColorAsState(
-        targetValue = AppTheme.colors.primaryText.copy(alpha = if (enabled) 1f else 0.42f),
-        animationSpec = tween(300)
-    )
-    val descriptionColor by animateColorAsState(
-        targetValue = if (enabled) AppTheme.colors.secondaryText else AppTheme.colors.secondaryDisabledText,
-        animationSpec = tween(300)
-    )
-    val badgeColor by animateColorAsState(
-        targetValue = AppTheme.colors.success.copy(alpha = if (enabled) 0.14f else 0.06f),
-        animationSpec = tween(300)
-    )
-
-    Surface(
+    OnboardingChoiceOption(
+        modifier = modifier,
+        badge = specialization.badge,
+        title = stringResource(specialization.titleResource),
+        description = stringResource(specialization.descriptionResource),
         selected = selected,
-        onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(82.dp).semantics { role = Role.RadioButton },
-        shape = RoundedCornerShape(16.dp),
-        color = containerColor,
-        contentColor = titleColor,
-        border = BorderStroke(1.dp, borderColor)
-    ) {
-        Box(Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .padding(start = 12.dp, top = 10.dp)
-                    .size(32.dp)
-                    .background(badgeColor, RoundedCornerShape(14.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = specialization.badge,
-                    color = titleColor,
-                    fontSize = 9.sp,
-                    lineHeight = 11.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            Text(
-                modifier = Modifier.padding(start = 50.dp, end = 12.dp, top = 12.dp),
-                text = stringResource(specialization.titleResource),
-                color = titleColor,
-                fontSize = 13.sp,
-                lineHeight = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1
-            )
-            Text(
-                modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 55.dp),
-                text = stringResource(specialization.descriptionResource),
-                color = descriptionColor,
-                fontSize = 9.sp,
-                lineHeight = 12.sp
-            )
-
-            AnimatedVisibility(
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 9.dp, end = 12.dp),
-                visible = selected,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(AppTheme.colors.leftGradient.copy(alpha = if (enabled) 0.15f else 0.06f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = ImageVector.vectorResource(R.drawable.specialization_check),
-                        contentDescription = null,
-                        tint = AppTheme.colors.leftGradient.copy(alpha = if (enabled) 1f else 0.42f),
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-        }
-    }
+        onClick = onClick
+    )
 }
 
 private val Specialization.badge: String

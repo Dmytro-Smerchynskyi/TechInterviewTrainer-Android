@@ -4,6 +4,7 @@ import com.google.gson.JsonParser
 import com.google.gson.Gson
 import com.oniolla.interviewer.data.model.Specialization
 import com.oniolla.interviewer.domain.SelectSpecializationUseCase
+import com.oniolla.interviewer.domain.SelectPreparationLanguageUseCase
 import com.oniolla.interviewer.domain.toAuthState
 import com.oniolla.interviewer.data.payload.LoginPayload
 import com.oniolla.interviewer.data.payload.SignupPayload
@@ -504,7 +505,7 @@ class EmailAuthFlowTest {
     @Test
     fun missingLanguageIsDetectedWhenSpecializationAlreadyExists() = runBlocking {
         val fixture = Fixture().apply { onboardingCompleted = false; preparationLanguage = null }
-        assertSame(AuthState.PreparationLanguageSelectionRequired, fixture.repository.getMe().toAuthState())
+        assertEquals(AuthState.PreparationLanguageSelectionRequired(Specialization.ANDROID), fixture.repository.getMe().toAuthState())
     }
 
     @Test
@@ -552,7 +553,7 @@ class EmailAuthFlowTest {
             Specialization.entries.map { it.code })
         Specialization.entries.forEach { specialization ->
             val fixture = Fixture().apply { onboardingCompleted = false; this.specialization = null }
-            assertSame(AuthState.Authorized,
+            assertEquals(AuthState.PreparationLanguageSelectionRequired(specialization, "en"),
                 SelectSpecializationUseCase(fixture.repository, fixture.resolve)(specialization))
             assertEquals(listOf("/me/specialization"), fixture.paths())
             val payload = JsonParser.parseString(fixture.requests.single().second).asJsonObject
@@ -564,7 +565,7 @@ class EmailAuthFlowTest {
     @Test
     fun specializationSaveDoesNotAuthorizeIfServerOnboardingFlagIsFalse() = runBlocking {
         val fixture = Fixture().apply { onboardingCompleted = false; completeOnSpecializationSave = false }
-        assertSame(AuthState.OnboardingRequired,
+        assertEquals(AuthState.PreparationLanguageSelectionRequired(Specialization.QA, "en"),
             SelectSpecializationUseCase(fixture.repository, fixture.resolve)(Specialization.QA))
         assertEquals(listOf("/me/specialization"), fixture.paths())
     }
@@ -585,15 +586,15 @@ class EmailAuthFlowTest {
     }
 
     @Test
-    fun missingLanguageIsSavedAsEnglishBeforeAuthorization() = runBlocking {
+    fun missingLanguageOpensSelectionWithoutSendingAnAutomaticPut() = runBlocking {
         val fixture = Fixture().apply { onboardingCompleted = false; preparationLanguage = null }
-        assertSame(AuthState.Authorized, fixture.resolve(Unit))
-        assertEquals(listOf("/me", "/me/preparation-language"), fixture.paths())
-        assertEquals("en", fixture.preparationLanguage)
+        assertEquals(AuthState.PreparationLanguageSelectionRequired(Specialization.ANDROID), fixture.resolve(Unit))
+        assertEquals(listOf("/me"), fixture.paths())
+        assertNull(fixture.preparationLanguage)
     }
 
     @Test
-    fun specializationSaveThenLanguageSaveCompletesOnboardingForAllEightChoices() = runBlocking {
+    fun specializationAndLanguageAreSavedInSeparateExplicitStepsForAllEightChoices() = runBlocking {
         Specialization.entries.forEach { choice ->
             val fixture = Fixture().apply {
                 onboardingCompleted = false
@@ -601,8 +602,12 @@ class EmailAuthFlowTest {
                 preparationLanguage = null
                 completeOnSpecializationSave = false
             }
-            assertSame(AuthState.Authorized,
+            assertEquals(AuthState.PreparationLanguageSelectionRequired(choice),
                 SelectSpecializationUseCase(fixture.repository, fixture.resolve)(choice))
+            assertEquals(listOf("/me/specialization"), fixture.paths())
+            assertNull(fixture.preparationLanguage)
+            assertSame(AuthState.Authorized,
+                SelectPreparationLanguageUseCase(fixture.repository, fixture.resolve)("en"))
             assertEquals(listOf("/me/specialization", "/me/preparation-language"), fixture.paths())
             assertEquals(choice.code, fixture.specialization)
             assertEquals("en", fixture.preparationLanguage)
@@ -610,33 +615,33 @@ class EmailAuthFlowTest {
     }
 
     @Test
-    fun startupSavesMissingLanguageAfterRefreshingAndFetchingProfile() = runBlocking {
+    fun startupOpensLanguageSelectionAfterRefreshingAndFetchingProfile() = runBlocking {
         val fixture = Fixture().apply {
             tokens.refreshToken = "refresh"
             onboardingCompleted = false
             preparationLanguage = null
         }
-        assertSame(AuthState.Authorized,
+        assertEquals(AuthState.PreparationLanguageSelectionRequired(Specialization.ANDROID),
             RestoreSessionUseCase(fixture.repository, fixture.resolve)(Unit).toList().last())
-        assertEquals(listOf("/auth/refresh", "/me", "/me/preparation-language"), fixture.paths())
+        assertEquals(listOf("/auth/refresh", "/me"), fixture.paths())
     }
 
     @Test
-    fun loginSavesMissingLanguageBeforeAuthorization() = runBlocking {
+    fun loginOpensLanguageSelectionWithoutSavingALanguage() = runBlocking {
         val fixture = Fixture().apply { onboardingCompleted = false; preparationLanguage = null }
-        assertSame(AuthState.Authorized,
+        assertEquals(AuthState.PreparationLanguageSelectionRequired(Specialization.ANDROID),
             LoginUseCase(fixture.repository, fixture.resend, fixture.resolve)(
                 LoginPayload("developer@example.com", "password")))
-        assertEquals(listOf("/auth/login", "/me", "/me/preparation-language"), fixture.paths())
+        assertEquals(listOf("/auth/login", "/me"), fixture.paths())
     }
 
     @Test
-    fun verificationSavesMissingLanguageBeforeAuthorization() = runBlocking {
+    fun verificationOpensLanguageSelectionWithoutSavingALanguage() = runBlocking {
         val fixture = Fixture().apply { onboardingCompleted = false; preparationLanguage = null }
-        assertSame(AuthState.Authorized,
+        assertEquals(AuthState.PreparationLanguageSelectionRequired(Specialization.ANDROID),
             VerifyEmailUseCase(fixture.repository, fixture.resolve)(
                 VerifyEmailPayload("developer@example.com", "123456")))
-        assertEquals(listOf("/auth/email/verify", "/me", "/me/preparation-language"), fixture.paths())
+        assertEquals(listOf("/auth/email/verify", "/me"), fixture.paths())
     }
 
     @Test
@@ -657,13 +662,14 @@ class EmailAuthFlowTest {
             preparationLanguage = null
             completeOnLanguageSave = false
         }
-        assertSame(AuthState.OnboardingRequired, fixture.resolve(Unit))
-        assertEquals(listOf("/me", "/me/preparation-language"), fixture.paths())
+        assertSame(AuthState.OnboardingRequired,
+            SelectPreparationLanguageUseCase(fixture.repository, fixture.resolve)("en"))
+        assertEquals(listOf("/me/preparation-language"), fixture.paths())
         assertEquals("en", fixture.preparationLanguage)
     }
 
     @Test
-    fun languageHttpFailureAfterSpecializationDoesNotAuthorizeAndCanBeRetriedFromProfile() = runBlocking {
+    fun languageHttpFailureIsRetriedOnlyThroughAnExplicitLanguageSave() = runBlocking {
         val fixture = Fixture().apply {
             onboardingCompleted = false
             specialization = null
@@ -671,14 +677,17 @@ class EmailAuthFlowTest {
             completeOnSpecializationSave = false
             preparationLanguageStatus = 500
         }
-        assertEquals(AuthState.Error("Request failed"),
+        assertEquals(AuthState.PreparationLanguageSelectionRequired(Specialization.IOS),
             SelectSpecializationUseCase(fixture.repository, fixture.resolve)(Specialization.IOS))
-        assertEquals(listOf("/me/specialization", "/me/preparation-language"), fixture.paths())
-        assertEquals("IOS", fixture.specialization)
+        assertEquals(listOf("/me/specialization"), fixture.paths())
+        assertEquals(AuthState.Error("Request failed"),
+            SelectPreparationLanguageUseCase(fixture.repository, fixture.resolve)("en"))
+        assertEquals(AuthState.PreparationLanguageSelectionRequired(Specialization.IOS), fixture.resolve(Unit))
         fixture.preparationLanguageStatus = 200
-        assertSame(AuthState.Authorized, fixture.resolve(Unit))
-        assertEquals(listOf("/me/specialization", "/me/preparation-language",
-            "/me", "/me/preparation-language"), fixture.paths())
+        assertSame(AuthState.Authorized,
+            SelectPreparationLanguageUseCase(fixture.repository, fixture.resolve)("en"))
+        assertEquals(listOf("/me/specialization", "/me/preparation-language", "/me",
+            "/me/preparation-language"), fixture.paths())
     }
 
     @Test
@@ -689,9 +698,10 @@ class EmailAuthFlowTest {
             tokens.refreshToken = "refresh"
             networkFailurePath = "/me/preparation-language"
         }
-        assertEquals(AuthState.Error("Something unexpected happened"), fixture.resolve(Unit))
+        assertEquals(AuthState.Error("Something unexpected happened"),
+            SelectPreparationLanguageUseCase(fixture.repository, fixture.resolve)("en"))
         assertEquals("refresh", fixture.tokens.refreshToken)
-        assertEquals(listOf("/me", "/me/preparation-language"), fixture.paths())
+        assertEquals(listOf("/me/preparation-language"), fixture.paths())
     }
 
     @Test
@@ -702,8 +712,9 @@ class EmailAuthFlowTest {
             ignoreLanguageSave = true
             completeOnLanguageSave = false
         }
-        assertEquals(AuthState.Error("Preparation language was not saved"), fixture.resolve(Unit))
-        assertEquals(listOf("/me", "/me/preparation-language"), fixture.paths())
+        assertEquals(AuthState.Error("Preparation language was not saved"),
+            SelectPreparationLanguageUseCase(fixture.repository, fixture.resolve)("en"))
+        assertEquals(listOf("/me/preparation-language"), fixture.paths())
     }
 
     @Test

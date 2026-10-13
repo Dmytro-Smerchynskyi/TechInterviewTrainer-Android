@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.oniolla.interviewer.domain.ContentResult
 import com.oniolla.interviewer.domain.GetDashboardUseCase
 import com.oniolla.interviewer.domain.GetQuestionsUseCase
+import com.oniolla.interviewer.domain.SetQuestionSavedUseCase
 import com.oniolla.interviewer.domain.GetTopicsUseCase
 import com.oniolla.interviewer.domain.TopicCatalogUseCase
 import com.oniolla.interviewer.domain.QuestionsRequest
@@ -99,7 +100,7 @@ class QuestionsFlowTest {
         }
 
         fun viewModel(handle: SavedStateHandle = SavedStateHandle()) =
-            HomeViewModel(GetDashboardUseCase(repository, auth), GetTopicsUseCase(repository), getQuestions, handle, TopicCatalogUseCase(repository))
+            HomeViewModel(GetDashboardUseCase(repository, auth), GetTopicsUseCase(repository), getQuestions, handle, TopicCatalogUseCase(repository), SetQuestionSavedUseCase(repository))
         fun questionRequests() = requests.filter { it.url.encodedPath == "/questions" }
 
         companion object {

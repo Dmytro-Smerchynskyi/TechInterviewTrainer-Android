@@ -99,7 +99,8 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
             onRetryDashboard = {}, onRetryTopics = {},
             onQuestionTopicSelected = { _, _ -> }, onClearQuestionTopic = {},
             onRetryQuestions = {}, onLoadMoreQuestions = {}, onRetryQuestionPage = {},
-            onTopicsFilterSelected = {}, onSeeWeakTopics = {}, onRetryTopicCatalog = {}
+            onTopicsFilterSelected = {}, onSeeWeakTopics = {}, onRetryTopicCatalog = {},
+            onToggleQuestionSaved = {}
         )
     }
 }

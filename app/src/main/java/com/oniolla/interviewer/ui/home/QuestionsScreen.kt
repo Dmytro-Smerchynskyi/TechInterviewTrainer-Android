@@ -1,6 +1,7 @@
 package com.oniolla.interviewer.ui.home
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -33,6 +34,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
@@ -58,7 +60,8 @@ internal fun QuestionsScreen(
     onLoadMore: () -> Unit,
     onRetryPage: () -> Unit,
     onSelectTopic: (Long, String) -> Unit,
-    onRetryTopicCatalog: () -> Unit
+    onRetryTopicCatalog: () -> Unit,
+    onToggleSaved: (Long) -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         QuestionsSearch(state.questionSearch, onSearch)
@@ -73,7 +76,7 @@ internal fun QuestionsScreen(
             when (current) {
                 ContentViewState.NotLoaded, ContentViewState.Loading -> QuestionsSkeleton()
                 is ContentViewState.Failed -> ContentError(current.message, onRetry)
-                is ContentViewState.Ready -> QuestionsList(current.content, onLoadMore, onRetryPage)
+                is ContentViewState.Ready -> QuestionsList(current.content, onLoadMore, onRetryPage, onToggleSaved)
             }
         }
     }
@@ -124,7 +127,8 @@ private fun QuestionsSearch(query: String, onSearch: (String) -> Unit) {
 }
 
 @Composable
-private fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onRetryPage: () -> Unit) {
+private fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onRetryPage: () -> Unit,
+    onToggleSaved: (Long) -> Unit) {
     val listState = key(content.resultRevision) { rememberLazyListState() }
     val lockedCount = content.access?.takeIf { it.limitedByPlan }?.lockedCount
         ?: content.topics.filter { it.limitedByPlan }.sumOf { it.lockedCount }
@@ -146,7 +150,7 @@ private fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onR
         contentPadding = PaddingValues(bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(content.items, key = { it.id }) { question -> LibraryQuestionCard(question) }
+        items(content.items, key = { it.id }) { question -> LibraryQuestionCard(question, onToggleSaved) }
         if (content.isAppending || (content.items.isEmpty() && content.nextCursor != null && content.appendError == null)) {
             item(key = "loading_next") { ShimmerAnimation { QuestionSkeletonRow() } }
         }
@@ -169,7 +173,7 @@ private fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onR
 }
 
 @Composable
-private fun LibraryQuestionCard(question: QuestionResponse) {
+private fun LibraryQuestionCard(question: QuestionResponse, onToggleSaved: (Long) -> Unit) {
     val tint = topicTint(question.topic.visual)
     Surface(
         onClick = {},
@@ -211,12 +215,29 @@ private fun LibraryQuestionCard(question: QuestionResponse) {
                 Spacer(Modifier.height(19.dp))
                 val savedDescription = stringResource(
                     if (question.saved) R.string.question_saved else R.string.question_not_saved)
-                Image(
-                    painterResource(if (question.saved) R.drawable.question_star_filled else R.drawable.question_star_outline),
-                    contentDescription = savedDescription,
-                    modifier = Modifier.size(16.dp),
-                    colorFilter = ColorFilter.tint(AppTheme.colors.warning)
-                )
+                val savedAction = stringResource(
+                    if (question.saved) R.string.unsave_question else R.string.save_question)
+                Surface(
+                    checked = question.saved,
+                    onCheckedChange = { onToggleSaved(question.id) },
+                    modifier = Modifier.size(24.dp).semantics {
+                        contentDescription = savedAction
+                        stateDescription = savedDescription
+                    },
+                    shape = CircleShape,
+                    color = Color.Transparent
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Crossfade(question.saved, Modifier.size(16.dp), tween(150), label = "question saved") { saved ->
+                            Image(
+                                painterResource(if (saved) R.drawable.question_star_filled else R.drawable.question_star_outline),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                colorFilter = ColorFilter.tint(AppTheme.colors.warning)
+                            )
+                        }
+                    }
+                }
             }
             Spacer(Modifier.width(4.dp))
             FigmaIcon("chevron", Modifier.padding(top = 23.dp).size(16.dp), AppTheme.colors.homeIcon)

@@ -8,6 +8,7 @@ import com.oniolla.interviewer.domain.GetTopicsUseCase
 import com.oniolla.interviewer.domain.TopicCatalogUseCase
 import com.oniolla.interviewer.domain.TopicsFilter
 import com.oniolla.interviewer.domain.GetQuestionsUseCase
+import com.oniolla.interviewer.domain.SetQuestionSavedUseCase
 import com.oniolla.interviewer.domain.loadContent
 import com.oniolla.interviewer.ui.home.ContentViewState
 import com.oniolla.interviewer.ui.home.HomeTab
@@ -144,7 +145,7 @@ class HomeFlowTest {
 
         fun paths() = requests.map { it.url.encodedPath }
         fun viewModel(handle: SavedStateHandle = SavedStateHandle()) =
-            HomeViewModel(dashboard, topics, GetQuestionsUseCase(home), handle, TopicCatalogUseCase(home))
+            HomeViewModel(dashboard, topics, GetQuestionsUseCase(home), handle, TopicCatalogUseCase(home), SetQuestionSavedUseCase(home))
     }
 
     @Test fun dashboardAndProfileUseGetWithoutPayloadOrQuery() = runBlocking {

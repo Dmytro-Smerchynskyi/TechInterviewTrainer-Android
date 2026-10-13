@@ -10,6 +10,9 @@ import com.oniolla.interviewer.domain.TopicsFilter
 import com.oniolla.interviewer.domain.TopicCatalogUseCase
 import com.oniolla.interviewer.domain.GetQuestionsUseCase
 import com.oniolla.interviewer.domain.QuestionsRequest
+import com.oniolla.interviewer.domain.SetQuestionSavedUseCase
+import com.oniolla.interviewer.domain.QuestionSavedRequest
+import com.oniolla.interviewer.data.model.QuestionResponse
 import com.oniolla.interviewer.ui.UiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -23,6 +26,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 
@@ -32,7 +37,8 @@ class HomeViewModel @Inject constructor(
     private val getTopicsUseCase: GetTopicsUseCase,
     private val getQuestionsUseCase: GetQuestionsUseCase,
     private val savedStateHandle: SavedStateHandle,
-    private val topicCatalogUseCase: TopicCatalogUseCase
+    private val topicCatalogUseCase: TopicCatalogUseCase,
+    private val setQuestionSavedUseCase: SetQuestionSavedUseCase
 ) : ViewModel() {
     private val _stateFlow = MutableStateFlow(HomeViewState(
         tab = HomeTab.entries.firstOrNull { it.name == savedStateHandle.get<String>("homeTab") }
@@ -57,6 +63,11 @@ class HomeViewModel @Inject constructor(
     private var questionsJob: Job? = null
     private var questionsGeneration = 0
     private val consumedCursors = mutableSetOf<String>()
+    private data class SavedQuestionChange(val saved: Boolean, val revision: Long)
+    private val savedQuestionChanges = mutableMapOf<Long, SavedQuestionChange>()
+    private val savedDebounceJobs = mutableMapOf<Long, Job>()
+    private val savedRequestLocks = mutableMapOf<Long, Mutex>()
+    private var savedRevision = 0L
 
     init {
         loadDashboard()
@@ -135,7 +146,7 @@ class HomeViewModel @Inject constructor(
             _stateFlow.update {
                 val contentState = when (result) {
                     is ContentResult.Success -> ContentViewState.Ready(QuestionsContent(
-                        items = result.content.items.distinctBy { item -> item.id },
+                        items = applySavedChanges(result.content.items.distinctBy { item -> item.id }),
                         nextCursor = result.content.nextCursor?.takeIf { cursor -> cursor.isNotEmpty() },
                         topics = result.content.topics,
                         access = result.content.access,
@@ -174,7 +185,7 @@ class HomeViewModel @Inject constructor(
                 val current = (state.questions as? ContentViewState.Ready)?.content ?: return@update state
                 when (result) {
                     is ContentResult.Success -> state.copy(questions = ContentViewState.Ready(current.copy(
-                        items = (current.items + result.content.items).distinctBy { it.id },
+                        items = applySavedChanges((current.items + result.content.items).distinctBy { it.id }),
                         nextCursor = result.content.nextCursor?.takeIf {
                             it.isNotEmpty() && it !in consumedCursors
                         },
@@ -192,6 +203,52 @@ class HomeViewModel @Inject constructor(
             }
             if (result is ContentResult.Error) _uiEventsFlow.emit(UiEvent.Toast(result.message))
         }
+    }
+
+    fun toggleQuestionSaved(questionId: Long) {
+        if (_stateFlow.value.sessionExpired) return
+        val question = (_stateFlow.value.questions as? ContentViewState.Ready)?.content?.items
+            ?.firstOrNull { it.id == questionId } ?: return
+        val change = SavedQuestionChange(!question.saved, ++savedRevision)
+        updateSavedQuestion(questionId, change)
+        savedDebounceJobs.remove(questionId)?.cancel()
+        savedDebounceJobs[questionId] = viewModelScope.launch {
+            delay(1.seconds)
+            if (savedQuestionChanges[questionId]?.revision != change.revision) return@launch
+            savedDebounceJobs.remove(questionId)
+            // Cancel only the debounce. An already sent request must finish before the next one.
+            viewModelScope.launch {
+                savedRequestLocks.getOrPut(questionId) { Mutex() }.withLock {
+                    if (savedQuestionChanges[questionId]?.revision != change.revision) return@withLock
+                    val result = setQuestionSavedUseCase(QuestionSavedRequest(questionId, change.saved))
+                    currentCoroutineContext().ensureActive()
+                    if (result == ContentResult.SessionExpired) {
+                        _stateFlow.update { it.copy(sessionExpired = true) }
+                    }
+                    if (savedQuestionChanges[questionId]?.revision != change.revision) return@withLock
+                    when (result) {
+                        is ContentResult.Success -> Unit
+                        is ContentResult.Error -> {
+                            updateSavedQuestion(questionId, change.copy(saved = false))
+                            _uiEventsFlow.emit(UiEvent.Toast(result.message))
+                        }
+                        ContentResult.SessionExpired -> updateSavedQuestion(questionId, change.copy(saved = false))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updateSavedQuestion(questionId: Long, change: SavedQuestionChange) {
+        savedQuestionChanges[questionId] = change
+        _stateFlow.update { state ->
+            val content = (state.questions as? ContentViewState.Ready)?.content ?: return@update state
+            state.copy(questions = ContentViewState.Ready(content.copy(items = applySavedChanges(content.items))))
+        }
+    }
+
+    private fun applySavedChanges(items: List<QuestionResponse>): List<QuestionResponse> = items.map { question ->
+        savedQuestionChanges[question.id]?.let { question.copy(saved = it.saved) } ?: question
     }
 
     fun retryQuestionPage() {

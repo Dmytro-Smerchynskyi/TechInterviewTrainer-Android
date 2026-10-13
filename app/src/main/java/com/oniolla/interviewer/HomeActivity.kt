@@ -59,7 +59,8 @@ class HomeActivity : ComponentActivity() {
                     onRetryQuestionPage = viewModel::retryQuestionPage,
                     onTopicsFilterSelected = viewModel::selectTopicsFilter,
                     onSeeWeakTopics = viewModel::openWeakTopics,
-                    onRetryTopicCatalog = viewModel::refreshTopicCatalog
+                    onRetryTopicCatalog = viewModel::refreshTopicCatalog,
+                    onToggleQuestionSaved = viewModel::toggleQuestionSaved
                 )
             }
         }

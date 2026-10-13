@@ -53,7 +53,8 @@ fun HomeScreen(
     onRetryQuestionPage: () -> Unit,
     onTopicsFilterSelected: (TopicsFilter) -> Unit,
     onSeeWeakTopics: () -> Unit,
-    onRetryTopicCatalog: () -> Unit
+    onRetryTopicCatalog: () -> Unit,
+    onToggleQuestionSaved: (Long) -> Unit
 ) {
     Scaffold(
         modifier = Modifier.imePadding(),
@@ -83,7 +84,7 @@ fun HomeScreen(
                 }
                 HomeTab.QUESTIONS -> QuestionsScreen(state, onQuestionSearch, onClearQuestionTopic,
                     onRetryQuestions, onLoadMoreQuestions, onRetryQuestionPage,
-                    onQuestionTopicSelected, onRetryTopicCatalog)
+                    onQuestionTopicSelected, onRetryTopicCatalog, onToggleQuestionSaved)
                 HomeTab.STATS -> EmptyTab(stringResource(R.string.statistics_empty))
                 HomeTab.FAVORITES -> EmptyTab(stringResource(R.string.favorites_empty))
             }

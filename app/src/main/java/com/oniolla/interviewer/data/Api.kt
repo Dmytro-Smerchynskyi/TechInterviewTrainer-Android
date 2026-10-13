@@ -24,6 +24,8 @@ import retrofit2.http.GET
 import retrofit2.http.PUT
 import retrofit2.http.Query
 import retrofit2.http.Tag
+import retrofit2.http.Path
+import retrofit2.http.DELETE
 
 interface Api {
 
@@ -41,6 +43,12 @@ interface Api {
         @Query("cursor") cursor: String? = null,
         @Tag session: SessionSnapshot? = null
     ): QuestionsResponse
+
+    @PUT("questions/{id}/saved")
+    suspend fun saveQuestion(@Path("id") questionId: Long, @Tag session: SessionSnapshot? = null)
+
+    @DELETE("questions/{id}/saved")
+    suspend fun unsaveQuestion(@Path("id") questionId: Long, @Tag session: SessionSnapshot? = null)
 
     @GET("topics")
     suspend fun topics(@Query("type") type: String? = null, @Tag session: SessionSnapshot? = null): List<TopicResponse>

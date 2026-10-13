@@ -141,4 +141,6 @@
     <string name="questions_pro">PRO</string>
     <string name="statistics_empty">Your practice statistics will appear here.</string>
     <string name="favorites_empty">Saved questions will appear here.</string>
+    <string name="save_question">Save question</string>
+    <string name="unsave_question">Remove from saved questions</string>
 </resources>

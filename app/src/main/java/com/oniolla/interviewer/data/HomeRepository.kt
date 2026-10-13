@@ -20,6 +20,10 @@ class HomeRepository @Inject constructor(
 
     suspend fun getDashboard(): DashboardResponse = sessionRefresh.authorizedApiCall { api.dashboard(it) }
     suspend fun getTopics(type: String? = null): List<TopicResponse> = sessionRefresh.authorizedApiCall { api.topics(type, it) }
+    suspend fun setQuestionSaved(questionId: Long, saved: Boolean): Unit = sessionRefresh.authorizedApiCall {
+        if (saved) api.saveQuestion(questionId, it) else api.unsaveQuestion(questionId, it)
+    }
+
     suspend fun getQuestions(
         topicId: Long?,
         search: String?,

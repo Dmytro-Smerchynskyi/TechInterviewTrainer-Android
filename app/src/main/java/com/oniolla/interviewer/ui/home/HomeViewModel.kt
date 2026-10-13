@@ -68,10 +68,8 @@ class HomeViewModel @Inject constructor(
     }
 
     fun selectTab(tab: HomeTab) {
-        val enteringHome = tab == HomeTab.HOME && _stateFlow.value.tab != HomeTab.HOME
         savedStateHandle["homeTab"] = tab.name
         _stateFlow.update { it.copy(tab = tab) }
-        if (enteringHome) refreshTopicCatalog()
         if (tab == HomeTab.TOPICS && _stateFlow.value.topics == ContentViewState.NotLoaded) loadTopics()
         if (tab == HomeTab.QUESTIONS && _stateFlow.value.questions == ContentViewState.NotLoaded) loadQuestions()
     }
@@ -209,8 +207,10 @@ class HomeViewModel @Inject constructor(
         dashboardJob = viewModelScope.launch {
             val result = getDashboardUseCase(Unit)
             if (result is ContentResult.Success) {
-                observeTopicCatalog(topicCatalogUseCase.scope(result.content.profile))
-                refreshTopicCatalog()
+                val scope = topicCatalogUseCase.scope(result.content.profile)
+                val initializeCatalog = catalogScope != scope
+                observeTopicCatalog(scope)
+                if (initializeCatalog) refreshTopicCatalog()
             } else if (_stateFlow.value.topicCatalog == ContentViewState.Loading) {
                 _stateFlow.update { it.copy(topicCatalog = when (result) {
                     is ContentResult.Error -> ContentViewState.Failed(result.message)

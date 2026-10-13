@@ -370,7 +370,7 @@ class HomeFlowTest {
         } catch (error: CancellationException) { assertSame(cancellation, error) }
     }
 
-    @Test fun homeLoadsCatalogInitiallyAndReloadsItOnHomeEntryWhileKeepingTheTopicsTab() = runTest(dispatcher) {
+    @Test fun homeInitializesCatalogOnceAndReturningHomeDoesNotReloadIt() = runTest(dispatcher) {
         val fixture = Fixture()
         val vm = fixture.viewModel()
         assertSame(ContentViewState.Loading, vm.stateFlow.value.dashboard)
@@ -382,11 +382,11 @@ class HomeFlowTest {
         vm.stateFlow.first { it.topics is ContentViewState.Ready }
         assertEquals(2, fixture.paths().count { it == "/topics" })
         vm.selectTab(HomeTab.HOME)
-        fixture.cache.refreshes.first { it == 2 }
         runCurrent()
         vm.selectTab(HomeTab.TOPICS)
         assertTrue(vm.stateFlow.value.topics is ContentViewState.Ready)
-        assertEquals(3, fixture.paths().count { it == "/topics" })
+        assertEquals(2, fixture.paths().count { it == "/topics" })
+        assertEquals(1, fixture.cache.refreshes.value)
     }
 
     @Test fun weakTopicOpensQuestionsAndPreservesTheSearchAcrossTabChanges() = runTest(dispatcher) {
@@ -406,8 +406,8 @@ class HomeFlowTest {
         vm.updateQuestionSearch("")
         vm.stateFlow.first { it.questions is ContentViewState.Ready }
         assertEquals("", handle.get<String>("questionSearch"))
-        fixture.cache.refreshes.first { it == 2 }
-        assertEquals(2, fixture.paths().count { it == "/topics" })
+        assertEquals(1, fixture.paths().count { it == "/topics" })
+        assertEquals(1, fixture.cache.refreshes.value)
         assertSame(ContentViewState.NotLoaded, vm.stateFlow.value.topics)
     }
 
@@ -488,27 +488,50 @@ class HomeFlowTest {
         assertEquals(1, fixture.cache.writes)
     }
 
-    @Test fun homeEntriesFetchTopicsButOnlyChangesRewriteTheCatalog() = runTest(dispatcher) {
+    @Test fun repeatedHomeEntriesAndDashboardReloadsDoNotFetchTheCatalogAgain() = runTest(dispatcher) {
         val fixture = Fixture()
         val vm = fixture.viewModel()
-        vm.stateFlow.first { it.topicCatalog is ContentViewState.Ready }
+        vm.stateFlow.first { it.topicCatalog is ContentViewState.Ready && it.dashboard is ContentViewState.Ready }
         runCurrent()
+        val catalog = vm.stateFlow.value.topicCatalog
+        fixture.topicsBody = "[]"
+        repeat(3) {
+            vm.selectTab(HomeTab.STATS)
+            vm.selectTab(HomeTab.HOME)
+            runCurrent()
+        }
+        vm.loadDashboard()
+        vm.stateFlow.first { it.dashboard is ContentViewState.Ready }
+        runCurrent()
+        assertEquals(catalog, vm.stateFlow.value.topicCatalog)
         assertEquals(1, fixture.cache.writes)
-        vm.selectTab(HomeTab.STATS)
-        vm.selectTab(HomeTab.HOME)
+        assertEquals(1, fixture.cache.refreshes.value)
+        assertEquals(1, fixture.paths().count { it == "/topics" })
+        assertEquals(2, fixture.paths().count { it == "/me" })
+    }
+
+    @Test fun launchingANewHomeViewModelRefreshesTheCatalogForThatLaunch() = runTest(dispatcher) {
+        val fixture = Fixture()
+        val first = fixture.viewModel()
+        first.stateFlow.first { it.topicCatalog is ContentViewState.Ready }
+        runCurrent()
+        fixture.topicsBody = "[]"
+        val second = fixture.viewModel()
         fixture.cache.refreshes.first { it == 2 }
+        second.stateFlow.first {
+            it.dashboard is ContentViewState.Ready &&
+                (it.topicCatalog as? ContentViewState.Ready)?.content?.isEmpty() == true
+        }
+        assertEquals(2, fixture.paths().count { it == "/topics" })
+    }
+
+    @Test fun unauthorizedProfileDoesNotStartCatalogInitialization() = runTest(dispatcher) {
+        val fixture = Fixture().apply { meStatus = 401 }
+        val vm = fixture.viewModel()
+        vm.stateFlow.first { it.sessionExpired }
         runCurrent()
-        assertEquals(1, fixture.cache.writes)
-        fixture.topicsBody = """[{"id":1,"specialization":"ANDROID","slug":"kotlin","name":"Updated Kotlin","active":true}]"""
-        vm.selectTab(HomeTab.QUESTIONS)
-        vm.selectTab(HomeTab.HOME)
-        vm.stateFlow.first { (it.topicCatalog as? ContentViewState.Ready)?.content?.singleOrNull()?.name == "Updated Kotlin" }
-        runCurrent()
-        assertEquals(2, fixture.cache.writes)
-        assertEquals(3, fixture.paths().count { it == "/topics" })
-        vm.selectTab(HomeTab.HOME)
-        runCurrent()
-        assertEquals(3, fixture.paths().count { it == "/topics" })
+        assertFalse(fixture.paths().contains("/topics"))
+        assertEquals(0, fixture.cache.writes)
     }
 
     @Test fun failedCatalogCanRetryAndDuplicateRetriesDoNotSendExtraRequests() = runTest(dispatcher) {
@@ -525,7 +548,7 @@ class HomeFlowTest {
         assertEquals(1, fixture.cache.writes)
     }
 
-    @Test fun aFailedBackgroundRefreshKeepsCachedTopicsAvailable() = runTest(dispatcher) {
+    @Test fun aFailedExplicitCatalogRetryKeepsCachedTopicsAvailable() = runTest(dispatcher) {
         val fixture = Fixture()
         val vm = fixture.viewModel()
         vm.stateFlow.first { it.topicCatalog is ContentViewState.Ready }
@@ -535,7 +558,7 @@ class HomeFlowTest {
         vm.selectTab(HomeTab.QUESTIONS)
         val event = async { vm.uiEventsFlow.first() }
         runCurrent()
-        vm.selectTab(HomeTab.HOME)
+        vm.refreshTopicCatalog()
         assertEquals(com.oniolla.interviewer.ui.UiEvent.Toast("Server message"), event.await())
         assertEquals(cached, vm.stateFlow.value.topicCatalog)
         assertEquals(1, fixture.cache.writes)

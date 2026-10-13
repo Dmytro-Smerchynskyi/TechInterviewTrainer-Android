@@ -1,5 +1,6 @@
 package com.oniolla.interviewer.ui.home
 
+import com.oniolla.interviewer.data.model.StatsResponse
 import com.oniolla.interviewer.data.model.TopicResponse
 import com.oniolla.interviewer.data.model.QuestionResponse
 import com.oniolla.interviewer.data.model.QuestionTopicAccess
@@ -30,6 +31,16 @@ data class QuestionsContent(
     val resultRevision: Int = 0
 )
 
+data class StatisticsContent(
+    val response: StatsResponse,
+    val weekStart: String,
+    val currentWeekStart: String,
+    val isChartLoading: Boolean = false,
+    val chartError: String? = null
+) {
+    val canGoToNextWeek: Boolean get() = weekStart < currentWeekStart
+}
+
 data class HomeViewState(
     val tab: HomeTab = HomeTab.HOME,
     val dashboard: ContentViewState<DashboardContent> = ContentViewState.Loading,
@@ -42,6 +53,7 @@ data class HomeViewState(
     val questions: ContentViewState<QuestionsContent> = ContentViewState.NotLoaded,
     val favoritesFilter: FavoritesFilter = FavoritesFilter.SAVED,
     val favorites: ContentViewState<QuestionsContent> = ContentViewState.NotLoaded,
+    val statistics: ContentViewState<StatisticsContent> = ContentViewState.NotLoaded,
     val sessionExpired: Boolean = false
 ) {
     val displayName: String

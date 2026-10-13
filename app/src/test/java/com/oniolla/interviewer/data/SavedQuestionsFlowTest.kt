@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import com.oniolla.interviewer.domain.ContentResult
 import com.oniolla.interviewer.domain.GetDashboardUseCase
+import com.oniolla.interviewer.domain.GetStatsUseCase
 import com.oniolla.interviewer.domain.GetFavoriteQuestionsUseCase
 import com.oniolla.interviewer.domain.GetQuestionsUseCase
 import com.oniolla.interviewer.domain.GetTopicsUseCase
@@ -149,7 +150,8 @@ class SavedQuestionsFlowTest {
             SavedStateHandle(mapOf("homeTab" to "QUESTIONS")),
             TopicCatalogUseCase(fixture.repository),
             fixture.setSaved,
-            GetFavoriteQuestionsUseCase(fixture.repository)
+            GetFavoriteQuestionsUseCase(fixture.repository),
+            GetStatsUseCase(fixture.repository)
         )
         stores += ViewModelStore().apply { put("home", vm) }
         vm.stateFlow.first {

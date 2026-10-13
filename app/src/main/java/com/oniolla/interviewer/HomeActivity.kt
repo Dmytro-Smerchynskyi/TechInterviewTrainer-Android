@@ -64,7 +64,9 @@ class HomeActivity : ComponentActivity() {
                     onFavoritesFilterSelected = viewModel::selectFavoritesFilter,
                     onRetryFavorites = viewModel::loadFavorites,
                     onLoadMoreFavorites = viewModel::loadMoreFavorites,
-                    onRetryFavoritePage = viewModel::retryFavoritePage
+                    onRetryFavoritePage = viewModel::retryFavoritePage,
+                    onRetryStats = viewModel::loadStats,
+                    onStatsWeekChanged = viewModel::changeStatsWeek
                 )
             }
         }

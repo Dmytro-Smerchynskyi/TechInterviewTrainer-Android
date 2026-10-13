@@ -43,6 +43,7 @@ internal fun FigmaIcon(asset: String, modifier: Modifier = Modifier, tint: Color
 
 private fun figmaIconResource(asset: String): Int = when (asset) {
     "calendar" -> R.drawable.home_icon_calendar
+    "bookmark" -> R.drawable.stats_icon_bookmark
     "chevron" -> R.drawable.home_icon_chevron
     "code" -> R.drawable.home_icon_code
     "favorite" -> R.drawable.home_icon_favorite

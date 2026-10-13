@@ -4,6 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.oniolla.interviewer.domain.ContentResult
+import com.oniolla.interviewer.domain.GetStatsUseCase
+import com.oniolla.interviewer.domain.StatsRequest
+import com.oniolla.interviewer.domain.StatsDates
 import com.oniolla.interviewer.domain.GetDashboardUseCase
 import com.oniolla.interviewer.domain.GetTopicsUseCase
 import com.oniolla.interviewer.domain.TopicsFilter
@@ -42,7 +45,8 @@ class HomeViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val topicCatalogUseCase: TopicCatalogUseCase,
     private val setQuestionSavedUseCase: SetQuestionSavedUseCase,
-    private val getFavoriteQuestionsUseCase: GetFavoriteQuestionsUseCase
+    private val getFavoriteQuestionsUseCase: GetFavoriteQuestionsUseCase,
+    private val getStatsUseCase: GetStatsUseCase
 ) : ViewModel() {
     private val _stateFlow = MutableStateFlow(HomeViewState(
         tab = HomeTab.entries.firstOrNull { it.name == savedStateHandle.get<String>("homeTab") }
@@ -81,6 +85,11 @@ class HomeViewModel @Inject constructor(
     private var favoritesGeneration = 0
     private var favoritesDirty = false
     private val favoriteConsumedCursors = mutableSetOf<String>()
+    private var statsJob: Job? = null
+    private var statsGeneration = 0
+    private val statsTimeZone = StatsDates.deviceTimeZone()
+    private var statsWeekStart = StatsDates.validMonday(savedStateHandle.get<String>("statsWeekStart"))
+        ?.takeIf { it <= StatsDates.currentWeek(statsTimeZone) }
 
     init {
         loadDashboard()
@@ -88,6 +97,7 @@ class HomeViewModel @Inject constructor(
             HomeTab.TOPICS -> loadTopics()
             HomeTab.QUESTIONS -> loadQuestions()
             HomeTab.FAVORITES -> loadFavorites()
+            HomeTab.STATS -> loadStats()
             else -> Unit
         }
     }
@@ -96,6 +106,7 @@ class HomeViewModel @Inject constructor(
         val previousTab = _stateFlow.value.tab
         savedStateHandle["homeTab"] = tab.name
         _stateFlow.update { it.copy(tab = tab) }
+        if (tab == HomeTab.STATS && _stateFlow.value.statistics == ContentViewState.NotLoaded) loadStats()
         if (tab == HomeTab.TOPICS && _stateFlow.value.topics == ContentViewState.NotLoaded) loadTopics()
         if (tab == HomeTab.QUESTIONS && _stateFlow.value.questions == ContentViewState.NotLoaded) loadQuestions()
         if (tab == HomeTab.FAVORITES && (_stateFlow.value.favorites == ContentViewState.NotLoaded ||
@@ -393,6 +404,63 @@ class HomeViewModel @Inject constructor(
         if (content.appendError == null) return
         _stateFlow.update { it.copy(favorites = ContentViewState.Ready(content.copy(appendError = null))) }
         loadMoreFavorites()
+    }
+
+    fun loadStats() {
+        if (statsJob?.isActive == true) return
+        refreshStats()
+    }
+
+    fun changeStatsWeek(direction: Int) {
+        if (direction != -1 && direction != 1) return
+        val content = (_stateFlow.value.statistics as? ContentViewState.Ready)?.content ?: return
+        val nextWeek = StatsDates.shiftDays(content.weekStart, direction * 7)
+        if (nextWeek > content.currentWeekStart) return
+        statsWeekStart = nextWeek
+        savedStateHandle["statsWeekStart"] = nextWeek
+        refreshStats()
+    }
+
+    private fun refreshStats() {
+        statsJob?.cancel()
+        val generation = ++statsGeneration
+        val requestedWeek = statsWeekStart
+        _stateFlow.update { state ->
+            val content = (state.statistics as? ContentViewState.Ready)?.content
+            state.copy(statistics = if (content == null) ContentViewState.Loading else
+                ContentViewState.Ready(content.copy(
+                    weekStart = requestedWeek ?: content.weekStart,
+                    isChartLoading = true, chartError = null
+                )))
+        }
+        statsJob = viewModelScope.launch {
+            val result = getStatsUseCase(StatsRequest(statsTimeZone, requestedWeek))
+            currentCoroutineContext().ensureActive()
+            if (generation != statsGeneration) return@launch
+            _stateFlow.update { state ->
+                val contentState = when (result) {
+                    is ContentResult.Success -> {
+                        val response = result.content
+                        val currentWeek = StatsDates.currentWeek(response.timeZone,
+                            StatsDates.serverTimeMillis(response.serverTime) ?: System.currentTimeMillis())
+                        val week = (StatsDates.validMonday(response.weekStart) ?: requestedWeek ?: currentWeek)
+                            .coerceAtMost(currentWeek)
+                        statsWeekStart = week
+                        savedStateHandle["statsWeekStart"] = week
+                        ContentViewState.Ready(StatisticsContent(response, week, currentWeek))
+                    }
+                    is ContentResult.Error -> {
+                        val content = (state.statistics as? ContentViewState.Ready)?.content
+                        if (content == null) ContentViewState.Failed(result.message) else
+                            ContentViewState.Ready(content.copy(isChartLoading = false, chartError = result.message))
+                    }
+                    ContentResult.SessionExpired -> ContentViewState.NotLoaded
+                }
+                state.copy(statistics = contentState,
+                    sessionExpired = state.sessionExpired || result == ContentResult.SessionExpired)
+            }
+            if (result is ContentResult.Error) _uiEventsFlow.emit(UiEvent.Toast(result.message))
+        }
     }
 
     fun loadDashboard() {

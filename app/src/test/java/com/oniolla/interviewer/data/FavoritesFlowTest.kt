@@ -132,7 +132,7 @@ class FavoritesFlowTest {
             GetDashboardUseCase(fixture.repository, fixture.auth),
             GetTopicsUseCase(fixture.repository), GetQuestionsUseCase(fixture.repository),
             handle, TopicCatalogUseCase(fixture.repository), SetQuestionSavedUseCase(fixture.repository),
-            fixture.favorites
+            fixture.favorites, GetStatsUseCase(fixture.repository)
         )
         stores += ViewModelStore().apply { put("home", vm) }
         vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.topicCatalog is ContentViewState.Ready }

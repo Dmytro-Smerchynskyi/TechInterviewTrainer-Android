@@ -17,7 +17,10 @@ data class Readiness(
     @SerializedName("practicedTopics") val practicedTopics: Int = 0,
     @SerializedName("totalTopics") val totalTopics: Int = 0,
     @SerializedName("gradePerformance") val gradePerformance: List<GradePerformance> = emptyList(),
-    @SerializedName("label") val label: String? = null
+    @SerializedName("label") val label: String? = null,
+    @SerializedName("previousWeekScore") val previousWeekScore: Double? = null,
+    @SerializedName("changeSinceLastWeekPoints") val changeSinceLastWeekPoints: Double? = null,
+    @SerializedName("comparedAt") val comparedAt: String? = null
 )
 
 data class GradePerformance(

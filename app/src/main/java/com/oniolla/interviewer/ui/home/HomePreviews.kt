@@ -72,15 +72,35 @@ private val previewQuestions = listOf(
         QuestionTopic(3, "flow", "Flow", previewVisuals[2]), "EASY", "JUNIOR", "MIDDLE")
 )
 
+private val previewStatistics = StatsResponse(
+    readiness = Readiness(score = 78.0, previousWeekScore = 66.0, changeSinceLastWeekPoints = 12.0),
+    summary = StatsSummary(answered = 124, streakDays = 7, dueCount = 18, averageStudySeconds = null),
+    weekStart = "2026-10-12", weekEnd = "2026-10-18", timeZone = "Europe/Prague",
+    studyProgress = listOf(6, 9, 12, 15, 18, 21, 24).mapIndexed { index, answered ->
+        StudyProgressDay("2026-10-${12 + index}", answered)
+    },
+    topics = listOf("Kotlin", "Coroutines", "Flow", "RxJava", "Compose", "Architecture")
+        .mapIndexed { index, name ->
+            val colors = listOf("#7C4DFF", "#18D9FF", "#10A8FF", "#F44AA7", "#13D68B", "#FFB13B")
+            WeakTopic(index + 1L, name, mastery = listOf(85.0, 72.0, 68.0, 55.0, 62.0, 59.0)[index],
+                visual = TopicVisual(null, 1, colors[index], colors[index]))
+        }
+)
+
 @Composable
 private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false, empty: Boolean = false,
     topic: QuestionTopicFilter? = null, appending: Boolean = false, appendError: String? = null,
-    topicsFilter: TopicsFilter = TopicsFilter.ALL, favoritesFilter: FavoritesFilter = FavoritesFilter.SAVED) {
+    topicsFilter: TopicsFilter = TopicsFilter.ALL, favoritesFilter: FavoritesFilter = FavoritesFilter.SAVED,
+    statisticsResponse: StatsResponse? = null) {
     // Preview renderer does not supply the status-bar inset.
     Box(Modifier.background(AppTheme.colors.background).padding(top = 24.dp)) {
         HomeScreen(
             state = HomeViewState(
                 tab = tab,
+                statistics = if (loading) ContentViewState.Loading else ContentViewState.Ready(StatisticsContent(
+                    response = statisticsResponse ?: if (empty) StatsResponse() else previewStatistics,
+                    weekStart = "2026-10-12", currentWeekStart = "2026-10-12"
+                )),
                 dashboard = if (loading) ContentViewState.Loading
                     else ContentViewState.Ready(if (empty) previewDashboard.copy(dashboard = DashboardResponse()) else previewDashboard),
                 topics = if (loading) ContentViewState.Loading
@@ -108,7 +128,8 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
             onRetryQuestions = {}, onLoadMoreQuestions = {}, onRetryQuestionPage = {},
             onTopicsFilterSelected = {}, onSeeWeakTopics = {}, onRetryTopicCatalog = {},
             onToggleQuestionSaved = {}, onFavoritesFilterSelected = {},
-            onRetryFavorites = {}, onLoadMoreFavorites = {}, onRetryFavoritePage = {}
+            onRetryFavorites = {}, onLoadMoreFavorites = {}, onRetryFavoritePage = {},
+            onRetryStats = {}, onStatsWeekChanged = {}
         )
     }
 }
@@ -242,4 +263,26 @@ fun FavoritesDueEmptyPreview() { InterviewTrainerTheme(darkTheme = true) {
 @Composable
 fun FavoritesMasteredEmptyPreview() { InterviewTrainerTheme(darkTheme = false) {
     PreviewContent(HomeTab.FAVORITES, empty = true, favoritesFilter = FavoritesFilter.MASTERED)
+} }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun StatisticsDarkPreview() { InterviewTrainerTheme(darkTheme = true) { PreviewContent(HomeTab.STATS) } }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun StatisticsLightPreview() { InterviewTrainerTheme(darkTheme = false) { PreviewContent(HomeTab.STATS) } }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun StatisticsLoadingPreview() { InterviewTrainerTheme(darkTheme = true) { PreviewContent(HomeTab.STATS, loading = true) } }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun StatisticsEmptyPreview() { InterviewTrainerTheme(darkTheme = false) { PreviewContent(HomeTab.STATS, empty = true) } }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun StatisticsNoComparisonPreview() { InterviewTrainerTheme(darkTheme = true) {
+    PreviewContent(HomeTab.STATS, statisticsResponse = previewStatistics.copy(readiness = Readiness(score = 78.0)))
 } }

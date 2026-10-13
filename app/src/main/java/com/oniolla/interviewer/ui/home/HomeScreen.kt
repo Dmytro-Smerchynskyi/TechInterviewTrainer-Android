@@ -59,7 +59,9 @@ fun HomeScreen(
     onFavoritesFilterSelected: (FavoritesFilter) -> Unit,
     onRetryFavorites: () -> Unit,
     onLoadMoreFavorites: () -> Unit,
-    onRetryFavoritePage: () -> Unit
+    onRetryFavoritePage: () -> Unit,
+    onRetryStats: () -> Unit,
+    onStatsWeekChanged: (Int) -> Unit
 ) {
     Scaffold(
         modifier = Modifier.imePadding(),
@@ -90,7 +92,8 @@ fun HomeScreen(
                 HomeTab.QUESTIONS -> QuestionsScreen(state, onQuestionSearch, onClearQuestionTopic,
                     onRetryQuestions, onLoadMoreQuestions, onRetryQuestionPage,
                     onQuestionTopicSelected, onRetryTopicCatalog, onToggleQuestionSaved)
-                HomeTab.STATS -> EmptyTab(stringResource(R.string.statistics_empty))
+                HomeTab.STATS -> StatisticsScreen(state.statistics, onRetryStats,
+                    onStatsWeekChanged, onQuestionTopicSelected)
                 HomeTab.FAVORITES -> FavoritesScreen(state, onFavoritesFilterSelected,
                     onRetryFavorites, onLoadMoreFavorites, onRetryFavoritePage, onToggleQuestionSaved)
             }

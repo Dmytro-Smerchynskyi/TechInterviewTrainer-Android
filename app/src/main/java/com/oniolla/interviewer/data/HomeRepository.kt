@@ -2,6 +2,7 @@ package com.oniolla.interviewer.data
 
 import com.oniolla.interviewer.data.local.TopicCache
 import com.oniolla.interviewer.data.model.DashboardResponse
+import com.oniolla.interviewer.data.model.StatsResponse
 import com.oniolla.interviewer.data.model.TopicResponse
 import com.oniolla.interviewer.data.model.QuestionsResponse
 import javax.inject.Inject
@@ -17,6 +18,9 @@ class HomeRepository @Inject constructor(
         val topics = getTopics().filter { it.active }.sortedWith(compareBy({ it.sortOrder }, { it.id }))
         topicCache.replaceIfChanged(scope, topics)
     }
+
+    suspend fun getStats(timeZone: String?, weekStart: String?): StatsResponse =
+        sessionRefresh.authorizedApiCall { api.stats(timeZone, weekStart, it) }
 
     suspend fun getDashboard(): DashboardResponse = sessionRefresh.authorizedApiCall { api.dashboard(it) }
     suspend fun getTopics(type: String? = null): List<TopicResponse> = sessionRefresh.authorizedApiCall { api.topics(type, it) }

@@ -1,6 +1,7 @@
 package com.oniolla.interviewer.data
 
 import com.oniolla.interviewer.data.model.DashboardResponse
+import com.oniolla.interviewer.data.model.StatsResponse
 import com.oniolla.interviewer.data.model.TopicResponse
 import com.oniolla.interviewer.data.model.QuestionsResponse
 import com.oniolla.interviewer.data.model.ForgotPasswordResponse
@@ -28,6 +29,13 @@ import retrofit2.http.Path
 import retrofit2.http.DELETE
 
 interface Api {
+
+    @GET("stats")
+    suspend fun stats(
+        @Query("timeZone") timeZone: String? = null,
+        @Query("weekStart") weekStart: String? = null,
+        @Tag session: SessionSnapshot? = null
+    ): StatsResponse
 
     @GET("dashboard")
     suspend fun dashboard(@Tag session: SessionSnapshot? = null): DashboardResponse

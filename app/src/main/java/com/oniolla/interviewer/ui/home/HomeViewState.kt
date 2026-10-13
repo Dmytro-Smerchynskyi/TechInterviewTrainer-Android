@@ -25,7 +25,8 @@ data class QuestionsContent(
     val topics: List<QuestionTopicAccess> = emptyList(),
     val access: QuestionTopicAccess? = null,
     val isAppending: Boolean = false,
-    val appendError: String? = null
+    val appendError: String? = null,
+    val resultRevision: Int = 0
 )
 
 data class HomeViewState(
@@ -33,6 +34,7 @@ data class HomeViewState(
     val dashboard: ContentViewState<DashboardContent> = ContentViewState.Loading,
     val topics: ContentViewState<List<TopicResponse>> = ContentViewState.NotLoaded,
     val topicsFilter: TopicsFilter = TopicsFilter.ALL,
+    val topicCatalog: ContentViewState<List<TopicResponse>> = ContentViewState.Loading,
     val questionSearch: String = "",
     val questionTopic: QuestionTopicFilter? = null,
     val questions: ContentViewState<QuestionsContent> = ContentViewState.NotLoaded,

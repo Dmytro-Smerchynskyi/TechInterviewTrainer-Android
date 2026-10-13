@@ -126,6 +126,7 @@
     <string name="all_topics">All</string>
     <string name="questions_empty">No questions found. Try another search or topic.</string>
     <string name="questions_clear_topic">Clear topic filter</string>
+    <string name="questions_clear_search">Clear search</string>
     <string name="questions_more_failed">Unable to load more questions</string>
     <string name="question_difficulty_easy">Easy</string>
     <string name="question_difficulty_medium">Medium</string>

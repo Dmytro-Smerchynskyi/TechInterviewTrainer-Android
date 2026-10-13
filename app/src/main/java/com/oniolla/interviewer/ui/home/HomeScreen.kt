@@ -37,6 +37,7 @@ import com.oniolla.interviewer.MainButton
 import com.oniolla.interviewer.R
 import com.oniolla.interviewer.ui.theme.AppTheme
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
     state: HomeViewState,
@@ -51,16 +52,20 @@ fun HomeScreen(
     onLoadMoreQuestions: () -> Unit,
     onRetryQuestionPage: () -> Unit,
     onTopicsFilterSelected: (TopicsFilter) -> Unit,
-    onSeeWeakTopics: () -> Unit
+    onSeeWeakTopics: () -> Unit,
+    onRetryTopicCatalog: () -> Unit
 ) {
     Scaffold(
+        modifier = Modifier.imePadding(),
         containerColor = AppTheme.colors.background,
         topBar = { HomeHeader(state) },
-        bottomBar = { HomeNavigation(state.tab, onTabSelected) }
+        bottomBar = {
+            if (!WindowInsets.isImeVisible) HomeNavigation(state.tab, onTabSelected)
+        }
     ) { padding ->
         AnimatedContent(
             targetState = state.tab,
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
             transitionSpec = {
                 val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
                 (slideInHorizontally(tween(250)) { it * direction / 5 } + fadeIn(tween(250)))
@@ -77,7 +82,8 @@ fun HomeScreen(
                     onQuestionTopicSelected(topic.id, topic.name)
                 }
                 HomeTab.QUESTIONS -> QuestionsScreen(state, onQuestionSearch, onClearQuestionTopic,
-                    onRetryQuestions, onLoadMoreQuestions, onRetryQuestionPage)
+                    onRetryQuestions, onLoadMoreQuestions, onRetryQuestionPage,
+                    onQuestionTopicSelected, onRetryTopicCatalog)
                 HomeTab.STATS -> EmptyTab(stringResource(R.string.statistics_empty))
                 HomeTab.FAVORITES -> EmptyTab(stringResource(R.string.favorites_empty))
             }

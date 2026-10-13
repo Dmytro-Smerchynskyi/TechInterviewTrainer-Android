@@ -1,7 +1,12 @@
 package com.oniolla.interviewer.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -79,6 +84,7 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
                     else ContentViewState.Ready(if (empty) previewDashboard.copy(dashboard = DashboardResponse()) else previewDashboard),
                 topics = if (loading) ContentViewState.Loading
                     else ContentViewState.Ready(if (empty) emptyList() else previewTopics),
+                topicCatalog = ContentViewState.Ready(previewTopics),
                 questionSearch = if (tab == HomeTab.QUESTIONS && topic == null) "flow" else "",
                 questionTopic = topic,
                 topicsFilter = topicsFilter,
@@ -93,10 +99,29 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
             onRetryDashboard = {}, onRetryTopics = {},
             onQuestionTopicSelected = { _, _ -> }, onClearQuestionTopic = {},
             onRetryQuestions = {}, onLoadMoreQuestions = {}, onRetryQuestionPage = {},
-            onTopicsFilterSelected = {}, onSeeWeakTopics = {}
+            onTopicsFilterSelected = {}, onSeeWeakTopics = {}, onRetryTopicCatalog = {}
         )
     }
 }
+
+@Composable
+private fun QuestionTopicMenuPreview() {
+    Surface(color = AppTheme.colors.container, shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
+        Column(Modifier.width(230.dp).padding(vertical = 8.dp)) {
+            QuestionTopicsMenuContent(QuestionTopicFilter(3, "Flow"),
+                ContentViewState.Ready(previewTopics), { _, _ -> }, {}, {})
+        }
+    }
+}
+
+@Preview
+@Composable
+fun QuestionTopicMenuDarkPreview() { InterviewTrainerTheme(darkTheme = true) { QuestionTopicMenuPreview() } }
+
+@Preview
+@Composable
+fun QuestionTopicMenuLightPreview() { InterviewTrainerTheme(darkTheme = false) { QuestionTopicMenuPreview() } }
 
 @Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
 @Composable

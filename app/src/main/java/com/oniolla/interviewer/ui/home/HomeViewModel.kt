@@ -7,6 +7,7 @@ import com.oniolla.interviewer.domain.ContentResult
 import com.oniolla.interviewer.domain.GetDashboardUseCase
 import com.oniolla.interviewer.domain.GetTopicsUseCase
 import com.oniolla.interviewer.domain.TopicsFilter
+import com.oniolla.interviewer.domain.TopicCatalogUseCase
 import com.oniolla.interviewer.domain.GetQuestionsUseCase
 import com.oniolla.interviewer.domain.QuestionsRequest
 import com.oniolla.interviewer.ui.UiEvent
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,7 +30,8 @@ class HomeViewModel @Inject constructor(
     private val getDashboardUseCase: GetDashboardUseCase,
     private val getTopicsUseCase: GetTopicsUseCase,
     private val getQuestionsUseCase: GetQuestionsUseCase,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val topicCatalogUseCase: TopicCatalogUseCase
 ) : ViewModel() {
     private val _stateFlow = MutableStateFlow(HomeViewState(
         tab = HomeTab.entries.firstOrNull { it.name == savedStateHandle.get<String>("homeTab") }
@@ -47,6 +50,9 @@ class HomeViewModel @Inject constructor(
     private var dashboardJob: Job? = null
     private var topicsJob: Job? = null
     private var topicsGeneration = 0
+    private var catalogScope: String? = null
+    private var catalogObserverJob: Job? = null
+    private var catalogRefreshJob: Job? = null
     private var questionsJob: Job? = null
     private var questionsGeneration = 0
     private val consumedCursors = mutableSetOf<String>()
@@ -61,8 +67,10 @@ class HomeViewModel @Inject constructor(
     }
 
     fun selectTab(tab: HomeTab) {
+        val enteringHome = tab == HomeTab.HOME && _stateFlow.value.tab != HomeTab.HOME
         savedStateHandle["homeTab"] = tab.name
         _stateFlow.update { it.copy(tab = tab) }
+        if (enteringHome) refreshTopicCatalog()
         if (tab == HomeTab.TOPICS && _stateFlow.value.topics == ContentViewState.NotLoaded) loadTopics()
         if (tab == HomeTab.QUESTIONS && _stateFlow.value.questions == ContentViewState.NotLoaded) loadQuestions()
     }
@@ -100,7 +108,7 @@ class HomeViewModel @Inject constructor(
         savedStateHandle["questionSearch"] = query
         _stateFlow.update { it.copy(questionSearch = query) }
         if (_stateFlow.value.tab == HomeTab.QUESTIONS ||
-            _stateFlow.value.questions != ContentViewState.NotLoaded) refreshQuestions(debounce = true)
+            _stateFlow.value.questions != ContentViewState.NotLoaded) refreshQuestions(debounce = query.isNotEmpty())
     }
 
     fun loadQuestions() {
@@ -125,7 +133,8 @@ class HomeViewModel @Inject constructor(
                         items = result.content.items.distinctBy { item -> item.id },
                         nextCursor = result.content.nextCursor?.takeIf { cursor -> cursor.isNotEmpty() },
                         topics = result.content.topics,
-                        access = result.content.access
+                        access = result.content.access,
+                        resultRevision = generation
                     ))
                     is ContentResult.Error -> ContentViewState.Failed(result.message)
                     ContentResult.SessionExpired -> ContentViewState.NotLoaded
@@ -191,11 +200,58 @@ class HomeViewModel @Inject constructor(
         _stateFlow.update { it.copy(dashboard = ContentViewState.Loading) }
         dashboardJob = viewModelScope.launch {
             val result = getDashboardUseCase(Unit)
+            if (result is ContentResult.Success) {
+                observeTopicCatalog(topicCatalogUseCase.scope(result.content.profile))
+                refreshTopicCatalog()
+            } else if (_stateFlow.value.topicCatalog == ContentViewState.Loading) {
+                _stateFlow.update { it.copy(topicCatalog = when (result) {
+                    is ContentResult.Error -> ContentViewState.Failed(result.message)
+                    else -> ContentViewState.NotLoaded
+                }) }
+            }
             _stateFlow.update {
                 it.copy(dashboard = result.toViewState(),
                     sessionExpired = it.sessionExpired || result == ContentResult.SessionExpired)
             }
             if (result is ContentResult.Error) _uiEventsFlow.emit(UiEvent.Toast(result.message))
+        }
+    }
+
+    private fun observeTopicCatalog(scope: String) {
+        if (catalogScope == scope) return
+        catalogObserverJob?.cancel()
+        catalogRefreshJob?.cancel()
+        catalogScope = scope
+        _stateFlow.update { it.copy(topicCatalog = ContentViewState.Loading) }
+        catalogObserverJob = viewModelScope.launch {
+            topicCatalogUseCase.observe(scope).catch { error ->
+                _stateFlow.update { it.copy(topicCatalog = ContentViewState.Failed(
+                    error.message ?: "Unable to load topics")) }
+            }.collect { topics ->
+                if (topics != null) _stateFlow.update { it.copy(topicCatalog = ContentViewState.Ready(topics)) }
+            }
+        }
+    }
+
+    fun refreshTopicCatalog() {
+        val scope = catalogScope ?: return
+        if (catalogRefreshJob?.isActive == true) return
+        if (_stateFlow.value.topicCatalog !is ContentViewState.Ready) {
+            _stateFlow.update { it.copy(topicCatalog = ContentViewState.Loading) }
+        }
+        catalogRefreshJob = viewModelScope.launch {
+            val result = topicCatalogUseCase.refresh(scope)
+            currentCoroutineContext().ensureActive()
+            if (scope != catalogScope) return@launch
+            when (result) {
+                is ContentResult.Error -> {
+                    _stateFlow.update { if (it.topicCatalog is ContentViewState.Ready) it
+                        else it.copy(topicCatalog = ContentViewState.Failed(result.message)) }
+                    _uiEventsFlow.emit(UiEvent.Toast(result.message))
+                }
+                ContentResult.SessionExpired -> _stateFlow.update { it.copy(sessionExpired = true) }
+                is ContentResult.Success -> Unit
+            }
         }
     }
 

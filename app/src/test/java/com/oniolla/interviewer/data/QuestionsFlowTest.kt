@@ -5,6 +5,7 @@ import com.oniolla.interviewer.domain.ContentResult
 import com.oniolla.interviewer.domain.GetDashboardUseCase
 import com.oniolla.interviewer.domain.GetQuestionsUseCase
 import com.oniolla.interviewer.domain.GetTopicsUseCase
+import com.oniolla.interviewer.domain.TopicCatalogUseCase
 import com.oniolla.interviewer.domain.QuestionsRequest
 import com.oniolla.interviewer.ui.home.ContentViewState
 import com.oniolla.interviewer.ui.home.HomeTab
@@ -90,13 +91,13 @@ class QuestionsFlowTest {
             }.build()
             val api = Retrofit.Builder().baseUrl("https://api.example.test/").client(client)
                 .addConverterFactory(GsonConverterFactory.create()).build().create(Api::class.java)
-            repository = HomeRepository(api)
+            repository = HomeRepository(api, MemoryTopicCache())
             getQuestions = GetQuestionsUseCase(repository)
             auth = AuthRepository(Tokens(), api)
         }
 
         fun viewModel(handle: SavedStateHandle = SavedStateHandle()) =
-            HomeViewModel(GetDashboardUseCase(repository, auth), GetTopicsUseCase(repository), getQuestions, handle)
+            HomeViewModel(GetDashboardUseCase(repository, auth), GetTopicsUseCase(repository), getQuestions, handle, TopicCatalogUseCase(repository))
         fun questionRequests() = requests.filter { it.url.encodedPath == "/questions" }
 
         companion object {
@@ -219,6 +220,41 @@ class QuestionsFlowTest {
         assertEquals("Flow", vm.stateFlow.value.questionSearch)
         assertEquals("7", fixture.questionRequests().last().url.queryParameter("topicId"))
         assertEquals("Flow", fixture.questionRequests().last().url.queryParameter("search"))
+    }
+
+    @Test fun freshResultsResetScrollRevisionWhilePaginationPreservesIt() = runTest(dispatcher) {
+        val fixture = Fixture()
+        val vm = fixture.viewModel(SavedStateHandle(mapOf("homeTab" to "QUESTIONS")))
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        val firstRevision = content(vm).resultRevision
+        vm.loadMoreQuestions()
+        vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.items?.size == 3 }
+        assertEquals(firstRevision, content(vm).resultRevision)
+
+        vm.updateQuestionSearch("flow")
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        val searchRevision = content(vm).resultRevision
+        assertTrue(searchRevision > firstRevision)
+        assertEquals(listOf(1L, 2L), content(vm).items.map { it.id })
+
+        vm.selectQuestionTopic(7, "Flow")
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        val topicRevision = content(vm).resultRevision
+        assertTrue(topicRevision > searchRevision)
+
+        vm.clearQuestionTopic()
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        val clearedTopicRevision = content(vm).resultRevision
+        assertTrue(clearedTopicRevision > topicRevision)
+
+        vm.updateQuestionSearch("")
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        val clearedSearchRevision = content(vm).resultRevision
+        assertTrue(clearedSearchRevision > clearedTopicRevision)
+
+        vm.loadQuestions()
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        assertTrue(content(vm).resultRevision > clearedSearchRevision)
     }
 
     @Test fun paginationKeepsFiltersDeduplicatesItemsAndStopsWithoutCursor() = runTest(dispatcher) {
@@ -370,6 +406,25 @@ class QuestionsFlowTest {
         runCurrent()
         assertEquals("Kotlin", vm.stateFlow.value.questionTopic!!.name)
         assertEquals(listOf(8L), content(vm).items.map { it.id })
+    }
+
+    @Test fun clearingSearchImmediatelyRemovesSearchAndCursorWhileKeepingTopic() = runTest(dispatcher) {
+        val fixture = Fixture()
+        val handle = SavedStateHandle(mapOf("homeTab" to "QUESTIONS", "questionSearch" to "flow",
+            "questionTopicId" to 7L, "questionTopicName" to "Flow"))
+        val vm = fixture.viewModel(handle)
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.loadMoreQuestions()
+        vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.items?.size == 3 }
+        vm.updateQuestionSearch("")
+        runCurrent()
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        assertEquals("", vm.stateFlow.value.questionSearch)
+        assertEquals("", handle.get<String>("questionSearch"))
+        val url = fixture.questionRequests().last().url
+        assertNull(url.queryParameter("search"))
+        assertNull(url.queryParameter("cursor"))
+        assertEquals("7", url.queryParameter("topicId"))
     }
 
     @Test fun anExpiredSessionDuringPaginationTriggersAuthNavigation() = runTest(dispatcher) {

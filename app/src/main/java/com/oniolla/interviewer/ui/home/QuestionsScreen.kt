@@ -21,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,7 +32,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.PlatformTextStyle
@@ -56,38 +56,13 @@ internal fun QuestionsScreen(
     onClearTopic: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
-    onRetryPage: () -> Unit
+    onRetryPage: () -> Unit,
+    onSelectTopic: (Long, String) -> Unit,
+    onRetryTopicCatalog: () -> Unit
 ) {
-    Column(Modifier.fillMaxSize().imePadding().padding(horizontal = 20.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         QuestionsSearch(state.questionSearch, onSearch)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp).heightIn(min = 24.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                stringResource(R.string.questions_topic_filter,
-                    state.questionTopic?.name ?: stringResource(R.string.all_topics)),
-                modifier = Modifier.weight(1f, fill = false),
-                fontSize = 9.sp, lineHeight = 12.sp,
-                color = AppTheme.colors.secondaryText,
-                maxLines = 1, overflow = TextOverflow.Ellipsis
-            )
-            if (state.questionTopic != null) {
-                val clearDescription = stringResource(R.string.questions_clear_topic)
-                Surface(
-                    onClick = onClearTopic,
-                    modifier = Modifier.padding(start = 4.dp).size(24.dp)
-                        .semantics { contentDescription = clearDescription },
-                    shape = CircleShape,
-                    color = Color.Transparent
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Image(painterResource(R.drawable.question_clear_topic), null,
-                            Modifier.size(14.dp), colorFilter = ColorFilter.tint(AppTheme.colors.secondaryText))
-                    }
-                }
-            }
-        }
+        QuestionTopicPicker(state.questionTopic, state.topicCatalog, onSelectTopic, onClearTopic, onRetryTopicCatalog)
         AnimatedContent(
             targetState = state.questions,
             contentKey = { it::class },
@@ -138,6 +113,10 @@ private fun QuestionsSearch(query: String, onSearch: (String) -> Unit) {
                             style = style, color = AppTheme.colors.primaryText.copy(alpha = 0.5f))
                         field()
                     }
+                    if (query.isNotEmpty()) {
+                        QuestionClearButton(stringResource(R.string.questions_clear_search), { onSearch("") },
+                            Modifier.padding(start = 6.dp))
+                    }
                 }
             }
         )
@@ -146,7 +125,7 @@ private fun QuestionsSearch(query: String, onSearch: (String) -> Unit) {
 
 @Composable
 private fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onRetryPage: () -> Unit) {
-    val listState = rememberLazyListState()
+    val listState = key(content.resultRevision) { rememberLazyListState() }
     val lockedCount = content.access?.takeIf { it.limitedByPlan }?.lockedCount
         ?: content.topics.filter { it.limitedByPlan }.sumOf { it.lockedCount }
     LaunchedEffect(listState, content.items.size, content.nextCursor, content.isAppending, content.appendError) {

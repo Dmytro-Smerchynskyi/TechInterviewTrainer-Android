@@ -16,17 +16,30 @@ import com.oniolla.interviewer.data.payload.SpecializationPayload
 import com.oniolla.interviewer.data.payload.VerifyEmailPayload
 import io.reactivex.rxjava3.core.Single
 import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
+@Singleton
 class AuthRepository @Inject constructor(
     private val tokenStorage: SessionTokenStorage,
     private val api: Api,
     private val sessionRefresh: SessionRefreshCoordinator
 ) {
+    private data class CachedProfile(val sessionVersion: Long, val profile: MeResponse)
+    private var cachedProfile: CachedProfile? = null
+    private val profileMutex = Mutex()
 
     suspend fun refreshSession(): Boolean = sessionRefresh.restoreSession()
 
     fun clearSession() {
-        tokenStorage.clear()
+        synchronized(tokenStorage) {
+            tokenStorage.clear()
+            cachedProfile = null
+        }
     }
 
     suspend fun login(loginPayload: LoginPayload): LoginResponse =
@@ -35,20 +48,44 @@ class AuthRepository @Inject constructor(
     suspend fun verifyEmail(payload: VerifyEmailPayload): LoginResponse =
         apiCall { api.verifyEmail(payload) }.also(::saveTokens)
 
-    suspend fun getMe(): MeResponse = sessionRefresh.authorizedApiCall { api.me(it) }
+    suspend fun getMe(): MeResponse = updateProfile { api.me(it) }
 
-    suspend fun selectSpecialization(specialization: Specialization): MeResponse = sessionRefresh.authorizedApiCall {
+    suspend fun getSessionProfile(): MeResponse = profileMutex.withLock {
+        val cached = synchronized(tokenStorage) {
+            cachedProfile?.takeIf { it.sessionVersion == tokenStorage.snapshot().version }
+                .also { cachedProfile = it }
+        }
+        cached?.profile ?: getMe()
+    }
+
+    private suspend fun updateProfile(call: suspend (SessionSnapshot) -> MeResponse): MeResponse =
+        sessionRefresh.authorizedApiCall { session ->
+            val profile = call(session)
+            currentCoroutineContext().ensureActive()
+            synchronized(tokenStorage) {
+                if (tokenStorage.snapshot().version != session.version) {
+                    throw CancellationException("Session changed while loading profile")
+                }
+                cachedProfile = CachedProfile(session.version, profile)
+            }
+            profile
+        }
+
+    suspend fun selectSpecialization(specialization: Specialization): MeResponse = updateProfile {
         api.selectSpecialization(SpecializationPayload(specialization.code), it)
     }
 
     suspend fun getPreparationLanguages(): PreparationLanguagesResponse = sessionRefresh.authorizedApiCall { api.preparationLanguages(it) }
 
-    suspend fun selectPreparationLanguage(language: String): MeResponse = sessionRefresh.authorizedApiCall {
+    suspend fun selectPreparationLanguage(language: String): MeResponse = updateProfile {
         api.selectPreparationLanguage(PreparationLanguagePayload(language), it)
     }
 
     private fun saveTokens(response: LoginResponse) {
-        tokenStorage.saveSession(response.accessToken, response.refreshToken)
+        synchronized(tokenStorage) {
+            tokenStorage.saveSession(response.accessToken, response.refreshToken)
+            cachedProfile = null
+        }
     }
 
     suspend fun forgotPassword(email: String): ForgotPasswordResponse = apiCall {

@@ -507,7 +507,8 @@ class HomeFlowTest {
         assertEquals(1, fixture.cache.writes)
         assertEquals(1, fixture.cache.refreshes.value)
         assertEquals(1, fixture.paths().count { it == "/topics" })
-        assertEquals(2, fixture.paths().count { it == "/me" })
+        assertEquals(1, fixture.paths().count { it == "/me" })
+        assertEquals(2, fixture.paths().count { it == "/dashboard" })
     }
 
     @Test fun launchingANewHomeViewModelRefreshesTheCatalogForThatLaunch() = runTest(dispatcher) {

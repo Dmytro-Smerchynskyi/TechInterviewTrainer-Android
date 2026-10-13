@@ -60,7 +60,11 @@ class HomeActivity : ComponentActivity() {
                     onTopicsFilterSelected = viewModel::selectTopicsFilter,
                     onSeeWeakTopics = viewModel::openWeakTopics,
                     onRetryTopicCatalog = viewModel::refreshTopicCatalog,
-                    onToggleQuestionSaved = viewModel::toggleQuestionSaved
+                    onToggleQuestionSaved = viewModel::toggleQuestionSaved,
+                    onFavoritesFilterSelected = viewModel::selectFavoritesFilter,
+                    onRetryFavorites = viewModel::loadFavorites,
+                    onLoadMoreFavorites = viewModel::loadMoreFavorites,
+                    onRetryFavoritePage = viewModel::retryFavoritePage
                 )
             }
         }

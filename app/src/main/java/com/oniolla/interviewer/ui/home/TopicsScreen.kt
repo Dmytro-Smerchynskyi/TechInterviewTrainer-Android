@@ -88,6 +88,15 @@ internal fun TopicsScreen(
 
 @Composable
 private fun TopicFilterChip(filter: TopicsFilter, selected: Boolean, onClick: () -> Unit) {
+    HomeFilterChip(
+        stringResource(if (filter == TopicsFilter.ALL) R.string.topics_filter_all else R.string.topics_filter_weak),
+        selected, if (filter == TopicsFilter.ALL) 48.dp else 54.dp, onClick
+    )
+}
+
+@Composable
+internal fun HomeFilterChip(label: String, selected: Boolean, minWidth: androidx.compose.ui.unit.Dp,
+    onClick: () -> Unit) {
     val accent = if (selected) AppTheme.colors.link else AppTheme.colors.leftGradient
     val background by animateColorAsState(accent.copy(alpha = if (selected) 0.12f else 0.04f),
         tween(300), label = "topic filter background")
@@ -95,13 +104,13 @@ private fun TopicFilterChip(filter: TopicsFilter, selected: Boolean, onClick: ()
         tween(300), label = "topic filter stroke")
     val shape = RoundedCornerShape(12.dp)
     Box(
-        Modifier.widthIn(min = if (filter == TopicsFilter.ALL) 48.dp else 54.dp).height(24.dp)
+        Modifier.widthIn(min = minWidth).height(24.dp)
             .clip(shape).background(background).border(1.dp, stroke, shape)
             .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 10.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(stringResource(if (filter == TopicsFilter.ALL) R.string.topics_filter_all else R.string.topics_filter_weak),
+        Text(label,
             color = AppTheme.colors.primaryText, fontSize = 10.sp, lineHeight = 13.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
     }

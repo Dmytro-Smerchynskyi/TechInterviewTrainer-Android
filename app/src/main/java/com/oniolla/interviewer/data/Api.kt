@@ -41,6 +41,21 @@ interface Api {
         @Query("search") search: String? = null,
         @Query("limit") limit: Int = 20,
         @Query("cursor") cursor: String? = null,
+        @Tag session: SessionSnapshot? = null,
+        @Query("mastered") mastered: Boolean? = null
+    ): QuestionsResponse
+
+    @GET("questions/saved")
+    suspend fun savedQuestions(
+        @Query("limit") limit: Int = 20,
+        @Query("cursor") cursor: String? = null,
+        @Tag session: SessionSnapshot? = null
+    ): QuestionsResponse
+
+    @GET("reviews/due")
+    suspend fun dueQuestions(
+        @Query("limit") limit: Int = 20,
+        @Query("cursor") cursor: String? = null,
         @Tag session: SessionSnapshot? = null
     ): QuestionsResponse
 

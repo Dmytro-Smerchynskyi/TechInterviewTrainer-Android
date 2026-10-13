@@ -46,6 +46,7 @@ private fun figmaIconResource(asset: String): Int = when (asset) {
     "chevron" -> R.drawable.home_icon_chevron
     "code" -> R.drawable.home_icon_code
     "favorite" -> R.drawable.home_icon_favorite
+    "star" -> R.drawable.question_star_outline
     "home" -> R.drawable.home_icon_home
     "practice" -> R.drawable.home_icon_practice
     "questions" -> R.drawable.home_icon_questions

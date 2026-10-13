@@ -127,8 +127,8 @@ private fun QuestionsSearch(query: String, onSearch: (String) -> Unit) {
 }
 
 @Composable
-private fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onRetryPage: () -> Unit,
-    onToggleSaved: (Long) -> Unit) {
+internal fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onRetryPage: () -> Unit,
+    onToggleSaved: (Long) -> Unit, compact: Boolean = false, emptyMessage: String? = null) {
     val listState = key(content.resultRevision) { rememberLazyListState() }
     val lockedCount = content.access?.takeIf { it.limitedByPlan }?.lockedCount
         ?: content.topics.filter { it.limitedByPlan }.sumOf { it.lockedCount }
@@ -141,7 +141,7 @@ private fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onR
         }.distinctUntilChanged().filter { it }.collect { onLoadMore() }
     }
     if (content.items.isEmpty() && content.nextCursor == null && lockedCount <= 0) {
-        EmptyTab(stringResource(R.string.questions_empty))
+        EmptyTab(emptyMessage ?: stringResource(R.string.questions_empty), androidx.compose.ui.text.style.TextAlign.Center)
         return
     }
     LazyColumn(
@@ -150,9 +150,14 @@ private fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onR
         contentPadding = PaddingValues(bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(content.items, key = { it.id }) { question -> LibraryQuestionCard(question, onToggleSaved) }
+        items(content.items, key = { it.id }) { question ->
+            if (compact) FavoriteQuestionCard(question, onToggleSaved)
+            else LibraryQuestionCard(question, onToggleSaved)
+        }
         if (content.isAppending || (content.items.isEmpty() && content.nextCursor != null && content.appendError == null)) {
-            item(key = "loading_next") { ShimmerAnimation { QuestionSkeletonRow() } }
+            item(key = "loading_next") { ShimmerAnimation {
+                if (compact) FavoriteSkeletonRow() else QuestionSkeletonRow()
+            } }
         }
         content.appendError?.let { message ->
             item(key = "next_page_error") {
@@ -213,36 +218,49 @@ private fun LibraryQuestionCard(question: QuestionResponse, onToggleSaved: (Long
                 horizontalAlignment = Alignment.End) {
                 DifficultyPill(question.difficulty)
                 Spacer(Modifier.height(19.dp))
-                val savedDescription = stringResource(
-                    if (question.saved) R.string.question_saved else R.string.question_not_saved)
-                val savedAction = stringResource(
-                    if (question.saved) R.string.unsave_question else R.string.save_question)
-                Surface(
-                    checked = question.saved,
-                    onCheckedChange = { onToggleSaved(question.id) },
-                    modifier = Modifier.size(24.dp).semantics {
-                        contentDescription = savedAction
-                        stateDescription = savedDescription
-                    },
-                    shape = CircleShape,
-                    color = Color.Transparent
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Crossfade(question.saved, Modifier.size(16.dp), tween(150), label = "question saved") { saved ->
-                            Image(
-                                painterResource(if (saved) R.drawable.question_star_filled else R.drawable.question_star_outline),
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                colorFilter = ColorFilter.tint(AppTheme.colors.warning)
-                            )
-                        }
-                    }
-                }
+                QuestionSaveButton(question, onToggleSaved)
             }
             Spacer(Modifier.width(4.dp))
             FigmaIcon("chevron", Modifier.padding(top = 23.dp).size(16.dp), AppTheme.colors.homeIcon)
         }
     }
+}
+
+@Composable
+internal fun QuestionSaveButton(question: QuestionResponse, onToggleSaved: (Long) -> Unit) {
+    val savedDescription = stringResource(
+        if (question.saved) R.string.question_saved else R.string.question_not_saved)
+    val savedAction = stringResource(
+        if (question.saved) R.string.unsave_question else R.string.save_question)
+    Surface(
+        checked = question.saved,
+        onCheckedChange = { onToggleSaved(question.id) },
+        modifier = Modifier.size(24.dp).semantics {
+            contentDescription = savedAction
+            stateDescription = savedDescription
+        },
+        shape = CircleShape,
+        color = Color.Transparent
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Crossfade(question.saved, Modifier.size(16.dp), tween(150), label = "question saved") { saved ->
+                Image(
+                    painterResource(if (saved) R.drawable.question_star_filled else R.drawable.question_star_outline),
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    colorFilter = ColorFilter.tint(AppTheme.colors.warning)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun difficultyLabel(difficulty: String): String = when (difficulty) {
+    "EASY" -> stringResource(R.string.question_difficulty_easy)
+    "MEDIUM" -> stringResource(R.string.question_difficulty_medium)
+    "HARD" -> stringResource(R.string.question_difficulty_hard)
+    else -> difficulty
 }
 
 @Composable
@@ -253,12 +271,7 @@ private fun DifficultyPill(difficulty: String) {
         "HARD" -> Color(0xFFF44AA7)
         else -> AppTheme.colors.secondaryText
     }
-    val label = when (difficulty) {
-        "EASY" -> stringResource(R.string.question_difficulty_easy)
-        "MEDIUM" -> stringResource(R.string.question_difficulty_medium)
-        "HARD" -> stringResource(R.string.question_difficulty_hard)
-        else -> difficulty
-    }
+    val label = difficultyLabel(difficulty)
     Box(Modifier.size(width = 56.dp, height = 20.dp)
         .background(color.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
         contentAlignment = Alignment.Center) {

@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import com.oniolla.interviewer.domain.TopicsFilter
+import com.oniolla.interviewer.domain.FavoritesFilter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oniolla.interviewer.MainButton
@@ -54,7 +55,11 @@ fun HomeScreen(
     onTopicsFilterSelected: (TopicsFilter) -> Unit,
     onSeeWeakTopics: () -> Unit,
     onRetryTopicCatalog: () -> Unit,
-    onToggleQuestionSaved: (Long) -> Unit
+    onToggleQuestionSaved: (Long) -> Unit,
+    onFavoritesFilterSelected: (FavoritesFilter) -> Unit,
+    onRetryFavorites: () -> Unit,
+    onLoadMoreFavorites: () -> Unit,
+    onRetryFavoritePage: () -> Unit
 ) {
     Scaffold(
         modifier = Modifier.imePadding(),
@@ -86,7 +91,8 @@ fun HomeScreen(
                     onRetryQuestions, onLoadMoreQuestions, onRetryQuestionPage,
                     onQuestionTopicSelected, onRetryTopicCatalog, onToggleQuestionSaved)
                 HomeTab.STATS -> EmptyTab(stringResource(R.string.statistics_empty))
-                HomeTab.FAVORITES -> EmptyTab(stringResource(R.string.favorites_empty))
+                HomeTab.FAVORITES -> FavoritesScreen(state, onFavoritesFilterSelected,
+                    onRetryFavorites, onLoadMoreFavorites, onRetryFavoritePage, onToggleQuestionSaved)
             }
         }
     }
@@ -190,7 +196,7 @@ private val HomeTab.asset: String get() = when (this) {
     HomeTab.TOPICS -> "topics"
     HomeTab.QUESTIONS -> "questions"
     HomeTab.STATS -> "stats"
-    HomeTab.FAVORITES -> "favorite"
+    HomeTab.FAVORITES -> "star"
 }
 
 private val HomeTab.label: Int get() = when (this) {

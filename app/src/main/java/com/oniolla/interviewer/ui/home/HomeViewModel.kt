@@ -8,6 +8,9 @@ import com.oniolla.interviewer.domain.GetDashboardUseCase
 import com.oniolla.interviewer.domain.GetTopicsUseCase
 import com.oniolla.interviewer.domain.TopicsFilter
 import com.oniolla.interviewer.domain.TopicCatalogUseCase
+import com.oniolla.interviewer.domain.GetFavoriteQuestionsUseCase
+import com.oniolla.interviewer.domain.FavoriteQuestionsRequest
+import com.oniolla.interviewer.domain.FavoritesFilter
 import com.oniolla.interviewer.domain.GetQuestionsUseCase
 import com.oniolla.interviewer.domain.QuestionsRequest
 import com.oniolla.interviewer.domain.SetQuestionSavedUseCase
@@ -38,13 +41,17 @@ class HomeViewModel @Inject constructor(
     private val getQuestionsUseCase: GetQuestionsUseCase,
     private val savedStateHandle: SavedStateHandle,
     private val topicCatalogUseCase: TopicCatalogUseCase,
-    private val setQuestionSavedUseCase: SetQuestionSavedUseCase
+    private val setQuestionSavedUseCase: SetQuestionSavedUseCase,
+    private val getFavoriteQuestionsUseCase: GetFavoriteQuestionsUseCase
 ) : ViewModel() {
     private val _stateFlow = MutableStateFlow(HomeViewState(
         tab = HomeTab.entries.firstOrNull { it.name == savedStateHandle.get<String>("homeTab") }
             ?: HomeTab.HOME,
         topicsFilter = TopicsFilter.entries.firstOrNull { it.name == savedStateHandle.get<String>("topicsFilter") }
             ?: TopicsFilter.ALL,
+        favoritesFilter = FavoritesFilter.entries.firstOrNull {
+            it.name == savedStateHandle.get<String>("favoritesFilter")
+        } ?: FavoritesFilter.SAVED,
         questionSearch = savedStateHandle.get<String>("questionSearch").orEmpty(),
         questionTopic = savedStateHandle.get<Long>("questionTopicId")?.let {
             QuestionTopicFilter(it, savedStateHandle.get<String>("questionTopicName").orEmpty())
@@ -68,21 +75,31 @@ class HomeViewModel @Inject constructor(
     private val savedDebounceJobs = mutableMapOf<Long, Job>()
     private val savedRequestLocks = mutableMapOf<Long, Mutex>()
     private var savedRevision = 0L
+    private val changedQuestions = mutableMapOf<Long, QuestionResponse>()
+    private val removedSavedQuestions = mutableSetOf<Long>()
+    private var favoritesJob: Job? = null
+    private var favoritesGeneration = 0
+    private var favoritesDirty = false
+    private val favoriteConsumedCursors = mutableSetOf<String>()
 
     init {
         loadDashboard()
         when (_stateFlow.value.tab) {
             HomeTab.TOPICS -> loadTopics()
             HomeTab.QUESTIONS -> loadQuestions()
+            HomeTab.FAVORITES -> loadFavorites()
             else -> Unit
         }
     }
 
     fun selectTab(tab: HomeTab) {
+        val previousTab = _stateFlow.value.tab
         savedStateHandle["homeTab"] = tab.name
         _stateFlow.update { it.copy(tab = tab) }
         if (tab == HomeTab.TOPICS && _stateFlow.value.topics == ContentViewState.NotLoaded) loadTopics()
         if (tab == HomeTab.QUESTIONS && _stateFlow.value.questions == ContentViewState.NotLoaded) loadQuestions()
+        if (tab == HomeTab.FAVORITES && (_stateFlow.value.favorites == ContentViewState.NotLoaded ||
+                previousTab != tab && favoritesDirty)) loadFavorites()
     }
 
     // Weak topics on Home retain their existing search-based navigation.
@@ -207,8 +224,15 @@ class HomeViewModel @Inject constructor(
 
     fun toggleQuestionSaved(questionId: Long) {
         if (_stateFlow.value.sessionExpired) return
-        val question = (_stateFlow.value.questions as? ContentViewState.Ready)?.content?.items
-            ?.firstOrNull { it.id == questionId } ?: return
+        val state = _stateFlow.value
+        val lists = if (state.tab == HomeTab.FAVORITES) listOf(state.favorites, state.questions)
+            else listOf(state.questions, state.favorites)
+        val question = lists.firstNotNullOfOrNull { list ->
+            (list as? ContentViewState.Ready)?.content?.items?.firstOrNull { it.id == questionId }
+        } ?: return
+        changedQuestions[questionId] = question
+        favoritesDirty = true
+        removedSavedQuestions.remove(questionId)
         val change = SavedQuestionChange(!question.saved, ++savedRevision)
         updateSavedQuestion(questionId, change)
         savedDebounceJobs.remove(questionId)?.cancel()
@@ -227,7 +251,19 @@ class HomeViewModel @Inject constructor(
                     }
                     if (savedQuestionChanges[questionId]?.revision != change.revision) return@withLock
                     when (result) {
-                        is ContentResult.Success -> Unit
+                        is ContentResult.Success -> {
+                            favoritesDirty = true
+                            if (!change.saved) {
+                                removedSavedQuestions.add(questionId)
+                                _stateFlow.update { state ->
+                                    val content = (state.favorites as? ContentViewState.Ready)?.content
+                                    if (state.favoritesFilter != FavoritesFilter.SAVED || content == null) state
+                                    else state.copy(favorites = ContentViewState.Ready(content.copy(
+                                        items = content.items.filterNot { it.id == questionId }
+                                    )))
+                                }
+                            }
+                        }
                         is ContentResult.Error -> {
                             updateSavedQuestion(questionId, change.copy(saved = false))
                             _uiEventsFlow.emit(UiEvent.Toast(result.message))
@@ -242,8 +278,15 @@ class HomeViewModel @Inject constructor(
     private fun updateSavedQuestion(questionId: Long, change: SavedQuestionChange) {
         savedQuestionChanges[questionId] = change
         _stateFlow.update { state ->
-            val content = (state.questions as? ContentViewState.Ready)?.content ?: return@update state
-            state.copy(questions = ContentViewState.Ready(content.copy(items = applySavedChanges(content.items))))
+            fun updated(list: ContentViewState<QuestionsContent>, addSaved: Boolean = false): ContentViewState<QuestionsContent> {
+                val content = (list as? ContentViewState.Ready)?.content ?: return list
+                val extra = if (addSaved && change.saved) listOfNotNull(changedQuestions[questionId]) else emptyList()
+                return ContentViewState.Ready(content.copy(
+                    items = applySavedChanges((content.items + extra).distinctBy { it.id })
+                ))
+            }
+            state.copy(questions = updated(state.questions),
+                favorites = updated(state.favorites, state.favoritesFilter == FavoritesFilter.SAVED))
         }
     }
 
@@ -256,6 +299,100 @@ class HomeViewModel @Inject constructor(
         if (content.appendError == null) return
         _stateFlow.update { it.copy(questions = ContentViewState.Ready(content.copy(appendError = null))) }
         loadMoreQuestions()
+    }
+
+    fun selectFavoritesFilter(filter: FavoritesFilter) {
+        if (filter == _stateFlow.value.favoritesFilter) return
+        savedStateHandle["favoritesFilter"] = filter.name
+        _stateFlow.update { it.copy(favoritesFilter = filter) }
+        refreshFavorites()
+    }
+
+    fun loadFavorites() {
+        if (favoritesJob?.isActive == true) return
+        refreshFavorites()
+    }
+
+    private fun favoriteItems(items: List<QuestionResponse>, filter: FavoritesFilter): List<QuestionResponse> {
+        val localSaved = if (filter == FavoritesFilter.SAVED) changedQuestions.values.filter {
+            savedQuestionChanges[it.id]?.saved == true
+        } else emptyList()
+        return applySavedChanges((items + localSaved).distinctBy { it.id })
+            .filterNot { filter == FavoritesFilter.SAVED && it.id in removedSavedQuestions }
+    }
+
+    private fun refreshFavorites() {
+        favoritesJob?.cancel()
+        val generation = ++favoritesGeneration
+        val filter = _stateFlow.value.favoritesFilter
+        val revision = savedRevision
+        favoriteConsumedCursors.clear()
+        _stateFlow.update { it.copy(favorites = ContentViewState.Loading) }
+        favoritesJob = viewModelScope.launch {
+            val result = getFavoriteQuestionsUseCase(FavoriteQuestionsRequest(filter))
+            currentCoroutineContext().ensureActive()
+            if (generation != favoritesGeneration) return@launch
+            if (result is ContentResult.Success) favoritesDirty = revision != savedRevision
+            _stateFlow.update { state ->
+                val contentState = when (result) {
+                    is ContentResult.Success -> ContentViewState.Ready(QuestionsContent(
+                        items = favoriteItems(result.content.items, filter),
+                        nextCursor = result.content.nextCursor?.takeIf { it.isNotEmpty() },
+                        topics = result.content.topics,
+                        access = result.content.access,
+                        resultRevision = generation
+                    ))
+                    is ContentResult.Error -> ContentViewState.Failed(result.message)
+                    ContentResult.SessionExpired -> ContentViewState.NotLoaded
+                }
+                state.copy(favorites = contentState,
+                    sessionExpired = state.sessionExpired || result == ContentResult.SessionExpired)
+            }
+            if (result is ContentResult.Error) _uiEventsFlow.emit(UiEvent.Toast(result.message))
+        }
+    }
+
+    fun loadMoreFavorites() {
+        val content = (_stateFlow.value.favorites as? ContentViewState.Ready)?.content ?: return
+        val cursor = content.nextCursor ?: return
+        if (favoritesJob?.isActive == true || content.isAppending || content.appendError != null) return
+        val generation = favoritesGeneration
+        val filter = _stateFlow.value.favoritesFilter
+        _stateFlow.update { it.copy(favorites = ContentViewState.Ready(content.copy(isAppending = true))) }
+        favoritesJob = viewModelScope.launch {
+            val result = getFavoriteQuestionsUseCase(FavoriteQuestionsRequest(filter, cursor))
+            currentCoroutineContext().ensureActive()
+            if (generation != favoritesGeneration) return@launch
+            if (result is ContentResult.Success) favoriteConsumedCursors.add(cursor)
+            _stateFlow.update { state ->
+                val current = (state.favorites as? ContentViewState.Ready)?.content ?: return@update state
+                when (result) {
+                    is ContentResult.Success -> state.copy(favorites = ContentViewState.Ready(current.copy(
+                        items = favoriteItems(current.items + result.content.items, filter),
+                        nextCursor = result.content.nextCursor?.takeIf {
+                            it.isNotEmpty() && it !in favoriteConsumedCursors
+                        },
+                        topics = result.content.topics.ifEmpty { current.topics },
+                        access = result.content.access ?: current.access,
+                        isAppending = false,
+                        appendError = null
+                    )))
+                    is ContentResult.Error -> state.copy(favorites = ContentViewState.Ready(current.copy(
+                        isAppending = false, appendError = result.message
+                    )))
+                    ContentResult.SessionExpired -> state.copy(sessionExpired = true,
+                        favorites = ContentViewState.NotLoaded)
+                }
+            }
+            if (result is ContentResult.Error) _uiEventsFlow.emit(UiEvent.Toast(result.message))
+        }
+    }
+
+    fun retryFavoritePage() {
+        val content = (_stateFlow.value.favorites as? ContentViewState.Ready)?.content ?: return
+        if (content.appendError == null) return
+        _stateFlow.update { it.copy(favorites = ContentViewState.Ready(content.copy(appendError = null))) }
+        loadMoreFavorites()
     }
 
     fun loadDashboard() {

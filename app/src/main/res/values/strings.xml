@@ -140,7 +140,14 @@
     <string name="questions_pro_description">Upgrade to Pro to unlock more questions.</string>
     <string name="questions_pro">PRO</string>
     <string name="statistics_empty">Your practice statistics will appear here.</string>
-    <string name="favorites_empty">Saved questions will appear here.</string>
+    <string name="favorites_empty">No saved questions yet. Tap a star in the question library to save questions for later.</string>
+    <string name="favorites_filter_saved">Saved</string>
+    <string name="favorites_filter_due">Due</string>
+    <string name="favorites_filter_mastered">Mastered</string>
+    <string name="favorites_due_empty">You’re all caught up. No questions are due for review right now.</string>
+    <string name="favorites_mastered_empty">No mastered questions yet. Keep practicing and reviewing to build your mastery.</string>
+    <string name="favorites_due_banner">%1$d due for review today</string>
+    <string name="favorites_due_banner_description">Keep your memory fresh</string>
     <string name="save_question">Save question</string>
     <string name="unsave_question">Remove from saved questions</string>
 </resources>

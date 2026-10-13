@@ -15,6 +15,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.oniolla.interviewer.data.model.*
 import com.oniolla.interviewer.domain.DashboardContent
 import com.oniolla.interviewer.domain.TopicsFilter
+import com.oniolla.interviewer.domain.FavoritesFilter
 import com.oniolla.interviewer.ui.theme.InterviewTrainerTheme
 import com.oniolla.interviewer.ui.theme.AppTheme
 
@@ -74,7 +75,7 @@ private val previewQuestions = listOf(
 @Composable
 private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false, empty: Boolean = false,
     topic: QuestionTopicFilter? = null, appending: Boolean = false, appendError: String? = null,
-    topicsFilter: TopicsFilter = TopicsFilter.ALL) {
+    topicsFilter: TopicsFilter = TopicsFilter.ALL, favoritesFilter: FavoritesFilter = FavoritesFilter.SAVED) {
     // Preview renderer does not supply the status-bar inset.
     Box(Modifier.background(AppTheme.colors.background).padding(top = 24.dp)) {
         HomeScreen(
@@ -88,6 +89,12 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
                 questionSearch = if (tab == HomeTab.QUESTIONS && topic == null) "flow" else "",
                 questionTopic = topic,
                 topicsFilter = topicsFilter,
+                favoritesFilter = favoritesFilter,
+                favorites = if (loading) ContentViewState.Loading else ContentViewState.Ready(QuestionsContent(
+                    items = if (empty) emptyList() else previewQuestions.map { it.copy(saved = true) },
+                    nextCursor = if (appending || appendError != null) "preview_cursor" else null,
+                    isAppending = appending, appendError = appendError
+                )),
                 questions = if (loading) ContentViewState.Loading else ContentViewState.Ready(QuestionsContent(
                     items = if (empty) emptyList() else previewQuestions.filter { topic == null || it.topic.id == topic.id },
                     nextCursor = if (appending || appendError != null) "preview_cursor" else null,
@@ -100,7 +107,8 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
             onQuestionTopicSelected = { _, _ -> }, onClearQuestionTopic = {},
             onRetryQuestions = {}, onLoadMoreQuestions = {}, onRetryQuestionPage = {},
             onTopicsFilterSelected = {}, onSeeWeakTopics = {}, onRetryTopicCatalog = {},
-            onToggleQuestionSaved = {}
+            onToggleQuestionSaved = {}, onFavoritesFilterSelected = {},
+            onRetryFavorites = {}, onLoadMoreFavorites = {}, onRetryFavoritePage = {}
         )
     }
 }
@@ -206,4 +214,32 @@ fun QuestionsEmptyPreview() { InterviewTrainerTheme(darkTheme = false) {
 @Composable
 fun QuestionsPageErrorPreview() { InterviewTrainerTheme(darkTheme = true) {
     PreviewContent(HomeTab.QUESTIONS, appendError = "Connection unavailable")
+} }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun FavoritesDarkPreview() { InterviewTrainerTheme(darkTheme = true) { PreviewContent(HomeTab.FAVORITES) } }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun FavoritesLightPreview() { InterviewTrainerTheme(darkTheme = false) { PreviewContent(HomeTab.FAVORITES) } }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun FavoritesLoadingPreview() { InterviewTrainerTheme(darkTheme = true) { PreviewContent(HomeTab.FAVORITES, loading = true) } }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun FavoritesEmptyPreview() { InterviewTrainerTheme(darkTheme = false) { PreviewContent(HomeTab.FAVORITES, empty = true) } }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun FavoritesDueEmptyPreview() { InterviewTrainerTheme(darkTheme = true) {
+    PreviewContent(HomeTab.FAVORITES, empty = true, favoritesFilter = FavoritesFilter.DUE)
+} }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun FavoritesMasteredEmptyPreview() { InterviewTrainerTheme(darkTheme = false) {
+    PreviewContent(HomeTab.FAVORITES, empty = true, favoritesFilter = FavoritesFilter.MASTERED)
 } }

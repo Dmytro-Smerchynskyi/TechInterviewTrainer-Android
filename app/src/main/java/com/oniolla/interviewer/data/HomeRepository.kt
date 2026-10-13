@@ -7,7 +7,7 @@ import javax.inject.Inject
 
 class HomeRepository @Inject constructor(private val api: Api) {
     suspend fun getDashboard(): DashboardResponse = apiCall { api.dashboard() }
-    suspend fun getTopics(): List<TopicResponse> = apiCall { api.topics() }
+    suspend fun getTopics(type: String? = null): List<TopicResponse> = apiCall { api.topics(type) }
     suspend fun getQuestions(
         topicId: Long?,
         search: String?,

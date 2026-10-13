@@ -41,7 +41,7 @@ interface Api {
     ): QuestionsResponse
 
     @GET("topics")
-    suspend fun topics(): List<TopicResponse>
+    suspend fun topics(@Query("type") type: String? = null): List<TopicResponse>
 
     @GET("preparation-languages")
     suspend fun preparationLanguages(): PreparationLanguagesResponse

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.oniolla.interviewer.domain.ContentResult
 import com.oniolla.interviewer.domain.GetDashboardUseCase
 import com.oniolla.interviewer.domain.GetTopicsUseCase
+import com.oniolla.interviewer.domain.TopicsFilter
 import com.oniolla.interviewer.domain.GetQuestionsUseCase
 import com.oniolla.interviewer.domain.QuestionsRequest
 import com.oniolla.interviewer.ui.UiEvent
@@ -32,6 +33,8 @@ class HomeViewModel @Inject constructor(
     private val _stateFlow = MutableStateFlow(HomeViewState(
         tab = HomeTab.entries.firstOrNull { it.name == savedStateHandle.get<String>("homeTab") }
             ?: HomeTab.HOME,
+        topicsFilter = TopicsFilter.entries.firstOrNull { it.name == savedStateHandle.get<String>("topicsFilter") }
+            ?: TopicsFilter.ALL,
         questionSearch = savedStateHandle.get<String>("questionSearch").orEmpty(),
         questionTopic = savedStateHandle.get<Long>("questionTopicId")?.let {
             QuestionTopicFilter(it, savedStateHandle.get<String>("questionTopicName").orEmpty())
@@ -43,6 +46,7 @@ class HomeViewModel @Inject constructor(
     val uiEventsFlow = _uiEventsFlow.asSharedFlow()
     private var dashboardJob: Job? = null
     private var topicsJob: Job? = null
+    private var topicsGeneration = 0
     private var questionsJob: Job? = null
     private var questionsGeneration = 0
     private val consumedCursors = mutableSetOf<String>()
@@ -195,11 +199,37 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun selectTopicsFilter(filter: TopicsFilter) {
+        if (filter == _stateFlow.value.topicsFilter) return
+        savedStateHandle["topicsFilter"] = filter.name
+        _stateFlow.update { it.copy(topicsFilter = filter) }
+        refreshTopics()
+    }
+
+    fun openWeakTopics() {
+        val filterChanged = _stateFlow.value.topicsFilter != TopicsFilter.WEAK
+        savedStateHandle["homeTab"] = HomeTab.TOPICS.name
+        savedStateHandle["topicsFilter"] = TopicsFilter.WEAK.name
+        _stateFlow.update { it.copy(tab = HomeTab.TOPICS, topicsFilter = TopicsFilter.WEAK) }
+        if (filterChanged) refreshTopics()
+        else if (_stateFlow.value.topics == ContentViewState.NotLoaded ||
+            _stateFlow.value.topics is ContentViewState.Failed) loadTopics()
+    }
+
     fun loadTopics() {
         if (topicsJob?.isActive == true) return
+        refreshTopics()
+    }
+
+    private fun refreshTopics() {
+        topicsJob?.cancel()
+        val generation = ++topicsGeneration
+        val filter = _stateFlow.value.topicsFilter
         _stateFlow.update { it.copy(topics = ContentViewState.Loading) }
         topicsJob = viewModelScope.launch {
-            val result = getTopicsUseCase(Unit)
+            val result = getTopicsUseCase(filter)
+            currentCoroutineContext().ensureActive()
+            if (generation != topicsGeneration) return@launch
             _stateFlow.update {
                 it.copy(topics = result.toViewState(),
                     sessionExpired = it.sessionExpired || result == ContentResult.SessionExpired)

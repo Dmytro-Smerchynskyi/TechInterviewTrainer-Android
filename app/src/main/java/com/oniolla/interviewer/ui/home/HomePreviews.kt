@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.oniolla.interviewer.data.model.*
 import com.oniolla.interviewer.domain.DashboardContent
+import com.oniolla.interviewer.domain.TopicsFilter
 import com.oniolla.interviewer.ui.theme.InterviewTrainerTheme
 import com.oniolla.interviewer.ui.theme.AppTheme
 
@@ -20,13 +21,13 @@ private val previewVisuals = listOf(
 
 private val previewTopics = listOf(
     TopicResponse(1, "ANDROID", "kotlin", "Kotlin", "Language essentials",
-        visual = previewVisuals[0]),
+        visual = previewVisuals[0], answered = 128, averageScore = 74.0, mastery = 68.0),
     TopicResponse(2, "ANDROID", "coroutines", "Coroutines", "Async programming",
-        visual = previewVisuals[2]),
+        visual = previewVisuals[2], answered = 142, averageScore = 80.0, mastery = 61.0),
     TopicResponse(3, "ANDROID", "flow", "Flow", "Reactive streams",
-        visual = previewVisuals[2]),
+        visual = previewVisuals[2], answered = 142, averageScore = 80.0, mastery = 61.0),
     TopicResponse(4, "ANDROID", "rxjava", "RxJava", "Reactive programming",
-        visual = previewVisuals[1])
+        visual = previewVisuals[1], answered = 115, averageScore = 60.0, mastery = 55.0)
 )
 
 private val previewDashboard = DashboardContent(
@@ -67,7 +68,8 @@ private val previewQuestions = listOf(
 
 @Composable
 private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false, empty: Boolean = false,
-    topic: QuestionTopicFilter? = null, appending: Boolean = false, appendError: String? = null) {
+    topic: QuestionTopicFilter? = null, appending: Boolean = false, appendError: String? = null,
+    topicsFilter: TopicsFilter = TopicsFilter.ALL) {
     // Preview renderer does not supply the status-bar inset.
     Box(Modifier.background(AppTheme.colors.background).padding(top = 24.dp)) {
         HomeScreen(
@@ -79,6 +81,7 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
                     else ContentViewState.Ready(if (empty) emptyList() else previewTopics),
                 questionSearch = if (tab == HomeTab.QUESTIONS && topic == null) "flow" else "",
                 questionTopic = topic,
+                topicsFilter = topicsFilter,
                 questions = if (loading) ContentViewState.Loading else ContentViewState.Ready(QuestionsContent(
                     items = if (empty) emptyList() else previewQuestions.filter { topic == null || it.topic.id == topic.id },
                     nextCursor = if (appending || appendError != null) "preview_cursor" else null,
@@ -89,7 +92,8 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
             onTabSelected = {}, onTopicQuestions = {}, onQuestionSearch = {},
             onRetryDashboard = {}, onRetryTopics = {},
             onQuestionTopicSelected = { _, _ -> }, onClearQuestionTopic = {},
-            onRetryQuestions = {}, onLoadMoreQuestions = {}, onRetryQuestionPage = {}
+            onRetryQuestions = {}, onLoadMoreQuestions = {}, onRetryQuestionPage = {},
+            onTopicsFilterSelected = {}, onSeeWeakTopics = {}
         )
     }
 }
@@ -117,6 +121,30 @@ fun HomeLoadingPreview() { InterviewTrainerTheme(darkTheme = true) { PreviewCont
 @Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
 @Composable
 fun TopicsLoadingPreview() { InterviewTrainerTheme(darkTheme = false) { PreviewContent(HomeTab.TOPICS, loading = true) } }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun WeakTopicsDarkPreview() { InterviewTrainerTheme(darkTheme = true) {
+    PreviewContent(HomeTab.TOPICS, topicsFilter = TopicsFilter.WEAK)
+} }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun WeakTopicsLightPreview() { InterviewTrainerTheme(darkTheme = false) {
+    PreviewContent(HomeTab.TOPICS, topicsFilter = TopicsFilter.WEAK)
+} }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun WeakTopicsEmptyPreview() { InterviewTrainerTheme(darkTheme = false) {
+    PreviewContent(HomeTab.TOPICS, empty = true, topicsFilter = TopicsFilter.WEAK)
+} }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun WeakTopicsLoadingPreview() { InterviewTrainerTheme(darkTheme = true) {
+    PreviewContent(HomeTab.TOPICS, loading = true, topicsFilter = TopicsFilter.WEAK)
+} }
 
 @Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
 @Composable

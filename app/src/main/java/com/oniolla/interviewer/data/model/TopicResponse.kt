@@ -17,5 +17,8 @@ data class TopicResponse(
     @SerializedName("description") val description: String? = null,
     @SerializedName("sortOrder") val sortOrder: Int = 0,
     @SerializedName("active") val active: Boolean = true,
-    @SerializedName("visual") val visual: TopicVisual? = null
+    @SerializedName("visual") val visual: TopicVisual? = null,
+    @SerializedName("answered") val answered: Int = 0,
+    @SerializedName("averageScore") val averageScore: Double? = null,
+    @SerializedName("mastery") val mastery: Double? = null
 )

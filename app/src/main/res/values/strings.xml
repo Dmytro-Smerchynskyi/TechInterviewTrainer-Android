@@ -115,6 +115,9 @@
     <string name="mastery">mastery</string>
     <string name="no_weak_topics">Keep practicing to discover topics to focus on.</string>
     <string name="no_reviews_due">You’re all caught up. No questions due today.</string>
+    <string name="topics_filter_all">All</string>
+    <string name="topics_filter_weak">Weak</string>
+    <string name="no_weak_topics_list">You have no weak topics yet. Keep practicing to discover which topics need more attention.</string>
     <string name="no_topics">No topics available yet.</string>
     <string name="content_loading">Loading content</string>
     <string name="content_load_failed">Unable to load content</string>

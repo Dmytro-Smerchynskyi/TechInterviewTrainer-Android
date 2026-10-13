@@ -29,6 +29,8 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import com.oniolla.interviewer.domain.TopicsFilter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oniolla.interviewer.MainButton
@@ -47,7 +49,9 @@ fun HomeScreen(
     onClearQuestionTopic: () -> Unit,
     onRetryQuestions: () -> Unit,
     onLoadMoreQuestions: () -> Unit,
-    onRetryQuestionPage: () -> Unit
+    onRetryQuestionPage: () -> Unit,
+    onTopicsFilterSelected: (TopicsFilter) -> Unit,
+    onSeeWeakTopics: () -> Unit
 ) {
     Scaffold(
         containerColor = AppTheme.colors.background,
@@ -66,10 +70,10 @@ fun HomeScreen(
         ) { tab ->
             when (tab) {
                 HomeTab.HOME -> DashboardScreen(state.dashboard, onTopicQuestions,
-                    onSeeTopics = { onTabSelected(HomeTab.TOPICS) },
+                    onSeeTopics = onSeeWeakTopics,
                     onSeeQuestions = { onTabSelected(HomeTab.QUESTIONS) },
                     onRetry = onRetryDashboard)
-                HomeTab.TOPICS -> TopicsScreen(state.topics, onRetryTopics) { topic ->
+                HomeTab.TOPICS -> TopicsScreen(state.topics, state.topicsFilter, onTopicsFilterSelected, onRetryTopics) { topic ->
                     onQuestionTopicSelected(topic.id, topic.name)
                 }
                 HomeTab.QUESTIONS -> QuestionsScreen(state, onQuestionSearch, onClearQuestionTopic,
@@ -191,9 +195,10 @@ private val HomeTab.label: Int get() = when (this) {
 }
 
 @Composable
-internal fun EmptyTab(message: String) {
+internal fun EmptyTab(message: String, textAlign: TextAlign = TextAlign.Start) {
     Box(Modifier.fillMaxSize().padding(20.dp), contentAlignment = Alignment.Center) {
-        Text(message, color = AppTheme.colors.secondaryText, fontSize = 12.sp, lineHeight = 18.sp)
+        Text(message, color = AppTheme.colors.secondaryText, fontSize = 12.sp, lineHeight = 18.sp,
+            textAlign = textAlign)
     }
 }
 

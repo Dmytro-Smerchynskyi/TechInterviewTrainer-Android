@@ -56,7 +56,9 @@ class HomeActivity : ComponentActivity() {
                     onClearQuestionTopic = viewModel::clearQuestionTopic,
                     onRetryQuestions = viewModel::loadQuestions,
                     onLoadMoreQuestions = viewModel::loadMoreQuestions,
-                    onRetryQuestionPage = viewModel::retryQuestionPage
+                    onRetryQuestionPage = viewModel::retryQuestionPage,
+                    onTopicsFilterSelected = viewModel::selectTopicsFilter,
+                    onSeeWeakTopics = viewModel::openWeakTopics
                 )
             }
         }

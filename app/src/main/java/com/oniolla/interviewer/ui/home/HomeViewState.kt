@@ -5,6 +5,7 @@ import com.oniolla.interviewer.data.model.QuestionResponse
 import com.oniolla.interviewer.data.model.QuestionTopicAccess
 import com.oniolla.interviewer.domain.ContentResult
 import com.oniolla.interviewer.domain.DashboardContent
+import com.oniolla.interviewer.domain.TopicsFilter
 import java.util.Locale
 
 enum class HomeTab { HOME, TOPICS, QUESTIONS, STATS, FAVORITES }
@@ -31,6 +32,7 @@ data class HomeViewState(
     val tab: HomeTab = HomeTab.HOME,
     val dashboard: ContentViewState<DashboardContent> = ContentViewState.Loading,
     val topics: ContentViewState<List<TopicResponse>> = ContentViewState.NotLoaded,
+    val topicsFilter: TopicsFilter = TopicsFilter.ALL,
     val questionSearch: String = "",
     val questionTopic: QuestionTopicFilter? = null,
     val questions: ContentViewState<QuestionsContent> = ContentViewState.NotLoaded,

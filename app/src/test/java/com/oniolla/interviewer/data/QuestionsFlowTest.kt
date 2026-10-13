@@ -177,7 +177,7 @@ class QuestionsFlowTest {
         vm.stateFlow.first { it.dashboard is ContentViewState.Ready }
         assertTrue(fixture.questionRequests().isEmpty())
         vm.selectTab(HomeTab.QUESTIONS)
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         vm.selectTab(HomeTab.HOME)
         vm.selectTab(HomeTab.QUESTIONS)
         assertEquals(1, fixture.questionRequests().size)
@@ -190,16 +190,16 @@ class QuestionsFlowTest {
         val vm = fixture.viewModel(handle)
         vm.stateFlow.first { it.dashboard is ContentViewState.Ready }
         vm.selectQuestionTopic(7, "Coroutines")
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         assertEquals("", vm.stateFlow.value.questionSearch)
         assertEquals("7", fixture.questionRequests().last().url.queryParameter("topicId"))
         vm.updateQuestionSearch("flow")
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         assertEquals("Coroutines", vm.stateFlow.value.questionTopic!!.name)
         assertEquals("flow", fixture.questionRequests().last().url.queryParameter("search"))
         assertEquals("7", fixture.questionRequests().last().url.queryParameter("topicId"))
         vm.clearQuestionTopic()
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         assertNull(vm.stateFlow.value.questionTopic)
         assertNull(handle.get<Long>("questionTopicId"))
         assertEquals("flow", vm.stateFlow.value.questionSearch)
@@ -214,9 +214,9 @@ class QuestionsFlowTest {
         val vm = fixture.viewModel()
         vm.stateFlow.first { it.dashboard is ContentViewState.Ready }
         vm.selectQuestionTopic(7, "Coroutines")
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         vm.openTopicQuestions("Flow")
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         assertEquals("Coroutines", vm.stateFlow.value.questionTopic!!.name)
         assertEquals(7L, vm.stateFlow.value.questionTopic!!.id)
         assertEquals("Flow", vm.stateFlow.value.questionSearch)
@@ -227,35 +227,35 @@ class QuestionsFlowTest {
     @Test fun freshResultsResetScrollRevisionWhilePaginationPreservesIt() = runTest(dispatcher) {
         val fixture = Fixture()
         val vm = fixture.viewModel(SavedStateHandle(mapOf("homeTab" to "QUESTIONS")))
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         val firstRevision = content(vm).resultRevision
         vm.loadMoreQuestions()
         vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.items?.size == 3 }
         assertEquals(firstRevision, content(vm).resultRevision)
 
         vm.updateQuestionSearch("flow")
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         val searchRevision = content(vm).resultRevision
         assertTrue(searchRevision > firstRevision)
         assertEquals(listOf(1L, 2L), content(vm).items.map { it.id })
 
         vm.selectQuestionTopic(7, "Flow")
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         val topicRevision = content(vm).resultRevision
         assertTrue(topicRevision > searchRevision)
 
         vm.clearQuestionTopic()
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         val clearedTopicRevision = content(vm).resultRevision
         assertTrue(clearedTopicRevision > topicRevision)
 
         vm.updateQuestionSearch("")
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         val clearedSearchRevision = content(vm).resultRevision
         assertTrue(clearedSearchRevision > clearedTopicRevision)
 
         vm.loadQuestions()
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         assertTrue(content(vm).resultRevision > clearedSearchRevision)
     }
 
@@ -264,7 +264,7 @@ class QuestionsFlowTest {
         val vm = fixture.viewModel(SavedStateHandle(mapOf(
             "homeTab" to "QUESTIONS", "questionSearch" to "flow",
             "questionTopicId" to 7L, "questionTopicName" to "Flow")))
-        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         repeat(4) { vm.loadMoreQuestions() }
         vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.items?.size == 3 }
         assertEquals(listOf(1L, 2L, 3L), content(vm).items.map { it.id })
@@ -288,7 +288,7 @@ class QuestionsFlowTest {
     @Test fun nextPageErrorKeepsItemsAndRetriesTheSameCursor() = runTest(dispatcher) {
         val fixture = Fixture().apply { nextStatus = 500 }
         val vm = fixture.viewModel(SavedStateHandle(mapOf("homeTab" to "QUESTIONS")))
-        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         vm.loadMoreQuestions()
         vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.appendError != null }
         assertEquals(listOf(1L, 2L), content(vm).items.map { it.id })
@@ -306,29 +306,69 @@ class QuestionsFlowTest {
     @Test fun changingSearchResetsTheCursorAndDebouncesRapidTyping() = runTest(dispatcher) {
         val fixture = Fixture()
         val vm = fixture.viewModel(SavedStateHandle(mapOf("homeTab" to "QUESTIONS")))
-        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         vm.loadMoreQuestions()
         vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.items?.size == 3 }
+        val previousResults = vm.stateFlow.value.questions
         vm.updateQuestionSearch("f")
+        assertTrue(vm.stateFlow.value.isQuestionSearchPending)
+        assertEquals(previousResults, vm.stateFlow.value.questions)
         advanceTimeBy(100)
         vm.updateQuestionSearch("fl")
         advanceTimeBy(100)
         vm.updateQuestionSearch("flow")
-        advanceTimeBy(299)
+        advanceTimeBy(499)
+        assertTrue(vm.stateFlow.value.isQuestionSearchPending)
+        assertEquals(previousResults, vm.stateFlow.value.questions)
         assertEquals(2, fixture.questionRequests().size)
         advanceTimeBy(1)
         runCurrent()
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         assertEquals(3, fixture.questionRequests().size)
         assertNull(fixture.questionRequests().last().url.queryParameter("cursor"))
         assertEquals("flow", fixture.questionRequests().last().url.queryParameter("search"))
         assertEquals(listOf(1L, 2L), content(vm).items.map { it.id })
     }
 
+    @Test fun clearingSearchCancelsThePendingDebounceAndReloadsImmediately() = runTest(dispatcher) {
+        val fixture = Fixture()
+        val vm = fixture.viewModel(SavedStateHandle(mapOf("homeTab" to "QUESTIONS")))
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
+        vm.updateQuestionSearch("flow")
+        advanceTimeBy(100)
+        vm.loadMoreQuestions()
+        assertEquals(1, fixture.questionRequests().size)
+        vm.updateQuestionSearch("")
+        assertFalse(vm.stateFlow.value.isQuestionSearchPending)
+        assertSame(ContentViewState.Loading, vm.stateFlow.value.questions)
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
+        advanceTimeBy(500)
+        runCurrent()
+        assertEquals(2, fixture.questionRequests().size)
+        assertNull(fixture.questionRequests().last().url.queryParameter("search"))
+        assertNull(fixture.questionRequests().last().url.queryParameter("cursor"))
+    }
+
+    @Test fun selectingTopicDuringDebounceImmediatelyUsesTheLatestSearchOnce() = runTest(dispatcher) {
+        val fixture = Fixture()
+        val vm = fixture.viewModel(SavedStateHandle(mapOf("homeTab" to "QUESTIONS")))
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
+        vm.updateQuestionSearch("flow")
+        advanceTimeBy(100)
+        vm.selectQuestionTopic(7, "Flow")
+        assertFalse(vm.stateFlow.value.isQuestionSearchPending)
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
+        advanceTimeBy(500)
+        runCurrent()
+        assertEquals(2, fixture.questionRequests().size)
+        assertEquals("flow", fixture.questionRequests().last().url.queryParameter("search"))
+        assertEquals("7", fixture.questionRequests().last().url.queryParameter("topicId"))
+    }
+
     @Test fun repeatedServerCursorCannotCauseAnEndlessPaginationLoop() = runTest(dispatcher) {
         val fixture = Fixture().apply { nextBody = Fixture.page(listOf(3), "cursor+/= next") }
         val vm = fixture.viewModel(SavedStateHandle(mapOf("homeTab" to "QUESTIONS")))
-        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         vm.loadMoreQuestions()
         vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.items?.size == 3 }
         assertNull(content(vm).nextCursor)
@@ -340,7 +380,7 @@ class QuestionsFlowTest {
         val fixture = Fixture()
         val vm = fixture.viewModel(SavedStateHandle(mapOf("homeTab" to "QUESTIONS",
             "questionTopicId" to 7L, "questionTopicName" to "Coroutines", "questionSearch" to "flow")))
-        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         assertEquals(7L, vm.stateFlow.value.questionTopic!!.id)
         assertEquals("Coroutines", vm.stateFlow.value.questionTopic!!.name)
         val request = fixture.questionRequests().single()
@@ -367,7 +407,7 @@ class QuestionsFlowTest {
         try {
             started.await()
             vm.updateQuestionSearch("new")
-            vm.stateFlow.first { it.questions is ContentViewState.Ready && it.dashboard is ContentViewState.Ready }
+            vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending && it.dashboard is ContentViewState.Ready }
             assertEquals(listOf(1L), content(vm).items.map { it.id })
         } finally { release.countDown() }
         finished.await()
@@ -395,12 +435,12 @@ class QuestionsFlowTest {
             }
         }
         val vm = fixture.viewModel(SavedStateHandle(mapOf("homeTab" to "QUESTIONS")))
-        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         vm.loadMoreQuestions()
         try {
             started.await()
             vm.selectQuestionTopic(8, "Kotlin")
-            vm.stateFlow.first { it.questions is ContentViewState.Ready }
+            vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
             assertEquals(listOf(8L), content(vm).items.map { it.id })
             assertNull(fixture.questionRequests().last().url.queryParameter("cursor"))
         } finally { release.countDown() }
@@ -415,12 +455,12 @@ class QuestionsFlowTest {
         val handle = SavedStateHandle(mapOf("homeTab" to "QUESTIONS", "questionSearch" to "flow",
             "questionTopicId" to 7L, "questionTopicName" to "Flow"))
         val vm = fixture.viewModel(handle)
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         vm.loadMoreQuestions()
         vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.items?.size == 3 }
         vm.updateQuestionSearch("")
         runCurrent()
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         assertEquals("", vm.stateFlow.value.questionSearch)
         assertEquals("", handle.get<String>("questionSearch"))
         val url = fixture.questionRequests().last().url
@@ -432,7 +472,7 @@ class QuestionsFlowTest {
     @Test fun anExpiredSessionDuringPaginationTriggersAuthNavigation() = runTest(dispatcher) {
         val fixture = Fixture().apply { nextStatus = 401 }
         val vm = fixture.viewModel(SavedStateHandle(mapOf("homeTab" to "QUESTIONS")))
-        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready }
+        vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         vm.loadMoreQuestions()
         vm.stateFlow.first { it.sessionExpired }
         assertSame(ContentViewState.NotLoaded, vm.stateFlow.value.questions)

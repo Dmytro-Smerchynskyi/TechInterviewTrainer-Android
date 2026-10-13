@@ -36,6 +36,7 @@ data class HomeViewState(
     val topicsFilter: TopicsFilter = TopicsFilter.ALL,
     val topicCatalog: ContentViewState<List<TopicResponse>> = ContentViewState.Loading,
     val questionSearch: String = "",
+    val isQuestionSearchPending: Boolean = false,
     val questionTopic: QuestionTopicFilter? = null,
     val questions: ContentViewState<QuestionsContent> = ContentViewState.NotLoaded,
     val sessionExpired: Boolean = false

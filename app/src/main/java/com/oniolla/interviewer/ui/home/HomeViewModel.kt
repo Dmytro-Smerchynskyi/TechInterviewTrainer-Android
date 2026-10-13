@@ -121,9 +121,15 @@ class HomeViewModel @Inject constructor(
         val generation = ++questionsGeneration
         consumedCursors.clear()
         val request = questionRequest()
-        _stateFlow.update { it.copy(questions = ContentViewState.Loading) }
+        _stateFlow.update { it.copy(
+            questions = if (debounce) it.questions else ContentViewState.Loading,
+            isQuestionSearchPending = debounce
+        ) }
         questionsJob = viewModelScope.launch {
-            if (debounce) delay(300)
+            if (debounce) {
+                delay(500)
+                _stateFlow.update { it.copy(questions = ContentViewState.Loading, isQuestionSearchPending = false) }
+            }
             val result = getQuestionsUseCase(request)
             currentCoroutineContext().ensureActive()
             if (generation != questionsGeneration) return@launch
@@ -153,6 +159,7 @@ class HomeViewModel @Inject constructor(
     )
 
     fun loadMoreQuestions() {
+        if (_stateFlow.value.isQuestionSearchPending) return
         val content = (_stateFlow.value.questions as? ContentViewState.Ready)?.content ?: return
         val cursor = content.nextCursor ?: return
         if (questionsJob?.isActive == true || content.isAppending || content.appendError != null) return

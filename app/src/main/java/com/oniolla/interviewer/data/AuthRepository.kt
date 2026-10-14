@@ -1,5 +1,10 @@
 package com.oniolla.interviewer.data
 
+import com.oniolla.interviewer.data.payload.ChangeNamePayload
+import com.oniolla.interviewer.data.payload.ChangeEmailPayload
+import com.oniolla.interviewer.data.payload.ConfirmEmailChangePayload
+import com.oniolla.interviewer.data.payload.ChangePasswordPayload
+import com.oniolla.interviewer.data.payload.SetPasswordPayload
 import com.oniolla.interviewer.data.model.ForgotPasswordResponse
 import com.oniolla.interviewer.data.model.LoginResponse
 import com.oniolla.interviewer.data.model.MeResponse
@@ -85,6 +90,58 @@ class AuthRepository @Inject constructor(
 
     suspend fun selectPreparationLanguage(language: String): MeResponse = updateProfile {
         api.selectPreparationLanguage(PreparationLanguagePayload(language), it)
+    }
+
+    suspend fun accountUsage() = sessionRefresh.authorizedApiCall { api.accountUsage(it) }
+
+    suspend fun changeName(name: String): MeResponse = updateProfile {
+        api.changeName(ChangeNamePayload(name), it)
+    }
+
+    suspend fun requestEmailChange(email: String) = sessionRefresh.authorizedApiCall {
+        api.requestEmailChange(ChangeEmailPayload(email), it)
+    }
+
+    suspend fun resendEmailChange(email: String) = sessionRefresh.authorizedApiCall {
+        api.resendEmailChange(ChangeEmailPayload(email), it)
+    }
+
+    suspend fun confirmEmailChange(email: String, code: String) = rotateAccountTokens {
+        api.confirmEmailChange(ConfirmEmailChangePayload(email, code), it)
+    }
+
+    suspend fun changePassword(currentPassword: String, newPassword: String) = rotateAccountTokens { session ->
+        try {
+            apiCall { api.changePassword(ChangePasswordPayload(currentPassword, newPassword), session) }
+        } catch (error: ApiException) {
+            val customError = when (error) {
+                is ApiException.Unauthorized -> error.customError
+                is ApiException.BadRequest -> error.customError
+                else -> null
+            }
+            // WRONG_PASSWORD is field validation, even when the HTTP status is 401.
+            // All other errors keep their existing session/refresh handling.
+            if (customError?.code != "WRONG_PASSWORD") throw error
+            throw ApiException.CurrentPasswordRejected(customError)
+        }
+    }
+
+    suspend fun setPassword(password: String) = rotateAccountTokens {
+        api.setPassword(SetPasswordPayload(password), it)
+    }
+
+    /** Rotate credentials within the same user session so caches and in-flight calls keep their owner. */
+    private suspend fun rotateAccountTokens(call: suspend (SessionSnapshot) -> LoginResponse) {
+        val (session, response) = sessionRefresh.authorizedApiCall { it to call(it) }
+        currentCoroutineContext().ensureActive()
+        check(response.accessToken.isNotBlank() && response.refreshToken.isNotBlank()) { "Invalid token response" }
+        synchronized(tokenStorage) {
+            val current = tokenStorage.snapshot()
+            if (current.version != session.version) throw CancellationException("Session changed while updating credentials")
+            tokenStorage.updateIfCurrent(current, response.accessToken, response.refreshToken)
+                ?: throw CancellationException("Session credentials changed")
+            cachedProfile = null
+        }
     }
 
     private fun saveTokens(response: LoginResponse) {

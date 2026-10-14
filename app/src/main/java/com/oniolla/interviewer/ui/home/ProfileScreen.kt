@@ -68,10 +68,17 @@ fun ProfileScreens(
     onSaveSpecialization: () -> Unit,
     onSelectLanguage: (String) -> Unit,
     onSaveLanguage: () -> Unit,
-    onRetryLanguages: () -> Unit
+    onRetryLanguages: () -> Unit,
+    onAccount: () -> Unit = {},
+    onRetryUsage: () -> Unit = {}
 ) {
-    AnimatedContent(targetState = state.page,
-        transitionSpec = { fadeIn(tween(300)).togetherWith(fadeOut(tween(200))) },
+    // Keep the outgoing profile visible while its parent fades to Home or Account.
+    val visiblePage = when (state.page) {
+        ProfilePage.SPECIALIZATION, ProfilePage.LANGUAGE -> state.page
+        else -> ProfilePage.PROFILE
+    }
+    AnimatedContent(targetState = visiblePage, modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
+        transitionSpec = { fadeIn(tween(250)).togetherWith(fadeOut(tween(250))).using(null) },
         label = "profile settings pages") { page ->
         when (page) {
             ProfilePage.SPECIALIZATION -> SpecializationSelection(
@@ -80,8 +87,8 @@ fun ProfileScreens(
             )
             ProfilePage.LANGUAGE -> PreparationLanguageSelection(state.language, onBack,
                 onSelectLanguage, onSaveLanguage, onRetryLanguages, R.string.profile_back)
-            ProfilePage.PROFILE -> ProfileScreen(state, onBack, onRetry, onSpecialization, onLanguage, onTheme, onSignOut)
-            ProfilePage.CLOSED -> Unit
+            ProfilePage.PROFILE -> ProfileScreen(state, onBack, onRetry, onSpecialization, onLanguage, onTheme, onSignOut, onAccount, onRetryUsage)
+            ProfilePage.CLOSED, ProfilePage.ACCOUNT -> Unit
         }
     }
     if (state.themeDialog) ThemeDialog(state.theme, onDismissTheme, onSelectTheme)
@@ -89,7 +96,7 @@ fun ProfileScreens(
 
 @Composable
 private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: () -> Unit,
-    onSpecialization: () -> Unit, onLanguage: () -> Unit, onTheme: () -> Unit, onSignOut: () -> Unit) {
+    onSpecialization: () -> Unit, onLanguage: () -> Unit, onTheme: () -> Unit, onSignOut: () -> Unit, onAccount: () -> Unit, onRetryUsage: () -> Unit) {
     Scaffold(containerColor = AppTheme.colors.background,
         topBar = {
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 12.dp, end = 20.dp, top = 12.dp, bottom = 16.dp),
@@ -155,7 +162,7 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
             }
             is ContentViewState.Ready -> Column(Modifier.fillMaxSize().padding(padding)
                 .consumeWindowInsets(padding).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-                ProfileCard(profile.content, state.streakDays)
+                ProfileCard(profile.content, state.streakDays, !state.isSigningOut, onAccount)
                 Text(stringResource(R.string.profile_preferences), modifier = Modifier.padding(top = 26.dp, bottom = 10.dp),
                     color = AppTheme.colors.primaryText, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold)
                 val specialization = Specialization.entries.firstOrNull { it.code == profile.content.specialization }
@@ -184,9 +191,10 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
                 Spacer(Modifier.height(6.dp))
                 ProfilePreference(stringResource(R.string.profile_about),
                     stringResource(R.string.profile_version, BuildConfig.VERSION_NAME),
-                    enabled = !state.isSigningOut, chevron = false, onClick = {}) {
+                    enabled = !state.isSigningOut, chevron = false, onClick = null) {
                     FigmaIcon("code", Modifier.size(20.dp), AppTheme.colors.homeIcon)
                 }
+                ProfileUsage(state.usage, !state.isSigningOut, onRetryUsage)
                 Spacer(Modifier.height(20.dp))
             }
         }
@@ -194,7 +202,7 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
 }
 
 @Composable
-private fun ProfileCard(profile: MeResponse, streak: Int?) {
+private fun ProfileCard(profile: MeResponse, streak: Int?, enabled: Boolean, onAccount: () -> Unit) {
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color.Transparent,
         border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
         Row(Modifier.background(Brush.horizontalGradient(listOf(AppTheme.colors.heroStart, AppTheme.colors.heroEnd)))
@@ -214,7 +222,8 @@ private fun ProfileCard(profile: MeResponse, streak: Int?) {
                     Text(specialization?.let { stringResource(it.titleResource) } ?: profile.specialization.orEmpty(),
                         modifier = Modifier.weight(1f), color = AppTheme.colors.secondaryText, fontSize = 11.sp, lineHeight = 14.sp,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    LinkText(text = stringResource(R.string.profile_account_settings), lineHeight = 12.sp, onClick = {})
+                    LinkText(text = stringResource(R.string.profile_account_settings), lineHeight = 12.sp,
+                        enabled = enabled, onClick = onAccount)
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(if (streak == null) stringResource(R.string.stats_unavailable)
@@ -228,11 +237,9 @@ private fun ProfileCard(profile: MeResponse, streak: Int?) {
 }
 
 @Composable
-private fun ProfilePreference(title: String, subtitle: String, enabled: Boolean, onClick: () -> Unit,
+private fun ProfilePreference(title: String, subtitle: String, enabled: Boolean, onClick: (() -> Unit)?,
     chevron: Boolean = true, icon: @Composable () -> Unit) {
-    Surface(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
-        shape = RoundedCornerShape(13.dp), color = AppTheme.colors.container,
-        border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
+    SettingsRowSurface(Modifier.fillMaxWidth().heightIn(min = 50.dp), onClick, enabled) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             icon()

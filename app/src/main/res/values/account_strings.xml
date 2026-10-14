@@ -1,0 +1,37 @@
+<resources>
+    <string name="account_settings">Account Settings</string>
+    <string name="account_subtitle">Manage your profile and sign-in details.</string>
+    <string name="account_section">Account</string>
+    <string name="account_plan_usage">Plan &amp; usage</string>
+    <string name="account_plan">%1$s plan</string>
+    <string name="account_unlimited_questions">Unlimited questions</string>
+    <string name="account_questions_per_topic">%1$d questions per topic</string>
+    <string name="account_remaining">%1$d of %2$d remaining</string>
+    <string name="account_ai_evaluations">AI evaluations</string>
+    <string name="account_reference_answers">Reference answers</string>
+    <string name="account_upgrade">Upgrade</string>
+    <string name="account_sign_in_methods">Sign-in methods</string>
+    <string name="account_google">Google</string>
+    <string name="account_apple">Apple ID</string>
+    <string name="account_connected">Connected</string>
+    <string name="account_not_connected">Not connected</string>
+    <string name="account_change_name">Change your name</string>
+    <string name="account_name_description">This is the name shown in your profile and app greeting.</string>
+    <string name="account_save_name">Save name</string>
+    <string name="account_change_email">Change your email</string>
+    <string name="account_email_description">We’ll send a 6-digit verification code to your new email.</string>
+    <string name="account_new_email">New email</string>
+    <string name="account_send_code">Send verification code</string>
+    <string name="account_change_password">Change your password</string>
+    <string name="account_set_password">Set your password</string>
+    <string name="account_password_description">Use a password between 8 and 64 characters.</string>
+    <string name="account_current_password">Current password</string>
+    <string name="account_new_password">New password</string>
+    <string name="account_confirm_password">Confirm new password</string>
+    <string name="account_repeat_password">Repeat new password</string>
+    <string name="account_change_password_button">Change password</string>
+    <string name="account_set_password_button">Set password</string>
+    <string name="account_password_not_set">Set a password for email sign-in</string>
+    <string name="account_saving">Saving…</string>
+    <string name="account_back">Back to account settings</string>
+</resources>

@@ -178,6 +178,7 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
     }
 
     AnimatedContent(
+        modifier = Modifier.fillMaxSize().background(AppTheme.colors.background),
         targetState = state.value,
         contentKey = { state ->
             state::class

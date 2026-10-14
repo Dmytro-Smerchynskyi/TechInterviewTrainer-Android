@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.oniolla.interviewer.data.ThemeMode
-import com.oniolla.interviewer.data.model.MeResponse
+import com.oniolla.interviewer.data.model.*
 import com.oniolla.interviewer.ui.theme.AppTheme
 import com.oniolla.interviewer.ui.theme.InterviewTrainerTheme
 
@@ -16,6 +16,8 @@ private val profilePreview = ProfileViewState(
     page = ProfilePage.PROFILE,
     profile = ContentViewState.Ready(MeResponse("user", "developer@example.com", "Dmitry S.",
         true, "ANDROID", "", "", true, listOf("PASSWORD"), "en")),
+    usage = ContentViewState.Ready(DashboardUsage("FREE", AnswerRevealsUsage(12,20,8),
+        AiEvaluationsUsage(8,0,20,12,null,null), QuestionsUsage(false,5))),
     streakDays = 7, theme = ThemeMode.SYSTEM
 )
 

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.oniolla.interviewer.data.ThemeMode
 import com.oniolla.interviewer.data.model.MeResponse
+import com.oniolla.interviewer.data.model.DashboardUsage
 import com.oniolla.interviewer.data.model.Specialization
 import com.oniolla.interviewer.domain.ContentResult
 import com.oniolla.interviewer.domain.GetPreparationLanguagesUseCase
@@ -23,11 +24,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class ProfilePage { CLOSED, PROFILE, SPECIALIZATION, LANGUAGE }
+enum class ProfilePage { CLOSED, PROFILE, SPECIALIZATION, LANGUAGE, ACCOUNT }
 
 data class ProfileViewState(
     val page: ProfilePage = ProfilePage.CLOSED,
     val profile: ContentViewState<MeResponse> = ContentViewState.NotLoaded,
+    val usage: ContentViewState<DashboardUsage> = ContentViewState.NotLoaded,
     val streakDays: Int? = null,
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val themeDialog: Boolean = false,
@@ -55,6 +57,7 @@ class ProfileViewModel @Inject constructor(
     val events = _events.asSharedFlow()
     private var languagesJob: Job? = null
     private var profileJob: Job? = null
+    private var usageJob: Job? = null
     private var changed = savedState.get<Boolean>("profileChanged") ?: false
 
     init {
@@ -62,7 +65,10 @@ class ProfileViewModel @Inject constructor(
             _state.update { it.copy(streakDays = stats?.summary?.streakDays) }
         } }
         viewModelScope.launch { manage.theme.collect { theme -> _state.update { it.copy(theme = theme) } } }
-        if (_state.value.page != ProfilePage.CLOSED) loadProfile()
+        if (_state.value.page != ProfilePage.CLOSED) {
+            loadProfile()
+            loadUsage()
+        }
     }
 
     private fun show(page: ProfilePage) {
@@ -74,6 +80,30 @@ class ProfileViewModel @Inject constructor(
         show(ProfilePage.PROFILE)
         if (profile != null) _state.update { it.copy(profile = ContentViewState.Ready(profile)) }
         else if (_state.value.profile !is ContentViewState.Ready) loadProfile()
+        if (_state.value.usage !is ContentViewState.Ready) loadUsage()
+    }
+
+    fun loadUsage() {
+        if (_state.value.isSaving || usageJob?.isActive == true) return
+        _state.update { it.copy(usage = ContentViewState.Loading) }
+        usageJob = viewModelScope.launch {
+            val result = manage.usage()
+            _state.update { it.copy(usage = result.toViewState(),
+                sessionExpired = it.sessionExpired || result == ContentResult.SessionExpired) }
+        }
+    }
+
+    fun openAccount() {
+        if (!_state.value.isSaving) show(ProfilePage.ACCOUNT)
+    }
+
+    fun finishAccount(profile: MeResponse?, accountChanged: Boolean) {
+        if (profile != null) _state.update { it.copy(profile = ContentViewState.Ready(profile)) }
+        if (accountChanged) {
+            changed = true
+            savedState["profileChanged"] = true
+        }
+        show(ProfilePage.PROFILE)
     }
 
     fun loadProfile() {
@@ -81,7 +111,8 @@ class ProfileViewModel @Inject constructor(
         _state.update { it.copy(profile = ContentViewState.Loading) }
         profileJob = viewModelScope.launch {
             val result = manage.profile()
-            _state.update { it.copy(profile = result.toViewState(), sessionExpired = result == ContentResult.SessionExpired) }
+            _state.update { it.copy(profile = result.toViewState(),
+                sessionExpired = it.sessionExpired || result == ContentResult.SessionExpired) }
             if (result is ContentResult.Success) {
                 when (_state.value.page) {
                     ProfilePage.SPECIALIZATION -> prepareSpecialization(result.content)
@@ -220,6 +251,7 @@ class ProfileViewModel @Inject constructor(
     fun signOut() {
         if (_state.value.isSigningOut) return
         languagesJob?.cancel()
+        usageJob?.cancel()
         _state.update { it.copy(isSigningOut = true) }
         viewModelScope.launch {
             when (val result = manage.signOut()) {

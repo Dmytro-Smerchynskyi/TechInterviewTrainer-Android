@@ -1,6 +1,12 @@
 package com.oniolla.interviewer.data
 
 import com.oniolla.interviewer.data.model.DashboardResponse
+import com.oniolla.interviewer.data.model.DashboardUsage
+import com.oniolla.interviewer.data.payload.ChangeNamePayload
+import com.oniolla.interviewer.data.payload.ChangeEmailPayload
+import com.oniolla.interviewer.data.payload.ConfirmEmailChangePayload
+import com.oniolla.interviewer.data.payload.ChangePasswordPayload
+import com.oniolla.interviewer.data.payload.SetPasswordPayload
 import com.oniolla.interviewer.data.model.StatsResponse
 import com.oniolla.interviewer.data.model.TopicResponse
 import com.oniolla.interviewer.data.model.QuestionsResponse
@@ -29,6 +35,27 @@ import retrofit2.http.Path
 import retrofit2.http.DELETE
 
 interface Api {
+
+    @GET("me/usage")
+    suspend fun accountUsage(@Tag session: SessionSnapshot? = null): DashboardUsage
+
+    @PUT("me/name")
+    suspend fun changeName(@Body payload: ChangeNamePayload, @Tag session: SessionSnapshot? = null): MeResponse
+
+    @POST("me/email/change/request")
+    suspend fun requestEmailChange(@Body payload: ChangeEmailPayload, @Tag session: SessionSnapshot? = null)
+
+    @POST("me/email/change/confirm")
+    suspend fun confirmEmailChange(@Body payload: ConfirmEmailChangePayload, @Tag session: SessionSnapshot? = null): LoginResponse
+
+    @POST("me/email/change/resend")
+    suspend fun resendEmailChange(@Body payload: ChangeEmailPayload, @Tag session: SessionSnapshot? = null)
+
+    @POST("me/password/change")
+    suspend fun changePassword(@Body payload: ChangePasswordPayload, @Tag session: SessionSnapshot? = null): LoginResponse
+
+    @POST("me/password/set")
+    suspend fun setPassword(@Body payload: SetPasswordPayload, @Tag session: SessionSnapshot? = null): LoginResponse
 
     @GET("stats")
     suspend fun stats(

@@ -72,6 +72,7 @@ class ProfileSettingsTest {
         var language = "en"
         var streak = 7
         var updateStatus = 200
+        var usageStatus = 200
         var beforeUpdate: (() -> Unit)? = null
         var beforeStats: (() -> Unit)? = null
         val auth: AuthRepository
@@ -83,7 +84,7 @@ class ProfileSettingsTest {
                 val request = chain.request()
                 requests.add(request)
                 val path = request.url.encodedPath
-                val code = if (request.method == "PUT") updateStatus else 200
+                val code = if (path == "/me/usage") usageStatus else if (request.method == "PUT") updateStatus else 200
                 if (request.method == "PUT") beforeUpdate?.invoke()
                 val body = if (code >= 400) """{"error":{"code":"FAILED","message":"Unable to update profile"}}"""
                     else when (path) {
@@ -96,6 +97,9 @@ class ProfileSettingsTest {
                             profileBody()
                         }
                         "/me" -> profileBody()
+                        "/me/usage" -> """{"plan":"FREE","answerReveals":{"used":12,"limit":20,"remaining":8},
+                            "aiEvaluations":{"used":8,"reserved":0,"limit":20,"remaining":12,"periodEndsAt":null,"resetAt":null},
+                            "questions":{"unlimited":true,"limitPerTopic":null}}"""
                         "/preparation-languages" -> """{"items":[
                             {"code":"en","name":"English","nativeName":"English","contentAvailable":true},
                             {"code":"uk","name":"Ukrainian","nativeName":"Українська","contentAvailable":true},
@@ -165,6 +169,58 @@ class ProfileSettingsTest {
 
     private suspend fun readyProfile(vm: ProfileViewModel) {
         vm.state.first { it.profile is ContentViewState.Ready }
+    }
+
+    @Test fun planUsageLoadsOnProfileAndRemainsCachedAcrossAccountAndReopening() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.profileVm()
+        runCurrent()
+        assertEquals(0, f.calls("/me/usage"))
+        vm.open()
+        readyProfile(vm)
+        val usage = (vm.state.first { it.usage is ContentViewState.Ready }.usage as ContentViewState.Ready).content
+        assertEquals(12, usage.aiEvaluations!!.remaining)
+        assertEquals(8, usage.answerReveals!!.remaining)
+        assertTrue(usage.questions!!.unlimited)
+        assertEquals(1, f.calls("/me/usage"))
+        val profile = (vm.state.value.profile as ContentViewState.Ready).content
+        vm.openAccount()
+        vm.finishAccount(profile, false)
+        vm.back()
+        vm.open()
+        runCurrent()
+        assertEquals(1, f.calls("/me/usage"))
+    }
+
+    @Test fun failedPlanUsageCanBeRetriedFromProfile() = runTest(dispatcher) {
+        val f = Fixture().apply { usageStatus = 500 }
+        val vm = f.profileVm()
+        vm.open()
+        readyProfile(vm)
+        vm.state.first { it.usage is ContentViewState.Failed }
+        assertFalse(vm.state.value.sessionExpired)
+        assertEquals(ProfilePage.PROFILE, vm.state.value.page)
+        f.usageStatus = 200
+        vm.loadUsage()
+        vm.state.first { it.usage is ContentViewState.Ready }
+        assertEquals(2, f.calls("/me/usage"))
+    }
+
+    @Test fun accountChangesUpdateProfileAndRequestHomeReloadOnReturn() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.profileVm()
+        vm.open()
+        readyProfile(vm)
+        val profile = (vm.state.value.profile as ContentViewState.Ready).content
+        vm.openAccount()
+        assertEquals(ProfilePage.ACCOUNT, vm.state.value.page)
+        vm.finishAccount(profile.copy(displayName = "New Developer"), true)
+        assertEquals(ProfilePage.PROFILE, vm.state.value.page)
+        assertEquals("New Developer", (vm.state.value.profile as ContentViewState.Ready).content.displayName)
+        assertTrue(vm.back())
+        vm.open()
+        readyProfile(vm)
+        assertFalse(vm.back())
     }
 
     @Test fun startupCachesStatsAndOpeningProfileReusesMeAndStats() = runTest(dispatcher) {

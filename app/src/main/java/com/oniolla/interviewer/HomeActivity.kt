@@ -6,7 +6,6 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -26,6 +25,8 @@ import com.oniolla.interviewer.data.AppPreferences
 import com.oniolla.interviewer.ui.UiEvent
 import com.oniolla.interviewer.ui.home.*
 import com.oniolla.interviewer.ui.theme.InterviewTrainerTheme
+import com.oniolla.interviewer.ui.theme.StatusBarTheme
+import com.oniolla.interviewer.ui.theme.applyStatusBarTheme
 import com.oniolla.interviewer.ui.theme.AppTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -40,9 +41,10 @@ class HomeActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        applyStatusBarTheme(preferences.theme.value)
         setContent {
             val theme by preferences.theme.collectAsStateWithLifecycle()
+            StatusBarTheme(this@HomeActivity, theme)
             InterviewTrainerTheme(themeMode = theme) {
                 val state by viewModel.stateFlow.collectAsStateWithLifecycle()
                 val profileState by profileViewModel.state.collectAsStateWithLifecycle()

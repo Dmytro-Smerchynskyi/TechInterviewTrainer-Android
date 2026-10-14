@@ -7,7 +7,6 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -107,6 +106,8 @@ import com.oniolla.interviewer.ui.EMAIL_CODE_LENGTH
 import com.oniolla.interviewer.ui.normalizeEmailCode
 import com.oniolla.interviewer.ui.theme.AppTheme
 import com.oniolla.interviewer.ui.theme.InterviewTrainerTheme
+import com.oniolla.interviewer.ui.theme.StatusBarTheme
+import com.oniolla.interviewer.ui.theme.applyStatusBarTheme
 import com.oniolla.interviewer.ui.theme.fonts
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -118,9 +119,10 @@ class AuthActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        applyStatusBarTheme(preferences.theme.value)
         setContent {
             val theme by preferences.theme.collectAsStateWithLifecycle()
+            StatusBarTheme(this@AuthActivity, theme)
             InterviewTrainerTheme(themeMode = theme) {
                 Screen(viewModel, onAuthorized = ::openHome)
             }

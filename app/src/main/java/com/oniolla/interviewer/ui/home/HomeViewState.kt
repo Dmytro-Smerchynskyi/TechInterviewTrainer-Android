@@ -3,6 +3,8 @@ package com.oniolla.interviewer.ui.home
 import com.oniolla.interviewer.data.model.StatsResponse
 import com.oniolla.interviewer.data.model.TopicResponse
 import com.oniolla.interviewer.data.model.QuestionResponse
+import com.oniolla.interviewer.data.model.QuestionAnswerResponse
+import com.oniolla.interviewer.data.model.DashboardUsage
 import com.oniolla.interviewer.data.model.QuestionTopicAccess
 import com.oniolla.interviewer.domain.ContentResult
 import com.oniolla.interviewer.domain.DashboardContent
@@ -31,6 +33,21 @@ data class QuestionsContent(
     val resultRevision: Int = 0
 )
 
+data class QuestionDetailState(
+    val question: QuestionResponse,
+    val answer: ContentViewState<QuestionAnswerResponse> = ContentViewState.NotLoaded,
+    val usage: DashboardUsage? = null,
+    val isUsageLoading: Boolean = true,
+    val usageError: String? = null
+) {
+    val revealsRemaining get() = usage?.answerReveals?.remaining?.coerceAtLeast(0) ?: 0
+    val aiReviewsRemaining get() = usage?.aiEvaluations?.remaining?.coerceAtLeast(0) ?: 0
+    val canReveal get() = !isUsageLoading && usageError == null && revealsRemaining > 0 &&
+        answer != ContentViewState.Loading && answer !is ContentViewState.Ready
+    val canPractice get() = !isUsageLoading && usageError == null && aiReviewsRemaining > 0 &&
+        answer != ContentViewState.Loading
+}
+
 data class StatisticsContent(
     val response: StatsResponse,
     val weekStart: String,
@@ -54,6 +71,7 @@ data class HomeViewState(
     val favoritesFilter: FavoritesFilter = FavoritesFilter.SAVED,
     val favorites: ContentViewState<QuestionsContent> = ContentViewState.NotLoaded,
     val statistics: ContentViewState<StatisticsContent> = ContentViewState.NotLoaded,
+    val questionDetail: QuestionDetailState? = null,
     val sessionExpired: Boolean = false
 ) {
     val displayName: String

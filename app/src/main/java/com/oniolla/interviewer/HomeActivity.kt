@@ -81,8 +81,12 @@ class HomeActivity : ComponentActivity() {
                         }
                     } else if (profileViewModel.back()) viewModel.reloadAfterProfileChange()
                 }
-                BackHandler(enabled = profileOpen || state.tab != HomeTab.HOME) {
-                    if (profileOpen) back() else viewModel.selectTab(HomeTab.HOME)
+                BackHandler(enabled = profileOpen || state.questionDetail != null || state.tab != HomeTab.HOME) {
+                    when {
+                        profileOpen -> back()
+                        state.questionDetail != null -> viewModel.closeQuestion()
+                        else -> viewModel.selectTab(HomeTab.HOME)
+                    }
                 }
                 AnimatedContent(targetState = when (profileState.page) {
                     ProfilePage.CLOSED -> "home"
@@ -148,6 +152,10 @@ class HomeActivity : ComponentActivity() {
                         onRetryFavoritePage = viewModel::retryFavoritePage,
                         onRetryStats = viewModel::loadStats,
                         onStatsWeekChanged = viewModel::changeStatsWeek,
+                        onOpenQuestion = viewModel::openQuestion,
+                        onCloseQuestion = viewModel::closeQuestion,
+                        onRevealAnswer = viewModel::revealQuestionAnswer,
+                        onRetryQuestionUsage = viewModel::refreshQuestionUsage,
                         onProfileClicked = {
                             profileViewModel.open((state.dashboard as? ContentViewState.Ready)?.content?.profile)
                         }

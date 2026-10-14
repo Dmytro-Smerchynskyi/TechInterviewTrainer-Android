@@ -5,6 +5,7 @@ import com.oniolla.interviewer.data.model.DashboardResponse
 import com.oniolla.interviewer.data.model.StatsResponse
 import com.oniolla.interviewer.data.model.TopicResponse
 import com.oniolla.interviewer.data.model.QuestionsResponse
+import com.oniolla.interviewer.data.model.QuestionAnswerResponse
 import javax.inject.Inject
 import kotlinx.coroutines.ensureActive
 
@@ -46,6 +47,11 @@ class HomeRepository @Inject constructor(
     suspend fun setQuestionSaved(questionId: Long, saved: Boolean): Unit = sessionRefresh.authorizedApiCall {
         if (saved) api.saveQuestion(questionId, it) else api.unsaveQuestion(questionId, it)
     }
+
+    suspend fun getQuestionAnswer(questionId: Long): QuestionAnswerResponse =
+        sessionRefresh.authorizedApiCall { api.questionAnswer(questionId, it) }
+
+    suspend fun getQuestionUsage() = sessionRefresh.authorizedApiCall { api.accountUsage(it) }
 
     suspend fun getQuestions(
         topicId: Long?,

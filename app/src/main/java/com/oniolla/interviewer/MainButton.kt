@@ -8,6 +8,7 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,7 +44,8 @@ fun MainButton(
     isLoading: Boolean = false,
     textSize: TextUnit = 10.sp,
     leadingIcon: (@Composable () -> Unit)? = null,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -65,7 +67,7 @@ fun MainButton(
                 keyboardController?.hide()
                 onClick()
             }
-            .padding(ButtonDefaults.ContentPadding),
+            .padding(contentPadding),
         contentAlignment = Alignment.Center
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

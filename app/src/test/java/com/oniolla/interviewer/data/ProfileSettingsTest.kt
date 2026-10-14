@@ -147,7 +147,7 @@ class ProfileSettingsTest {
         fun homeVm(): HomeViewModel = HomeViewModel(GetDashboardUseCase(home, auth),
             GetTopicsUseCase(home), GetQuestionsUseCase(home), SavedStateHandle(),
             TopicCatalogUseCase(home), SetQuestionSavedUseCase(home),
-            GetFavoriteQuestionsUseCase(home), GetStatsUseCase(home))
+            GetFavoriteQuestionsUseCase(home), GetStatsUseCase(home), GetQuestionAnswerUseCase(home))
             .also { vm -> stores += ViewModelStore().apply { put("home", vm) } }
 
         fun calls(path: String) = requests.count { it.url.encodedPath == path }

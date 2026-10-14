@@ -50,7 +50,8 @@ internal fun DashboardScreen(
     onTopic: (String) -> Unit,
     onSeeTopics: () -> Unit,
     onSeeQuestions: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onOpenQuestion: (QuestionResponse) -> Unit = {}
 ) {
     AnimatedContent(
         targetState = state,
@@ -104,7 +105,7 @@ internal fun DashboardScreen(
                         item(key = "reviews_empty") { EmptySection(stringResource(R.string.no_reviews_due)) }
                     } else {
                         items(dashboard.todayReview, key = { "review_${it.id}" }) { question ->
-                            ReviewCard(question)
+                            ReviewCard(question) { onOpenQuestion(question) }
                             Spacer(Modifier.height(8.dp))
                         }
                     }
@@ -257,9 +258,9 @@ internal fun MasteryBar(mastery: Double, color: Color) {
 }
 
 @Composable
-private fun ReviewCard(question: QuestionResponse) {
+private fun ReviewCard(question: QuestionResponse, onClick: () -> Unit) {
     Surface(
-        onClick = {},
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         color = AppTheme.colors.container,
         contentColor = AppTheme.colors.primaryText,

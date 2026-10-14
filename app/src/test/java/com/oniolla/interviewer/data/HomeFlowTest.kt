@@ -149,7 +149,7 @@ class HomeFlowTest {
 
         fun paths() = requests.map { it.url.encodedPath }
         fun viewModel(handle: SavedStateHandle = SavedStateHandle()) =
-            HomeViewModel(dashboard, topics, GetQuestionsUseCase(home), handle, TopicCatalogUseCase(home), SetQuestionSavedUseCase(home), GetFavoriteQuestionsUseCase(home), GetStatsUseCase(home))
+            HomeViewModel(dashboard, topics, GetQuestionsUseCase(home), handle, TopicCatalogUseCase(home), SetQuestionSavedUseCase(home), GetFavoriteQuestionsUseCase(home), GetStatsUseCase(home), com.oniolla.interviewer.domain.GetQuestionAnswerUseCase(home))
     }
 
     @Test fun dashboardAndProfileUseGetWithoutPayloadOrQuery() = runBlocking {

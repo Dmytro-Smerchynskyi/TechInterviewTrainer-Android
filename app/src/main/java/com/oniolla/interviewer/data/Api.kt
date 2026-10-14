@@ -10,6 +10,7 @@ import com.oniolla.interviewer.data.payload.SetPasswordPayload
 import com.oniolla.interviewer.data.model.StatsResponse
 import com.oniolla.interviewer.data.model.TopicResponse
 import com.oniolla.interviewer.data.model.QuestionsResponse
+import com.oniolla.interviewer.data.model.QuestionAnswerResponse
 import com.oniolla.interviewer.data.model.ForgotPasswordResponse
 import com.oniolla.interviewer.data.model.LoginResponse
 import com.oniolla.interviewer.data.model.MeResponse
@@ -79,6 +80,12 @@ interface Api {
         @Tag session: SessionSnapshot? = null,
         @Query("mastered") mastered: Boolean? = null
     ): QuestionsResponse
+
+    @GET("questions/{id}/answer")
+    suspend fun questionAnswer(
+        @Path("id") questionId: Long,
+        @Tag session: SessionSnapshot? = null
+    ): QuestionAnswerResponse
 
     @GET("questions/saved")
     suspend fun savedQuestions(

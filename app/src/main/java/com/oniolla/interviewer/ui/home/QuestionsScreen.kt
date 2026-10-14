@@ -61,7 +61,8 @@ internal fun QuestionsScreen(
     onRetryPage: () -> Unit,
     onSelectTopic: (Long, String) -> Unit,
     onRetryTopicCatalog: () -> Unit,
-    onToggleSaved: (Long) -> Unit
+    onToggleSaved: (Long) -> Unit,
+    onOpenQuestion: (QuestionResponse) -> Unit = {}
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         QuestionsSearch(state.questionSearch, onSearch)
@@ -76,7 +77,7 @@ internal fun QuestionsScreen(
             when (current) {
                 ContentViewState.NotLoaded, ContentViewState.Loading -> QuestionsSkeleton()
                 is ContentViewState.Failed -> ContentError(current.message, onRetry)
-                is ContentViewState.Ready -> QuestionsList(current.content, onLoadMore, onRetryPage, onToggleSaved)
+                is ContentViewState.Ready -> QuestionsList(current.content, onLoadMore, onRetryPage, onToggleSaved, onOpenQuestion = onOpenQuestion)
             }
         }
     }
@@ -128,7 +129,8 @@ private fun QuestionsSearch(query: String, onSearch: (String) -> Unit) {
 
 @Composable
 internal fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onRetryPage: () -> Unit,
-    onToggleSaved: (Long) -> Unit, compact: Boolean = false, emptyMessage: String? = null) {
+    onToggleSaved: (Long) -> Unit, compact: Boolean = false, emptyMessage: String? = null,
+    onOpenQuestion: (QuestionResponse) -> Unit = {}) {
     val listState = key(content.resultRevision) { rememberLazyListState() }
     val lockedCount = content.access?.takeIf { it.limitedByPlan }?.lockedCount
         ?: content.topics.filter { it.limitedByPlan }.sumOf { it.lockedCount }
@@ -151,8 +153,8 @@ internal fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, on
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(content.items, key = { it.id }) { question ->
-            if (compact) FavoriteQuestionCard(question, onToggleSaved)
-            else LibraryQuestionCard(question, onToggleSaved)
+            if (compact) FavoriteQuestionCard(question, onToggleSaved, onOpenQuestion)
+            else LibraryQuestionCard(question, onToggleSaved, onOpenQuestion)
         }
         if (content.isAppending || (content.items.isEmpty() && content.nextCursor != null && content.appendError == null)) {
             item(key = "loading_next") { ShimmerAnimation {
@@ -178,10 +180,11 @@ internal fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, on
 }
 
 @Composable
-private fun LibraryQuestionCard(question: QuestionResponse, onToggleSaved: (Long) -> Unit) {
+private fun LibraryQuestionCard(question: QuestionResponse, onToggleSaved: (Long) -> Unit,
+    onOpenQuestion: (QuestionResponse) -> Unit = {}) {
     val tint = topicTint(question.topic.visual)
     Surface(
-        onClick = {},
+        onClick = { onOpenQuestion(question) },
         modifier = Modifier.fillMaxWidth().heightIn(min = 84.dp),
         shape = RoundedCornerShape(13.dp),
         color = AppTheme.colors.container,
@@ -227,7 +230,8 @@ private fun LibraryQuestionCard(question: QuestionResponse, onToggleSaved: (Long
 }
 
 @Composable
-internal fun QuestionSaveButton(question: QuestionResponse, onToggleSaved: (Long) -> Unit) {
+internal fun QuestionSaveButton(question: QuestionResponse, onToggleSaved: (Long) -> Unit,
+    iconSize: androidx.compose.ui.unit.Dp = 16.dp, touchSize: androidx.compose.ui.unit.Dp = 24.dp) {
     val savedDescription = stringResource(
         if (question.saved) R.string.question_saved else R.string.question_not_saved)
     val savedAction = stringResource(
@@ -235,7 +239,7 @@ internal fun QuestionSaveButton(question: QuestionResponse, onToggleSaved: (Long
     Surface(
         checked = question.saved,
         onCheckedChange = { onToggleSaved(question.id) },
-        modifier = Modifier.size(24.dp).semantics {
+        modifier = Modifier.size(touchSize).semantics {
             contentDescription = savedAction
             stateDescription = savedDescription
         },
@@ -243,11 +247,11 @@ internal fun QuestionSaveButton(question: QuestionResponse, onToggleSaved: (Long
         color = Color.Transparent
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Crossfade(question.saved, Modifier.size(16.dp), tween(150), label = "question saved") { saved ->
+            Crossfade(question.saved, Modifier.size(iconSize), tween(150), label = "question saved") { saved ->
                 Image(
                     painterResource(if (saved) R.drawable.question_star_filled else R.drawable.question_star_outline),
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(iconSize),
                     colorFilter = ColorFilter.tint(AppTheme.colors.warning)
                 )
             }
@@ -264,13 +268,16 @@ internal fun difficultyLabel(difficulty: String): String = when (difficulty) {
 }
 
 @Composable
+internal fun difficultyTint(difficulty: String): Color = when (difficulty) {
+    "EASY" -> AppTheme.colors.success
+    "MEDIUM" -> AppTheme.colors.warning
+    "HARD" -> Color(0xFFF44AA7)
+    else -> AppTheme.colors.secondaryText
+}
+
+@Composable
 private fun DifficultyPill(difficulty: String) {
-    val color = when (difficulty) {
-        "EASY" -> AppTheme.colors.success
-        "MEDIUM" -> AppTheme.colors.warning
-        "HARD" -> Color(0xFFF44AA7)
-        else -> AppTheme.colors.secondaryText
-    }
+    val color = difficultyTint(difficulty)
     val label = difficultyLabel(difficulty)
     Box(Modifier.size(width = 56.dp, height = 20.dp)
         .background(color.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),

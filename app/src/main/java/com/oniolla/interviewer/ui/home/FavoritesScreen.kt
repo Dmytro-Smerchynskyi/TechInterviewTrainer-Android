@@ -38,7 +38,8 @@ internal fun FavoritesScreen(
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
     onRetryPage: () -> Unit,
-    onToggleSaved: (Long) -> Unit
+    onToggleSaved: (Long) -> Unit,
+    onOpenQuestion: (QuestionResponse) -> Unit = {}
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 18.dp).selectableGroup(),
@@ -92,7 +93,7 @@ internal fun FavoritesScreen(
                     ContentViewState.NotLoaded, ContentViewState.Loading -> FavoritesSkeleton()
                     is ContentViewState.Failed -> ContentError(current.message, onRetry)
                     is ContentViewState.Ready -> QuestionsList(current.content, onLoadMore, onRetryPage,
-                        onToggleSaved, compact = true, emptyMessage = emptyMessage)
+                        onToggleSaved, compact = true, emptyMessage = emptyMessage, onOpenQuestion = onOpenQuestion)
                 }
             }
         }
@@ -123,8 +124,9 @@ private fun DueReviewBanner(dueCount: Int, onClick: () -> Unit) {
 }
 
 @Composable
-internal fun FavoriteQuestionCard(question: QuestionResponse, onToggleSaved: (Long) -> Unit) {
-    Surface(onClick = {}, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+internal fun FavoriteQuestionCard(question: QuestionResponse, onToggleSaved: (Long) -> Unit,
+    onOpenQuestion: (QuestionResponse) -> Unit = {}) {
+    Surface(onClick = { onOpenQuestion(question) }, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
         shape = RoundedCornerShape(13.dp), color = AppTheme.colors.container,
         border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
         Row(Modifier.padding(start = 10.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),

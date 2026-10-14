@@ -14,6 +14,7 @@ import com.oniolla.interviewer.domain.TopicCatalogUseCase
 import com.oniolla.interviewer.domain.GetFavoriteQuestionsUseCase
 import com.oniolla.interviewer.domain.FavoriteQuestionsRequest
 import com.oniolla.interviewer.domain.FavoritesFilter
+import com.oniolla.interviewer.domain.GetQuestionAnswerUseCase
 import com.oniolla.interviewer.domain.GetQuestionsUseCase
 import com.oniolla.interviewer.domain.QuestionsRequest
 import com.oniolla.interviewer.domain.SetQuestionSavedUseCase
@@ -47,7 +48,8 @@ class HomeViewModel @Inject constructor(
     private val topicCatalogUseCase: TopicCatalogUseCase,
     private val setQuestionSavedUseCase: SetQuestionSavedUseCase,
     private val getFavoriteQuestionsUseCase: GetFavoriteQuestionsUseCase,
-    private val getStatsUseCase: GetStatsUseCase
+    private val getStatsUseCase: GetStatsUseCase,
+    private val getQuestionAnswerUseCase: GetQuestionAnswerUseCase
 ) : ViewModel() {
     private val _stateFlow = MutableStateFlow(HomeViewState(
         tab = HomeTab.entries.firstOrNull { it.name == savedStateHandle.get<String>("homeTab") }
@@ -66,6 +68,9 @@ class HomeViewModel @Inject constructor(
 
     private val _uiEventsFlow = MutableSharedFlow<UiEvent>()
     val uiEventsFlow = _uiEventsFlow.asSharedFlow()
+    private var answerJob: Job? = null
+    private var questionUsageJob: Job? = null
+    private var detailGeneration = 0
     private var dashboardJob: Job? = null
     private var topicsJob: Job? = null
     private var topicsGeneration = 0
@@ -103,7 +108,72 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun openQuestion(question: QuestionResponse) {
+        answerJob?.cancel()
+        questionUsageJob?.cancel()
+        detailGeneration++
+        val current = applySavedChanges(listOf(question)).single()
+        val usage = (_stateFlow.value.dashboard as? ContentViewState.Ready)?.content?.dashboard?.usage
+        _stateFlow.update { it.copy(questionDetail = QuestionDetailState(current, usage = usage)) }
+        refreshQuestionUsage()
+    }
+
+    fun closeQuestion() {
+        answerJob?.cancel()
+        questionUsageJob?.cancel()
+        detailGeneration++
+        _stateFlow.update { it.copy(questionDetail = null) }
+    }
+
+    fun refreshQuestionUsage() {
+        val detail = _stateFlow.value.questionDetail ?: return
+        if (questionUsageJob?.isActive == true) return
+        val generation = detailGeneration
+        val id = detail.question.id
+        _stateFlow.update { it.copy(questionDetail = it.questionDetail?.copy(isUsageLoading = true, usageError = null)) }
+        questionUsageJob = viewModelScope.launch {
+            val result = getQuestionAnswerUseCase.usage()
+            currentCoroutineContext().ensureActive()
+            if (generation != detailGeneration || _stateFlow.value.questionDetail?.question?.id != id) return@launch
+            _stateFlow.update { state ->
+                val current = state.questionDetail ?: return@update state
+                when (result) {
+                    is ContentResult.Success -> {
+                        val dashboard = (state.dashboard as? ContentViewState.Ready)?.content
+                        state.copy(questionDetail = current.copy(usage = result.content, isUsageLoading = false),
+                            dashboard = dashboard?.let { ContentViewState.Ready(it.copy(
+                                dashboard = it.dashboard.copy(usage = result.content))) } ?: state.dashboard)
+                    }
+                    is ContentResult.Error -> state.copy(questionDetail = current.copy(
+                        isUsageLoading = false, usageError = result.message))
+                    ContentResult.SessionExpired -> state.copy(sessionExpired = true,
+                        questionDetail = current.copy(isUsageLoading = false))
+                }
+            }
+        }
+    }
+
+    fun revealQuestionAnswer() {
+        val detail = _stateFlow.value.questionDetail ?: return
+        if (!detail.canReveal || answerJob?.isActive == true) return
+        val generation = detailGeneration
+        val id = detail.question.id
+        _stateFlow.update { it.copy(questionDetail = it.questionDetail?.copy(answer = ContentViewState.Loading)) }
+        answerJob = viewModelScope.launch {
+            val result = getQuestionAnswerUseCase(id)
+            currentCoroutineContext().ensureActive()
+            if (generation != detailGeneration || _stateFlow.value.questionDetail?.question?.id != id) return@launch
+            _stateFlow.update { state ->
+                state.copy(questionDetail = state.questionDetail?.copy(answer = result.toViewState()),
+                    sessionExpired = state.sessionExpired || result == ContentResult.SessionExpired)
+            }
+            if (result != ContentResult.SessionExpired) refreshQuestionUsage()
+            if (result is ContentResult.Error) _uiEventsFlow.emit(UiEvent.Toast(result.message))
+        }
+    }
+
     fun selectTab(tab: HomeTab) {
+        if (_stateFlow.value.questionDetail != null) closeQuestion()
         val previousTab = _stateFlow.value.tab
         savedStateHandle["homeTab"] = tab.name
         _stateFlow.update { it.copy(tab = tab) }
@@ -239,9 +309,11 @@ class HomeViewModel @Inject constructor(
         val state = _stateFlow.value
         val lists = if (state.tab == HomeTab.FAVORITES) listOf(state.favorites, state.questions)
             else listOf(state.questions, state.favorites)
-        val question = lists.firstNotNullOfOrNull { list ->
-            (list as? ContentViewState.Ready)?.content?.items?.firstOrNull { it.id == questionId }
-        } ?: return
+        val question = state.questionDetail?.question?.takeIf { it.id == questionId }
+            ?: lists.firstNotNullOfOrNull { list ->
+                (list as? ContentViewState.Ready)?.content?.items?.firstOrNull { it.id == questionId }
+            } ?: (state.dashboard as? ContentViewState.Ready)?.content?.dashboard?.todayReview
+                ?.firstOrNull { it.id == questionId } ?: return
         changedQuestions[questionId] = question
         favoritesDirty = true
         removedSavedQuestions.remove(questionId)
@@ -297,8 +369,16 @@ class HomeViewModel @Inject constructor(
                     items = applySavedChanges((content.items + extra).distinctBy { it.id })
                 ))
             }
+            val dashboard = (state.dashboard as? ContentViewState.Ready)?.content
             state.copy(questions = updated(state.questions),
-                favorites = updated(state.favorites, state.favoritesFilter == FavoritesFilter.SAVED))
+                favorites = updated(state.favorites, state.favoritesFilter == FavoritesFilter.SAVED),
+                questionDetail = state.questionDetail?.let { detail ->
+                    if (detail.question.id == questionId) detail.copy(question = detail.question.copy(saved = change.saved))
+                    else detail
+                },
+                dashboard = dashboard?.let { ContentViewState.Ready(it.copy(
+                    dashboard = it.dashboard.copy(todayReview = applySavedChanges(it.dashboard.todayReview)))) }
+                    ?: state.dashboard)
         }
     }
 
@@ -470,6 +550,7 @@ class HomeViewModel @Inject constructor(
 
     fun reloadAfterProfileChange() {
         stopSessionWork()
+        detailGeneration++
         questionsGeneration++
         favoritesGeneration++
         topicsGeneration++

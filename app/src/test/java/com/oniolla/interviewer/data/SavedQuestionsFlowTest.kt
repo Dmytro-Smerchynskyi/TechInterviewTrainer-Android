@@ -152,7 +152,8 @@ class SavedQuestionsFlowTest {
             TopicCatalogUseCase(fixture.repository),
             fixture.setSaved,
             GetFavoriteQuestionsUseCase(fixture.repository),
-            GetStatsUseCase(fixture.repository)
+            GetStatsUseCase(fixture.repository),
+            com.oniolla.interviewer.domain.GetQuestionAnswerUseCase(fixture.repository)
         )
         stores += ViewModelStore().apply { put("home", vm) }
         vm.stateFlow.first {

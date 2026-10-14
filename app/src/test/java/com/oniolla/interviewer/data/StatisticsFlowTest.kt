@@ -143,7 +143,8 @@ class StatisticsFlowTest {
         val vm = HomeViewModel(
             GetDashboardUseCase(fixture.repository, fixture.auth), GetTopicsUseCase(fixture.repository),
             GetQuestionsUseCase(fixture.repository), handle, TopicCatalogUseCase(fixture.repository),
-            SetQuestionSavedUseCase(fixture.repository), GetFavoriteQuestionsUseCase(fixture.repository), fixture.stats
+            SetQuestionSavedUseCase(fixture.repository), GetFavoriteQuestionsUseCase(fixture.repository), fixture.stats,
+            com.oniolla.interviewer.domain.GetQuestionAnswerUseCase(fixture.repository)
         )
         stores += ViewModelStore().apply { put("home", vm) }
         vm.stateFlow.first { it.dashboard is ContentViewState.Ready && it.topicCatalog is ContentViewState.Ready }

@@ -19,6 +19,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import com.oniolla.interviewer.data.model.QuestionResponse
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -62,41 +66,67 @@ fun HomeScreen(
     onRetryFavoritePage: () -> Unit,
     onRetryStats: () -> Unit,
     onStatsWeekChanged: (Int) -> Unit,
-    onProfileClicked: () -> Unit = {}
+    onProfileClicked: () -> Unit = {},
+    onOpenQuestion: (QuestionResponse) -> Unit = {},
+    onCloseQuestion: () -> Unit = {},
+    onRevealAnswer: () -> Unit = {},
+    onRetryQuestionUsage: () -> Unit = {}
 ) {
-    Scaffold(
-        modifier = Modifier.imePadding(),
-        containerColor = AppTheme.colors.background,
-        topBar = { HomeHeader(state, onProfileClicked) },
-        bottomBar = {
-            if (!WindowInsets.isImeVisible) HomeNavigation(state.tab, onTabSelected)
-        }
-    ) { padding ->
-        AnimatedContent(
-            targetState = state.tab,
-            modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
-            transitionSpec = {
-                val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                (slideInHorizontally(tween(250)) { it * direction / 5 } + fadeIn(tween(250)))
-                    .togetherWith(slideOutHorizontally(tween(250)) { -it * direction / 5 } + fadeOut(tween(250)))
-            },
-            label = "home tabs"
-        ) { tab ->
-            when (tab) {
-                HomeTab.HOME -> DashboardScreen(state.dashboard, onTopicQuestions,
-                    onSeeTopics = onSeeWeakTopics,
-                    onSeeQuestions = { onTabSelected(HomeTab.QUESTIONS) },
-                    onRetry = onRetryDashboard)
-                HomeTab.TOPICS -> TopicsScreen(state.topics, state.topicsFilter, onTopicsFilterSelected, onRetryTopics) { topic ->
-                    onQuestionTopicSelected(topic.id, topic.name)
+    val stateHolder = rememberSaveableStateHolder()
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val openQuestion: (QuestionResponse) -> Unit = {
+        focus.clearFocus()
+        keyboard?.hide()
+        onOpenQuestion(it)
+    }
+    AnimatedContent(
+        targetState = state.questionDetail,
+        contentKey = { it?.question?.id },
+        modifier = Modifier.fillMaxSize().background(AppTheme.colors.background),
+        transitionSpec = { fadeIn(tween(250)).togetherWith(fadeOut(tween(250))).using(null) },
+        label = "question navigation"
+    ) { detail ->
+        if (detail != null) {
+            QuestionDetailScreen(detail, onBack = onCloseQuestion, onReveal = onRevealAnswer,
+                onRetryUsage = onRetryQuestionUsage, onToggleSaved = onToggleQuestionSaved,
+                bottomBar = { HomeNavigation(state.tab, onTabSelected) })
+        } else stateHolder.SaveableStateProvider("homeTabs") {
+            Scaffold(
+                modifier = Modifier.imePadding(),
+                containerColor = AppTheme.colors.background,
+                topBar = { HomeHeader(state, onProfileClicked) },
+                bottomBar = {
+                    if (!WindowInsets.isImeVisible) HomeNavigation(state.tab, onTabSelected)
                 }
-                HomeTab.QUESTIONS -> QuestionsScreen(state, onQuestionSearch, onClearQuestionTopic,
-                    onRetryQuestions, onLoadMoreQuestions, onRetryQuestionPage,
-                    onQuestionTopicSelected, onRetryTopicCatalog, onToggleQuestionSaved)
-                HomeTab.STATS -> StatisticsScreen(state.statistics, onRetryStats,
-                    onStatsWeekChanged, onQuestionTopicSelected)
-                HomeTab.FAVORITES -> FavoritesScreen(state, onFavoritesFilterSelected,
-                    onRetryFavorites, onLoadMoreFavorites, onRetryFavoritePage, onToggleQuestionSaved)
+            ) { padding ->
+                AnimatedContent(
+                    targetState = state.tab,
+                    modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
+                    transitionSpec = {
+                        val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                        (slideInHorizontally(tween(250)) { it * direction / 5 } + fadeIn(tween(250)))
+                            .togetherWith(slideOutHorizontally(tween(250)) { -it * direction / 5 } + fadeOut(tween(250)))
+                    },
+                    label = "home tabs"
+                ) { tab ->
+                    when (tab) {
+                        HomeTab.HOME -> DashboardScreen(state.dashboard, onTopicQuestions,
+                            onSeeTopics = onSeeWeakTopics,
+                            onSeeQuestions = { onTabSelected(HomeTab.QUESTIONS) },
+                            onRetry = onRetryDashboard, onOpenQuestion = openQuestion)
+                        HomeTab.TOPICS -> TopicsScreen(state.topics, state.topicsFilter, onTopicsFilterSelected, onRetryTopics) { topic ->
+                            onQuestionTopicSelected(topic.id, topic.name)
+                        }
+                        HomeTab.QUESTIONS -> QuestionsScreen(state, onQuestionSearch, onClearQuestionTopic,
+                            onRetryQuestions, onLoadMoreQuestions, onRetryQuestionPage,
+                            onQuestionTopicSelected, onRetryTopicCatalog, onToggleQuestionSaved, openQuestion)
+                        HomeTab.STATS -> StatisticsScreen(state.statistics, onRetryStats,
+                            onStatsWeekChanged, onQuestionTopicSelected)
+                        HomeTab.FAVORITES -> FavoritesScreen(state, onFavoritesFilterSelected,
+                            onRetryFavorites, onLoadMoreFavorites, onRetryFavoritePage, onToggleQuestionSaved, openQuestion)
+                    }
+                }
             }
         }
     }
@@ -154,7 +184,7 @@ private fun HomeHeader(state: HomeViewState, onProfileClicked: () -> Unit) {
 }
 
 @Composable
-private fun HomeNavigation(tab: HomeTab, onSelect: (HomeTab) -> Unit) {
+internal fun HomeNavigation(tab: HomeTab, onSelect: (HomeTab) -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().navigationBarsPadding()
             .padding(start = 14.dp, end = 14.dp, bottom = 12.dp, top = 8.dp),

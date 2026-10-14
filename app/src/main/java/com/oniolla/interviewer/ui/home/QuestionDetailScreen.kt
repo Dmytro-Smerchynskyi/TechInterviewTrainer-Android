@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -71,7 +72,7 @@ internal fun QuestionDetailScreen(
                 }
             }
             AnimatedVisibility(
-                visible = state.answer != ContentViewState.NotLoaded,
+                visible = state.isAnswerVisible,
                 enter = expandVertically(tween(300), expandFrom = Alignment.Top) + fadeIn(tween(250)),
                 exit = shrinkVertically(tween(300), shrinkTowards = Alignment.Top) + fadeOut(tween(200))
             ) {
@@ -115,9 +116,11 @@ private fun QuestionDetailHeader(onBack: () -> Unit) {
 private fun DetailChip(label: String, color: Color) {
     Surface(shape = RoundedCornerShape(12.dp), color = color.copy(alpha = 0.12f),
         border = BorderStroke(1.dp, color.copy(alpha = 0.55f))) {
-        Text(label, Modifier.heightIn(min = 24.dp).padding(horizontal = 9.dp, vertical = 4.dp),
-            color = AppTheme.colors.primaryText, fontSize = 10.sp, lineHeight = 13.sp,
-            fontWeight = FontWeight.Medium)
+        Box(Modifier.heightIn(min = 24.dp).padding(horizontal = 9.dp, vertical = 4.dp),
+            contentAlignment = Alignment.Center) {
+            Text(label, color = AppTheme.colors.primaryText, fontSize = 10.sp, lineHeight = 13.sp,
+                fontWeight = FontWeight.Medium)
+        }
     }
 }
 
@@ -141,12 +144,18 @@ private fun QuestionHero(state: QuestionDetailState, onReveal: () -> Unit, onTog
 @Composable
 private fun QuestionActions(state: QuestionDetailState, onReveal: () -> Unit, onToggleSaved: (Long) -> Unit) {
     val reveal: @Composable (Modifier) -> Unit = { modifier ->
+        val hideAnswer = state.isAnswerVisible && state.answer is ContentViewState.Ready
         DetailAction(modifier,
-            stringResource(if (state.answer is ContentViewState.Ready)
-                R.string.question_answer_revealed else R.string.question_reveal_answer),
-            stringResource(R.string.question_reveals_remaining, state.revealsRemaining),
+            stringResource(when {
+                hideAnswer -> R.string.question_hide_answer
+                state.question.answerRevealed -> R.string.question_show_answer
+                else -> R.string.question_reveal_answer
+            }),
+            if (state.question.answerRevealed) stringResource(R.string.question_already_revealed)
+            else stringResource(R.string.question_reveals_remaining, state.revealsRemaining),
             enabled = state.canReveal, loading = state.answer == ContentViewState.Loading,
-            usageLoading = state.isUsageLoading, onClick = onReveal)
+            usageLoading = state.isUsageLoading && !state.question.answerRevealed,
+            hideIcon = hideAnswer, onClick = onReveal)
     }
     val practice: @Composable (Modifier) -> Unit = { modifier ->
         DetailAction(modifier, stringResource(R.string.question_ai_practice),
@@ -181,13 +190,17 @@ private fun QuestionActions(state: QuestionDetailState, onReveal: () -> Unit, on
 
 @Composable
 private fun DetailAction(modifier: Modifier, label: String, remaining: String, enabled: Boolean,
-    loading: Boolean = false, usageLoading: Boolean, onClick: () -> Unit) {
+    loading: Boolean = false, usageLoading: Boolean, hideIcon: Boolean = false, onClick: () -> Unit) {
     val opacity by animateFloatAsState(if (enabled || loading) 1f else 0.4f, tween(200), label = "question action enabled")
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         MainButton(Modifier.fillMaxWidth().height(38.dp).alpha(opacity), onClick = onClick,
             buttonText = label, loadingButtonText = stringResource(R.string.question_revealing_answer),
             isLoading = loading, enabled = enabled, textSize = 11.sp,
-            leadingIcon = { FigmaIcon("practice", Modifier.size(20.dp)) },
+            leadingIcon = {
+                if (hideIcon) Image(painterResource(R.drawable.question_clear_topic), null,
+                    Modifier.size(20.dp), colorFilter = ColorFilter.tint(Color.White))
+                else FigmaIcon("practice", Modifier.size(20.dp))
+            },
             contentPadding = PaddingValues(horizontal = 9.dp, vertical = 6.dp))
         Spacer(Modifier.height(4.dp))
         if (usageLoading) ShimmerAnimation { ShimmerBlock(Modifier.width(70.dp).height(9.dp)) }

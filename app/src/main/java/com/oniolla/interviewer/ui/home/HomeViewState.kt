@@ -38,12 +38,14 @@ data class QuestionDetailState(
     val answer: ContentViewState<QuestionAnswerResponse> = ContentViewState.NotLoaded,
     val usage: DashboardUsage? = null,
     val isUsageLoading: Boolean = true,
-    val usageError: String? = null
+    val usageError: String? = null,
+    val isAnswerVisible: Boolean = false
 ) {
     val revealsRemaining get() = usage?.answerReveals?.remaining?.coerceAtLeast(0) ?: 0
     val aiReviewsRemaining get() = usage?.aiEvaluations?.remaining?.coerceAtLeast(0) ?: 0
-    val canReveal get() = !isUsageLoading && usageError == null && revealsRemaining > 0 &&
-        answer != ContentViewState.Loading && answer !is ContentViewState.Ready
+    val canReveal get() = answer != ContentViewState.Loading &&
+        (answer is ContentViewState.Ready || question.answerRevealed ||
+            !isUsageLoading && usageError == null && revealsRemaining > 0)
     val canPractice get() = !isUsageLoading && usageError == null && aiReviewsRemaining > 0 &&
         answer != ContentViewState.Loading
 }

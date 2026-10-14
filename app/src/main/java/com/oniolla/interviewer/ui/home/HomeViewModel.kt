@@ -71,6 +71,7 @@ class HomeViewModel @Inject constructor(
     private var answerJob: Job? = null
     private var questionUsageJob: Job? = null
     private var detailGeneration = 0
+    private val revealedQuestionIds = mutableSetOf<Long>()
     private var dashboardJob: Job? = null
     private var topicsJob: Job? = null
     private var topicsGeneration = 0
@@ -98,6 +99,7 @@ class HomeViewModel @Inject constructor(
         ?.takeIf { it <= StatsDates.currentWeek(statsTimeZone) }
 
     init {
+        observeUsage()
         loadDashboard()
         loadStats()
         when (_stateFlow.value.tab) {
@@ -108,12 +110,23 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun observeUsage() {
+        viewModelScope.launch { getQuestionAnswerUseCase.cachedUsage().collect { usage ->
+            _stateFlow.update { state ->
+                val dashboard = (state.dashboard as? ContentViewState.Ready)?.content
+                state.copy(questionDetail = state.questionDetail?.copy(usage = usage),
+                    dashboard = dashboard?.let { ContentViewState.Ready(it.copy(
+                        dashboard = it.dashboard.copy(usage = usage))) } ?: state.dashboard)
+            }
+        } }
+    }
+
     fun openQuestion(question: QuestionResponse) {
         answerJob?.cancel()
         questionUsageJob?.cancel()
         detailGeneration++
         val current = applySavedChanges(listOf(question)).single()
-        val usage = (_stateFlow.value.dashboard as? ContentViewState.Ready)?.content?.dashboard?.usage
+        val usage = getQuestionAnswerUseCase.currentUsage()
         _stateFlow.update { it.copy(questionDetail = QuestionDetailState(current, usage = usage)) }
         refreshQuestionUsage()
     }
@@ -139,10 +152,8 @@ class HomeViewModel @Inject constructor(
                 val current = state.questionDetail ?: return@update state
                 when (result) {
                     is ContentResult.Success -> {
-                        val dashboard = (state.dashboard as? ContentViewState.Ready)?.content
-                        state.copy(questionDetail = current.copy(usage = result.content, isUsageLoading = false),
-                            dashboard = dashboard?.let { ContentViewState.Ready(it.copy(
-                                dashboard = it.dashboard.copy(usage = result.content))) } ?: state.dashboard)
+                        state.copy(questionDetail = current.copy(
+                            usage = getQuestionAnswerUseCase.currentUsage(), isUsageLoading = false))
                     }
                     is ContentResult.Error -> state.copy(questionDetail = current.copy(
                         isUsageLoading = false, usageError = result.message))
@@ -155,19 +166,44 @@ class HomeViewModel @Inject constructor(
 
     fun revealQuestionAnswer() {
         val detail = _stateFlow.value.questionDetail ?: return
-        if (!detail.canReveal || answerJob?.isActive == true) return
+        if (!detail.canReveal) return
+        if (detail.answer is ContentViewState.Ready) {
+            _stateFlow.update { state ->
+                state.copy(questionDetail = state.questionDetail?.let {
+                    it.copy(isAnswerVisible = !it.isAnswerVisible)
+                })
+            }
+            return
+        }
+        if (answerJob?.isActive == true) return
         val generation = detailGeneration
         val id = detail.question.id
-        _stateFlow.update { it.copy(questionDetail = it.questionDetail?.copy(answer = ContentViewState.Loading)) }
+        _stateFlow.update { it.copy(questionDetail = it.questionDetail?.copy(
+            answer = ContentViewState.Loading, isAnswerVisible = true)) }
         answerJob = viewModelScope.launch {
             val result = getQuestionAnswerUseCase(id)
             currentCoroutineContext().ensureActive()
             if (generation != detailGeneration || _stateFlow.value.questionDetail?.question?.id != id) return@launch
+            if (result is ContentResult.Success) revealedQuestionIds.add(id)
             _stateFlow.update { state ->
-                state.copy(questionDetail = state.questionDetail?.copy(answer = result.toViewState()),
+                fun updated(list: ContentViewState<QuestionsContent>): ContentViewState<QuestionsContent> {
+                    val content = (list as? ContentViewState.Ready)?.content ?: return list
+                    return ContentViewState.Ready(content.copy(items = applySavedChanges(content.items)))
+                }
+                val dashboard = (state.dashboard as? ContentViewState.Ready)?.content
+                state.copy(
+                    questionDetail = state.questionDetail?.let {
+                        it.copy(question = applySavedChanges(listOf(it.question)).single(),
+                            answer = result.toViewState())
+                    },
+                    questions = updated(state.questions),
+                    favorites = updated(state.favorites),
+                    dashboard = dashboard?.let { ContentViewState.Ready(it.copy(
+                        dashboard = it.dashboard.copy(todayReview = applySavedChanges(it.dashboard.todayReview)))) }
+                        ?: state.dashboard,
                     sessionExpired = state.sessionExpired || result == ContentResult.SessionExpired)
             }
-            if (result != ContentResult.SessionExpired) refreshQuestionUsage()
+            if (!detail.question.answerRevealed && result != ContentResult.SessionExpired) refreshQuestionUsage()
             if (result is ContentResult.Error) _uiEventsFlow.emit(UiEvent.Toast(result.message))
         }
     }
@@ -383,7 +419,8 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun applySavedChanges(items: List<QuestionResponse>): List<QuestionResponse> = items.map { question ->
-        savedQuestionChanges[question.id]?.let { question.copy(saved = it.saved) } ?: question
+        val updated = savedQuestionChanges[question.id]?.let { question.copy(saved = it.saved) } ?: question
+        if (question.id in revealedQuestionIds) updated.copy(answerRevealed = true) else updated
     }
 
     fun retryQuestionPage() {
@@ -557,6 +594,7 @@ class HomeViewModel @Inject constructor(
         statsGeneration++
         savedDebounceJobs.clear()
         savedQuestionChanges.clear()
+        revealedQuestionIds.clear()
         changedQuestions.clear()
         removedSavedQuestions.clear()
         consumedCursors.clear()
@@ -570,6 +608,7 @@ class HomeViewModel @Inject constructor(
         savedStateHandle["questionSearch"] = ""
         getStatsUseCase.clearCache()
         _stateFlow.value = HomeViewState()
+        observeUsage()
         refreshDashboard(refreshProfile = true)
         loadStats()
         loadTopics()
@@ -596,7 +635,10 @@ class HomeViewModel @Inject constructor(
                 }) }
             }
             _stateFlow.update {
-                it.copy(dashboard = result.toViewState(),
+                val dashboard = if (result is ContentResult.Success) ContentViewState.Ready(
+                    result.content.copy(dashboard = result.content.dashboard.copy(
+                        usage = getQuestionAnswerUseCase.currentUsage()))) else result.toViewState()
+                it.copy(dashboard = dashboard,
                     sessionExpired = it.sessionExpired || result == ContentResult.SessionExpired)
             }
             if (result is ContentResult.Error) _uiEventsFlow.emit(UiEvent.Toast(result.message))

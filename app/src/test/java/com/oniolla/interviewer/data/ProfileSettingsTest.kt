@@ -13,6 +13,7 @@ import com.oniolla.interviewer.domain.*
 import com.oniolla.interviewer.ui.home.*
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.*
@@ -73,6 +74,9 @@ class ProfileSettingsTest {
         var streak = 7
         var updateStatus = 200
         var usageStatus = 200
+        var reveals = 8
+        var beforeUsage: (() -> Unit)? = null
+        var beforeDashboard: (() -> Unit)? = null
         var beforeUpdate: (() -> Unit)? = null
         var beforeStats: (() -> Unit)? = null
         val auth: AuthRepository
@@ -97,9 +101,11 @@ class ProfileSettingsTest {
                             profileBody()
                         }
                         "/me" -> profileBody()
-                        "/me/usage" -> """{"plan":"FREE","answerReveals":{"used":12,"limit":20,"remaining":8},
-                            "aiEvaluations":{"used":8,"reserved":0,"limit":20,"remaining":12,"periodEndsAt":null,"resetAt":null},
-                            "questions":{"unlimited":true,"limitPerTopic":null}}"""
+                        "/me/usage" -> usageBody().also { beforeUsage?.invoke() }
+                        "/questions/4/answer" -> {
+                            reveals--
+                            """{"questionId":4,"referenceAnswer":"Reference answer","language":"en","requestedLanguage":"en"}"""
+                        }
                         "/preparation-languages" -> """{"items":[
                             {"code":"en","name":"English","nativeName":"English","contentAvailable":true},
                             {"code":"uk","name":"Ukrainian","nativeName":"Українська","contentAvailable":true},
@@ -107,7 +113,8 @@ class ProfileSettingsTest {
                         "/topics" -> "[]"
                         "/questions", "/questions/saved" -> """{"items":[],"nextCursor":null,"topics":[],"access":null}"""
                         "/dashboard" -> """{"readiness":{"score":0,"answered":0,"practicedTopics":0,"totalTopics":0,
-                            "gradePerformance":[]},"todayReview":[],"weakTopics":[],"dueCount":0}"""
+                            "gradePerformance":[]},"todayReview":[],"weakTopics":[],"dueCount":0,"usage":${usageBody()}}"""
+                            .also { beforeDashboard?.invoke() }
                         "/stats" -> {
                             val body = statsBody()
                             beforeStats?.invoke()
@@ -124,8 +131,9 @@ class ProfileSettingsTest {
                 .addCallAdapterFactory(RxJava3CallAdapterFactory.create())
                 .build().create(Api::class.java)
             val coordinator = SessionRefreshCoordinator(tokens, api)
-            auth = AuthRepository(tokens, api, coordinator, LocalUserData(database, cache, preferences, context))
-            home = HomeRepository(api, RoomTopicCache(database.topicDao()), coordinator, cache)
+            val usageRepository = SessionUsageRepository(api, coordinator, tokens)
+            auth = AuthRepository(tokens, api, coordinator, LocalUserData(database, cache, preferences, context), usageRepository)
+            home = HomeRepository(api, RoomTopicCache(database.topicDao()), coordinator, cache, usageRepository)
             manage = ManageProfileUseCase(auth, cache, tokens, preferences)
         }
 
@@ -135,6 +143,10 @@ class ProfileSettingsTest {
         private fun profileBody() = """{"id":"user","email":"developer@example.com","displayName":"Dmitry S.",
             "emailVerified":true,"specialization":"$specialization","preparationLanguage":"$language",
             "createdAt":"","updatedAt":"","onboardingCompleted":true,"linkedProviders":["PASSWORD"]}"""
+
+        private fun usageBody() = """{"plan":"FREE","answerReveals":{"used":${20 - reveals},"limit":20,"remaining":$reveals},
+            "aiEvaluations":{"used":8,"reserved":0,"limit":20,"remaining":12,"periodEndsAt":null,"resetAt":null},
+            "questions":{"unlimited":true,"limitPerTopic":null}}"""
 
         private fun statsBody() = """{"timeZone":"UTC","weekStart":"2026-10-12","weekEnd":"2026-10-18",
             "serverTime":"2026-10-14T12:00:00.000Z","readiness":{"score":0,"gradePerformance":[]},
@@ -190,6 +202,123 @@ class ProfileSettingsTest {
         vm.open()
         runCurrent()
         assertEquals(1, f.calls("/me/usage"))
+    }
+
+    @Test fun profileUsesTheUsageAlreadyLoadedByDashboardWithoutAnExtraRequest() = runTest(dispatcher) {
+        val f = Fixture()
+        val home = f.homeVm()
+        readyHome(home)
+        val profile = f.profileVm()
+        profile.open()
+        readyProfile(profile)
+        profile.state.first { it.usage is ContentViewState.Ready }
+        assertEquals(8, (profile.state.value.usage as ContentViewState.Ready).content.answerReveals!!.remaining)
+        assertEquals(0, f.calls("/me/usage"))
+    }
+
+    @Test fun revealingAnAnswerUpdatesTheClosedProfileAndReopeningDoesNotRefetchUsage() = runTest(dispatcher) {
+        val f = Fixture()
+        val home = f.homeVm()
+        readyHome(home)
+        val profile = f.profileVm()
+        profile.open()
+        readyProfile(profile)
+        profile.back()
+        val question = QuestionResponse(4, "Question", "ANDROID", QuestionTopic(1, "kotlin", "Kotlin"),
+            "MEDIUM", "JUNIOR", "SENIOR")
+        home.openQuestion(question)
+        home.stateFlow.first { it.questionDetail?.isUsageLoading == false }
+        home.revealQuestionAnswer()
+        home.stateFlow.first { it.questionDetail?.let { detail ->
+            detail.answer is ContentViewState.Ready && !detail.isUsageLoading
+        } == true }
+        profile.state.first { (it.usage as? ContentViewState.Ready)?.content?.answerReveals?.remaining == 7 }
+        assertEquals(7, (home.stateFlow.value.dashboard as ContentViewState.Ready).content.dashboard.usage!!.answerReveals!!.remaining)
+        assertEquals(2, f.calls("/me/usage"))
+        home.closeQuestion()
+        profile.open()
+        runCurrent()
+        assertEquals(7, (profile.state.value.usage as ContentViewState.Ready).content.answerReveals!!.remaining)
+        assertEquals(2, f.calls("/me/usage"))
+    }
+
+    @Test fun aProfileUsageRefreshAlsoUpdatesTheOpenQuestionAndDashboard() = runTest(dispatcher) {
+        val f = Fixture()
+        val home = f.homeVm()
+        readyHome(home)
+        val profile = f.profileVm()
+        profile.open()
+        readyProfile(profile)
+        home.openQuestion(QuestionResponse(4, "Question", "ANDROID", QuestionTopic(1, "kotlin", "Kotlin"),
+            "MEDIUM", "JUNIOR", "SENIOR"))
+        home.stateFlow.first { it.questionDetail?.isUsageLoading == false }
+        f.reveals = 0
+        profile.loadUsage()
+        profile.state.first { (it.usage as? ContentViewState.Ready)?.content?.answerReveals?.remaining == 0 }
+        home.stateFlow.first { it.questionDetail?.revealsRemaining == 0 }
+        assertFalse(home.stateFlow.value.questionDetail!!.canReveal)
+        assertEquals(0, (home.stateFlow.value.dashboard as ContentViewState.Ready).content.dashboard.usage!!.answerReveals!!.remaining)
+    }
+
+    @Test fun anOldDashboardResponseCannotOverwriteNewUsageFromTheServer() = runTest(dispatcher) {
+        val started = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val f = Fixture()
+        val profile = f.profileVm()
+        profile.open()
+        readyProfile(profile)
+        profile.state.first { it.usage is ContentViewState.Ready }
+        f.beforeDashboard = { started.complete(Unit); check(release.await(5, TimeUnit.SECONDS)) }
+        val home = f.homeVm()
+        try {
+            started.await()
+            f.reveals = 7
+            f.auth.accountUsage(forceRefresh = true)
+        } finally { release.countDown() }
+        readyHome(home)
+        assertEquals(7, f.manage.currentUsage()!!.answerReveals!!.remaining)
+        assertEquals(7, (home.stateFlow.value.dashboard as ContentViewState.Ready).content.dashboard.usage!!.answerReveals!!.remaining)
+        profile.state.first { (it.usage as? ContentViewState.Ready)?.content?.answerReveals?.remaining == 7 }
+    }
+
+    @Test fun concurrentFirstUsageRequestsShareTheSameNetworkResult() = runTest(dispatcher) {
+        val started = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val f = Fixture()
+        f.beforeUsage = { started.complete(Unit); check(release.await(5, TimeUnit.SECONDS)) }
+        val first = async { f.auth.accountUsage() }
+        try {
+            started.await()
+            val second = async { f.auth.accountUsage() }
+            runCurrent()
+            assertEquals(1, f.calls("/me/usage"))
+            release.countDown()
+            assertEquals(first.await(), second.await())
+        } finally { release.countDown() }
+        assertEquals(1, f.calls("/me/usage"))
+    }
+
+    @Test fun usageCacheIsClearedAndNeverReusedByAnotherUser() = runTest(dispatcher) {
+        val f = Fixture()
+        assertEquals(8, f.auth.accountUsage().answerReveals!!.remaining)
+        f.auth.clearSession()
+        assertNull(f.manage.currentUsage())
+        assertNull(f.manage.cachedUsage().first())
+        f.tokens.saveSession("other-access", "other-refresh")
+        assertNull(f.manage.currentUsage())
+        f.reveals = 2
+        assertEquals(2, f.auth.accountUsage().answerReveals!!.remaining)
+        assertEquals(2, f.calls("/me/usage"))
+    }
+
+    @Test fun aFailedUsageRefreshKeepsTheLastSuccessfulSharedValue() = runTest(dispatcher) {
+        val f = Fixture()
+        val cached = f.auth.accountUsage()
+        f.usageStatus = 500
+        assertTrue(f.manage.usage(forceRefresh = true) is ContentResult.Error)
+        assertEquals(cached, f.manage.currentUsage())
+        assertEquals(cached, f.home.currentUsage())
+        assertEquals(2, f.calls("/me/usage"))
     }
 
     @Test fun failedPlanUsageCanBeRetriedFromProfile() = runTest(dispatcher) {
@@ -390,6 +519,8 @@ class ProfileSettingsTest {
         assertEquals(ThemeMode.SYSTEM, f.preferences.theme.value)
         assertNull(f.cache.observe(f.tokens.sessionVersion).first())
         assertSame(ContentViewState.NotLoaded, vm.state.value.profile)
+        assertNull(f.manage.currentUsage())
+        assertNull(f.home.currentUsage())
     }
 
     @Test fun signupUsesTheSameDataCleanupBeforeRegisteringAnotherAccount() = runTest(dispatcher) {

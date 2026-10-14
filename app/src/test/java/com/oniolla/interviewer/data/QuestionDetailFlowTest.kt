@@ -55,6 +55,7 @@ class QuestionDetailFlowTest {
         var expireAccess = false
         var answerQuestionId: Long? = null
         var serverSaved = false
+        var serverAnswerRevealed = false
         var beforeAnswer: (() -> Unit)? = null
         val repository: HomeRepository
         val auth: AuthRepository
@@ -83,7 +84,8 @@ class QuestionDetailFlowTest {
                         """{"error":{"code":"$code","message":"Request failed"}}"""
                     } else when {
                         answer -> {
-                            reveals = (reveals - 1).coerceAtLeast(0)
+                            if (!serverAnswerRevealed) reveals = (reveals - 1).coerceAtLeast(0)
+                            serverAnswerRevealed = true
                             val id = answerQuestionId ?: request.url.pathSegments[1].toLong()
                             """{"questionId":$id,"referenceAnswer":"Reference answer $id","language":"en","requestedLanguage":"en"}"""
                         }
@@ -111,11 +113,13 @@ class QuestionDetailFlowTest {
             val api = Retrofit.Builder().baseUrl(origin).client(client)
                 .addConverterFactory(GsonConverterFactory.create()).build().create(Api::class.java)
             val coordinator = SessionRefreshCoordinator(tokens, api)
-            repository = HomeRepository(api, MemoryTopicCache(), coordinator)
-            auth = AuthRepository(tokens, api, coordinator)
+            val usageRepository = SessionUsageRepository(api, coordinator, tokens)
+            repository = HomeRepository(api, MemoryTopicCache(), coordinator, usageRepository = usageRepository)
+            auth = AuthRepository(tokens, api, coordinator, usageRepository = usageRepository)
         }
         fun question(id: Long = 4) = QuestionResponse(id, "Question $id", "ANDROID",
-            QuestionTopic(7, "flow", "Flow"), "MEDIUM", "JUNIOR", "SENIOR", listOf("Flow"), serverSaved)
+            QuestionTopic(7, "flow", "Flow"), "MEDIUM", "JUNIOR", "SENIOR", listOf("Flow"), serverSaved,
+            answerRevealed = serverAnswerRevealed)
 
         private fun usage() = """{"plan":"FREE","answerReveals":{"used":${20 - reveals},"limit":20,"remaining":$reveals},
             "aiEvaluations":{"used":${20 - aiReviews},"reserved":0,"limit":20,"remaining":$aiReviews,
@@ -186,6 +190,122 @@ class QuestionDetailFlowTest {
         runCurrent()
         assertEquals(1, f.calls("/questions/4/answer"))
         assertEquals(2, f.calls("/me/usage"))
+    }
+
+    @Test fun aPreviouslyRevealedAnswerCanBeLoadedWithNoCreditsAndShownFromCache() = runTest(dispatcher) {
+        val f = Fixture().apply { serverAnswerRevealed = true; reveals = 0 }
+        val vm = f.vm()
+        ready(vm)
+        open(vm, list(vm).items.single())
+        assertTrue(detail(vm).question.answerRevealed)
+        assertTrue(detail(vm).canReveal)
+        assertFalse(detail(vm).isAnswerVisible)
+        vm.revealQuestionAnswer()
+        assertTrue(detail(vm).isAnswerVisible)
+        revealed(vm)
+        val cached = detail(vm).answer
+        assertEquals(0, detail(vm).revealsRemaining)
+        vm.revealQuestionAnswer()
+        assertFalse(detail(vm).isAnswerVisible)
+        assertSame(cached, detail(vm).answer)
+        vm.revealQuestionAnswer()
+        assertTrue(detail(vm).isAnswerVisible)
+        assertSame(cached, detail(vm).answer)
+        runCurrent()
+        assertEquals(1, f.calls("/questions/4/answer"))
+        assertEquals(1, f.calls("/me/usage"))
+    }
+
+    @Test fun successfulFirstRevealUpdatesAllListsAndCanBeHiddenAfterTheLastCredit() = runTest(dispatcher) {
+        val f = Fixture().apply { reveals = 1 }
+        val vm = f.vm()
+        ready(vm)
+        vm.selectTab(HomeTab.FAVORITES)
+        vm.stateFlow.first { it.favorites is ContentViewState.Ready }
+        open(vm, list(vm).items.single())
+        vm.revealQuestionAnswer()
+        revealed(vm)
+        assertEquals(0, detail(vm).revealsRemaining)
+        assertTrue(detail(vm).question.answerRevealed)
+        assertTrue(list(vm).items.single().answerRevealed)
+        assertTrue((vm.stateFlow.value.favorites as ContentViewState.Ready).content.items.single().answerRevealed)
+        assertTrue((vm.stateFlow.value.dashboard as ContentViewState.Ready).content.dashboard.todayReview.single().answerRevealed)
+        assertTrue(detail(vm).canReveal)
+        vm.revealQuestionAnswer()
+        assertFalse(detail(vm).isAnswerVisible)
+        vm.revealQuestionAnswer()
+        assertTrue(detail(vm).isAnswerVisible)
+        runCurrent()
+        assertEquals(1, f.calls("/questions/4/answer"))
+        vm.closeQuestion()
+        open(vm, f.question().copy(answerRevealed = false))
+        assertTrue(detail(vm).question.answerRevealed)
+        assertTrue(detail(vm).canReveal)
+        val usageCalls = f.calls("/me/usage")
+        vm.revealQuestionAnswer()
+        revealed(vm)
+        assertEquals(2, f.calls("/questions/4/answer"))
+        assertEquals(usageCalls, f.calls("/me/usage"))
+    }
+
+    @Test fun alreadyRevealedAnswerIsAvailableEvenWhenUsageFails() = runTest(dispatcher) {
+        val f = Fixture().apply { serverAnswerRevealed = true; usageStatus = 503 }
+        val vm = f.vm()
+        ready(vm)
+        open(vm, f.question())
+        assertNotNull(detail(vm).usageError)
+        assertTrue(detail(vm).canReveal)
+        vm.revealQuestionAnswer()
+        revealed(vm)
+        assertTrue(detail(vm).isAnswerVisible)
+        runCurrent()
+        assertEquals(1, f.calls("/me/usage"))
+        f.usageStatus = 200
+        vm.revealQuestionAnswer()
+        vm.revealQuestionAnswer()
+        runCurrent()
+        assertEquals(1, f.calls("/questions/4/answer"))
+    }
+
+    @Test fun failedPreviouslyRevealedAnswerAndRetryDoNotRefreshUsage() = runTest(dispatcher) {
+        val f = Fixture().apply { serverAnswerRevealed = true; answerStatus = 503 }
+        val vm = f.vm()
+        ready(vm)
+        open(vm, f.question())
+        val usage = detail(vm).usage
+        vm.revealQuestionAnswer()
+        vm.stateFlow.first { it.questionDetail?.answer is ContentViewState.Failed }
+        runCurrent()
+        assertEquals(1, f.calls("/me/usage"))
+        assertEquals(usage, detail(vm).usage)
+        assertTrue(detail(vm).question.answerRevealed)
+        f.answerStatus = 200
+        vm.revealQuestionAnswer()
+        revealed(vm)
+        runCurrent()
+        assertEquals(1, f.calls("/me/usage"))
+        assertEquals(2, f.calls("/questions/4/answer"))
+    }
+
+    @Test fun aFailedFirstRevealDoesNotMarkTheQuestionAsAlreadyRevealed() = runTest(dispatcher) {
+        val f = Fixture().apply { answerStatus = 503 }
+        val vm = f.vm()
+        ready(vm)
+        open(vm, f.question())
+        vm.revealQuestionAnswer()
+        vm.stateFlow.first { it.questionDetail?.let { d ->
+            d.answer is ContentViewState.Failed && !d.isUsageLoading
+        } == true }
+        assertFalse(detail(vm).question.answerRevealed)
+        assertFalse(list(vm).items.single().answerRevealed)
+        assertTrue(detail(vm).isAnswerVisible)
+    }
+
+    @Test fun answerRevealedIsParsedFromTheQuestionResponse() {
+        val gson = Gson()
+        assertTrue(gson.fromJson("""{"id":4,"answerRevealed":true}""", QuestionResponse::class.java).answerRevealed)
+        assertFalse(gson.fromJson("""{"id":4,"answerRevealed":false}""", QuestionResponse::class.java).answerRevealed)
+        assertFalse(gson.fromJson("""{"id":4}""", QuestionResponse::class.java).answerRevealed)
     }
 
     @Test fun zeroRevealsDisableRevealButDoNotDisableAvailableAiReviews() = runTest(dispatcher) {

@@ -115,8 +115,9 @@ class SessionRefreshTest {
                 .build().create(Api::class.java)
             coordinator = SessionRefreshCoordinator(tokens, api,
                 CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job])))
-            auth = AuthRepository(tokens, api, coordinator)
-            home = HomeRepository(api, MemoryTopicCache(), coordinator)
+            val usageRepository = SessionUsageRepository(api, coordinator, tokens)
+            auth = AuthRepository(tokens, api, coordinator, usageRepository = usageRepository)
+            home = HomeRepository(api, MemoryTopicCache(), coordinator, usageRepository = usageRepository)
         }
 
         fun protectedRequests() = requests.filterNot { it.url.encodedPath.startsWith("/auth/") }

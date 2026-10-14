@@ -142,8 +142,9 @@ class HomeFlowTest {
                 .addCallAdapterFactory(RxJava3CallAdapterFactory.create())
                 .build().create(Api::class.java)
             val sessionRefresh = SessionRefreshCoordinator(tokens, api)
-            home = HomeRepository(api, cache, sessionRefresh)
-            dashboard = GetDashboardUseCase(home, AuthRepository(tokens, api, sessionRefresh))
+            val usageRepository = SessionUsageRepository(api, sessionRefresh, tokens)
+            home = HomeRepository(api, cache, sessionRefresh, usageRepository = usageRepository)
+            dashboard = GetDashboardUseCase(home, AuthRepository(tokens, api, sessionRefresh, usageRepository = usageRepository))
             topics = GetTopicsUseCase(home)
         }
 

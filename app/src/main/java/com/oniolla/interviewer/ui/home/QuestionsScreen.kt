@@ -211,9 +211,11 @@ private fun LibraryQuestionCard(question: QuestionResponse, onToggleSaved: (Long
                     color = tint.copy(alpha = 0.12f),
                     border = BorderStroke(1.dp, tint.copy(alpha = 0.55f))
                 ) {
-                    Text(question.topic.name, color = AppTheme.colors.primaryText,
-                        modifier = Modifier.heightIn(min = 24.dp).padding(horizontal = 9.dp, vertical = 4.dp),
-                        fontSize = 10.sp, lineHeight = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Box(Modifier.heightIn(min = 24.dp).padding(horizontal = 9.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center) {
+                        Text(question.topic.name, color = AppTheme.colors.primaryText,
+                            fontSize = 10.sp, lineHeight = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
             Spacer(Modifier.width(4.dp))

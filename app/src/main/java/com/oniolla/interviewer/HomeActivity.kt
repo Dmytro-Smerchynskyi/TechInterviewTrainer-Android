@@ -129,7 +129,7 @@ class HomeActivity : ComponentActivity() {
                             accountViewModel.open((profileState.profile as? ContentViewState.Ready)?.content)
                             profileViewModel.openAccount()
                         },
-                        onRetryUsage = profileViewModel::loadUsage
+                        onRetryUsage = { profileViewModel.loadUsage() }
                     ) else HomeScreen(
                         state = state,
                         onTabSelected = viewModel::selectTab,

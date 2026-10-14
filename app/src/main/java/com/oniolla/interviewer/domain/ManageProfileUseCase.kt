@@ -17,7 +17,9 @@ class ManageProfileUseCase @Inject constructor(
     val theme get() = preferences.theme
     fun cachedStats() = statsCache.observe(tokens.snapshot().version)
     suspend fun profile() = loadContent { authRepository.getSessionProfile() }
-    suspend fun usage() = loadContent { authRepository.accountUsage() }
+    fun cachedUsage() = authRepository.cachedUsage()
+    fun currentUsage() = authRepository.currentUsage()
+    suspend fun usage(forceRefresh: Boolean = false) = loadContent { authRepository.accountUsage(forceRefresh) }
     suspend fun specialization(value: Specialization) = loadContent {
         authRepository.selectSpecialization(value).also {
             check(it.specialization == value.code) { "Specialization was not saved" }

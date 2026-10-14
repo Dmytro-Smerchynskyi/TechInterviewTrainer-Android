@@ -14,7 +14,9 @@ private val detailPreview = QuestionDetailState(
     isUsageLoading = false
 )
 
-private val answerPreview = detailPreview.copy(answer = ContentViewState.Ready(QuestionAnswerResponse(4,
+private val answerPreview = detailPreview.copy(
+    question = detailPreview.question.copy(answerRevealed = true), isAnswerVisible = true,
+    answer = ContentViewState.Ready(QuestionAnswerResponse(4,
     "- Cold Flow is lazy: work starts when it is collected.\n" +
     "- Hot Flow exists independently and may emit without collectors.\n" +
     "- StateFlow/SharedFlow are common hot Flow implementations.", "en", "en")))
@@ -43,7 +45,7 @@ fun QuestionAnswerLightPreview() { InterviewTrainerTheme(darkTheme = false) { De
 @Preview(widthDp = 390, heightDp = 844)
 @Composable
 fun QuestionAnswerLoadingPreview() { InterviewTrainerTheme(darkTheme = true) {
-    DetailPreview(detailPreview.copy(answer = ContentViewState.Loading))
+    DetailPreview(detailPreview.copy(answer = ContentViewState.Loading, isAnswerVisible = true))
 } }
 
 @Preview(widthDp = 390, heightDp = 844)
@@ -62,7 +64,15 @@ fun QuestionDetailEmptyTagsPreview() { InterviewTrainerTheme(darkTheme = true) {
 @Preview(widthDp = 390, heightDp = 844)
 @Composable
 fun QuestionAnswerErrorPreview() { InterviewTrainerTheme(darkTheme = false) {
-    DetailPreview(detailPreview.copy(answer = ContentViewState.Failed("Unable to load reference answer")))
+    DetailPreview(detailPreview.copy(answer = ContentViewState.Failed("Unable to load reference answer"), isAnswerVisible = true))
+} }
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun QuestionAlreadyRevealedPreview() { InterviewTrainerTheme(darkTheme = true) {
+    DetailPreview(answerPreview.copy(isAnswerVisible = false,
+        usage = DashboardUsage("FREE", AnswerRevealsUsage(20,20,0),
+            AiEvaluationsUsage(20,0,20,0,null,null), QuestionsUsage(true,null))))
 } }
 
 @Preview(widthDp = 320, heightDp = 640)

@@ -34,5 +34,6 @@ data class QuestionResponse(
     @SerializedName("updatedAt") val updatedAt: String? = null,
     @SerializedName("sortOrder") val sortOrder: Int = 0,
     @SerializedName("language") val language: String? = null,
-    @SerializedName("requestedLanguage") val requestedLanguage: String? = null
+    @SerializedName("requestedLanguage") val requestedLanguage: String? = null,
+    @SerializedName("answerRevealed") val answerRevealed: Boolean = false
 )

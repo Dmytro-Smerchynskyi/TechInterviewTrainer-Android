@@ -107,8 +107,9 @@ class StatisticsFlowTest {
             val api = Retrofit.Builder().baseUrl(origin).client(client)
                 .addConverterFactory(GsonConverterFactory.create()).build().create(Api::class.java)
             val coordinator = SessionRefreshCoordinator(tokens, api)
-            repository = HomeRepository(api, MemoryTopicCache(), coordinator)
-            auth = AuthRepository(tokens, api, coordinator)
+            val usageRepository = SessionUsageRepository(api, coordinator, tokens)
+            repository = HomeRepository(api, MemoryTopicCache(), coordinator, usageRepository = usageRepository)
+            auth = AuthRepository(tokens, api, coordinator, usageRepository = usageRepository)
             stats = GetStatsUseCase(repository)
         }
 

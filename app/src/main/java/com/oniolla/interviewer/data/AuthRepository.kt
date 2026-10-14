@@ -33,7 +33,8 @@ class AuthRepository @Inject constructor(
     private val tokenStorage: SessionTokenStorage,
     private val api: Api,
     private val sessionRefresh: SessionRefreshCoordinator,
-    private val localUserData: LocalUserData? = null
+    private val localUserData: LocalUserData? = null,
+    private val usageRepository: SessionUsageRepository = SessionUsageRepository(api, sessionRefresh, tokenStorage)
 ) {
     private data class CachedProfile(val sessionVersion: Long, val profile: MeResponse)
     private var cachedProfile: CachedProfile? = null
@@ -45,6 +46,7 @@ class AuthRepository @Inject constructor(
         synchronized(tokenStorage) {
             tokenStorage.clear()
             cachedProfile = null
+            usageRepository.clear()
         }
     }
 
@@ -92,7 +94,10 @@ class AuthRepository @Inject constructor(
         api.selectPreparationLanguage(PreparationLanguagePayload(language), it)
     }
 
-    suspend fun accountUsage() = sessionRefresh.authorizedApiCall { api.accountUsage(it) }
+    fun cachedUsage() = usageRepository.observe()
+    fun currentUsage() = usageRepository.current()
+    suspend fun accountUsage(forceRefresh: Boolean = false) =
+        if (forceRefresh) usageRepository.refresh() else usageRepository.get()
 
     suspend fun changeName(name: String): MeResponse = updateProfile {
         api.changeName(ChangeNamePayload(name), it)
@@ -148,6 +153,7 @@ class AuthRepository @Inject constructor(
         synchronized(tokenStorage) {
             tokenStorage.saveSession(response.accessToken, response.refreshToken)
             cachedProfile = null
+            usageRepository.clear()
         }
     }
 

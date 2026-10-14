@@ -97,9 +97,10 @@ class QuestionsFlowTest {
             val api = Retrofit.Builder().baseUrl("https://api.example.test/").client(client)
                 .addConverterFactory(GsonConverterFactory.create()).build().create(Api::class.java)
             val sessionRefresh = SessionRefreshCoordinator(tokens, api)
-            repository = HomeRepository(api, MemoryTopicCache(), sessionRefresh)
+            val usageRepository = SessionUsageRepository(api, sessionRefresh, tokens)
+            repository = HomeRepository(api, MemoryTopicCache(), sessionRefresh, usageRepository = usageRepository)
             getQuestions = GetQuestionsUseCase(repository)
-            auth = AuthRepository(tokens, api, sessionRefresh)
+            auth = AuthRepository(tokens, api, sessionRefresh, usageRepository = usageRepository)
         }
 
         fun viewModel(handle: SavedStateHandle = SavedStateHandle()) =

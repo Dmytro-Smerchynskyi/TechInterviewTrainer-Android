@@ -13,7 +13,8 @@ class HomeRepository @Inject constructor(
     private val api: Api,
     private val topicCache: TopicCache,
     private val sessionRefresh: SessionRefreshCoordinator,
-    private val statsCache: SessionStatsCache = SessionStatsCache()
+    private val statsCache: SessionStatsCache = SessionStatsCache(),
+    private val usageRepository: SessionUsageRepository
 ) {
     fun clearStatsCache() = statsCache.clear()
 
@@ -36,7 +37,15 @@ class HomeRepository @Inject constructor(
         return response
     }
 
-    suspend fun getDashboard(): DashboardResponse = sessionRefresh.authorizedApiCall { api.dashboard(it) }
+    fun cachedUsage() = usageRepository.observe()
+    fun currentUsage() = usageRepository.current()
+
+    suspend fun getDashboard(): DashboardResponse {
+        val revision = usageRepository.revision()
+        val (session, response) = sessionRefresh.authorizedApiCall { it to api.dashboard(it) }
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+        return response.copy(usage = usageRepository.cacheDashboard(revision, session, response.usage))
+    }
     suspend fun getTopics(type: String? = null): List<TopicResponse> = sessionRefresh.authorizedApiCall { api.topics(type, it) }
     suspend fun getSavedQuestions(cursor: String?): QuestionsResponse =
         sessionRefresh.authorizedApiCall { api.savedQuestions(cursor = cursor, session = it) }
@@ -51,7 +60,7 @@ class HomeRepository @Inject constructor(
     suspend fun getQuestionAnswer(questionId: Long): QuestionAnswerResponse =
         sessionRefresh.authorizedApiCall { api.questionAnswer(questionId, it) }
 
-    suspend fun getQuestionUsage() = sessionRefresh.authorizedApiCall { api.accountUsage(it) }
+    suspend fun getQuestionUsage() = usageRepository.refresh()
 
     suspend fun getQuestions(
         topicId: Long?,

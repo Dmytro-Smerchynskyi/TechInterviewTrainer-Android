@@ -2,7 +2,9 @@
     <string name="question_detail_title">Question</string>
     <string name="question_detail_back">Back to questions</string>
     <string name="question_reveal_answer">Reveal Answer</string>
-    <string name="question_answer_revealed">Answer revealed</string>
+    <string name="question_show_answer">Show Answer</string>
+    <string name="question_hide_answer">Hide Answer</string>
+    <string name="question_already_revealed">Already revealed</string>
     <string name="question_revealing_answer">Loading…</string>
     <string name="question_ai_practice">AI Practice</string>
     <string name="question_reveals_remaining">%1$d reveals left</string>

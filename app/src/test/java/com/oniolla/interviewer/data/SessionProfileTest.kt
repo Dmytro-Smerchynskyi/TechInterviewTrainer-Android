@@ -84,8 +84,9 @@ class SessionProfileTest {
             val api = Retrofit.Builder().baseUrl("https://api.example.test/").client(client)
                 .addConverterFactory(GsonConverterFactory.create()).build().create(Api::class.java)
             val coordinator = SessionRefreshCoordinator(tokens, api)
-            auth = AuthRepository(tokens, api, coordinator)
-            dashboard = GetDashboardUseCase(HomeRepository(api, MemoryTopicCache(), coordinator), auth)
+            val usageRepository = SessionUsageRepository(api, coordinator, tokens)
+            auth = AuthRepository(tokens, api, coordinator, usageRepository = usageRepository)
+            dashboard = GetDashboardUseCase(HomeRepository(api, MemoryTopicCache(), coordinator, usageRepository = usageRepository), auth)
             resend = ResendVerificationCodeUseCase(auth)
             resolve = ResolveAuthStateUseCase(auth, resend)
         }

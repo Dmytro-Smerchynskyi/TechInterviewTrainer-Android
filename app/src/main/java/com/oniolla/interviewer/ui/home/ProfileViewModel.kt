@@ -61,13 +61,19 @@ class ProfileViewModel @Inject constructor(
     private var changed = savedState.get<Boolean>("profileChanged") ?: false
 
     init {
+        viewModelScope.launch { manage.cachedUsage().collect { usage ->
+            _state.update { state ->
+                state.copy(usage = usage?.let { ContentViewState.Ready(it) }
+                    ?: if (state.usage is ContentViewState.Ready) ContentViewState.NotLoaded else state.usage)
+            }
+        } }
         viewModelScope.launch { manage.cachedStats().collect { stats ->
             _state.update { it.copy(streakDays = stats?.summary?.streakDays) }
         } }
         viewModelScope.launch { manage.theme.collect { theme -> _state.update { it.copy(theme = theme) } } }
         if (_state.value.page != ProfilePage.CLOSED) {
             loadProfile()
-            loadUsage()
+            loadUsage(forceRefresh = false)
         }
     }
 
@@ -80,14 +86,17 @@ class ProfileViewModel @Inject constructor(
         show(ProfilePage.PROFILE)
         if (profile != null) _state.update { it.copy(profile = ContentViewState.Ready(profile)) }
         else if (_state.value.profile !is ContentViewState.Ready) loadProfile()
-        if (_state.value.usage !is ContentViewState.Ready) loadUsage()
+        val cachedUsage = manage.currentUsage()
+        if (cachedUsage != null) _state.update { it.copy(usage = ContentViewState.Ready(cachedUsage)) }
+        else if (_state.value.usage !is ContentViewState.Ready) loadUsage(forceRefresh = false)
     }
 
-    fun loadUsage() {
+    fun loadUsage(forceRefresh: Boolean = true) {
         if (_state.value.isSaving || usageJob?.isActive == true) return
         _state.update { it.copy(usage = ContentViewState.Loading) }
         usageJob = viewModelScope.launch {
-            val result = manage.usage()
+            val result = manage.usage(forceRefresh)
+            currentCoroutineContext().ensureActive()
             _state.update { it.copy(usage = result.toViewState(),
                 sessionExpired = it.sessionExpired || result == ContentResult.SessionExpired) }
         }

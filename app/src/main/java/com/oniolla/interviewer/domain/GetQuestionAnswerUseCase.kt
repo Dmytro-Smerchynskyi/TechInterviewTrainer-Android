@@ -12,5 +12,7 @@ class GetQuestionAnswerUseCase @Inject constructor(private val repository: HomeR
         }
     }
 
+    fun cachedUsage() = repository.cachedUsage()
+    fun currentUsage() = repository.currentUsage()
     suspend fun usage() = loadContent { repository.getQuestionUsage() }
 }

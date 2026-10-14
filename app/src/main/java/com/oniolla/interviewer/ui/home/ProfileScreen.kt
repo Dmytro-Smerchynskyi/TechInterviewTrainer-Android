@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.oniolla.interviewer.BuildConfig
-import com.oniolla.interviewer.LinkText
 import com.oniolla.interviewer.PreparationLanguageSelection
 import com.oniolla.interviewer.R
 import com.oniolla.interviewer.SpecializationSelection
@@ -117,6 +116,18 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
                     Text(stringResource(R.string.profile_settings_subtitle), fontSize = 11.sp, lineHeight = 14.sp,
                         color = AppTheme.colors.secondaryText)
                 }
+                Spacer(Modifier.width(8.dp))
+                val settingsDescription = stringResource(R.string.profile_account_settings)
+                Surface(onClick = onAccount,
+                    enabled = !state.isSaving && state.profile is ContentViewState.Ready,
+                    modifier = Modifier.size(44.dp).offset(x = 10.dp)
+                        .semantics { contentDescription = settingsDescription },
+                    color = Color.Transparent, shape = CircleShape) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Image(painterResource(R.drawable.profile_icon_account_settings), null,
+                            Modifier.size(24.dp), colorFilter = ColorFilter.tint(AppTheme.colors.homeIcon))
+                    }
+                }
             }
         },
         bottomBar = {
@@ -162,7 +173,7 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
             }
             is ContentViewState.Ready -> Column(Modifier.fillMaxSize().padding(padding)
                 .consumeWindowInsets(padding).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-                ProfileCard(profile.content, state.streakDays, !state.isSigningOut, onAccount)
+                ProfileCard(profile.content, state.streakDays)
                 Text(stringResource(R.string.profile_preferences), modifier = Modifier.padding(top = 26.dp, bottom = 10.dp),
                     color = AppTheme.colors.primaryText, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold)
                 val specialization = Specialization.entries.firstOrNull { it.code == profile.content.specialization }
@@ -202,7 +213,7 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
 }
 
 @Composable
-private fun ProfileCard(profile: MeResponse, streak: Int?, enabled: Boolean, onAccount: () -> Unit) {
+private fun ProfileCard(profile: MeResponse, streak: Int?) {
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color.Transparent,
         border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
         Row(Modifier.background(Brush.horizontalGradient(listOf(AppTheme.colors.heroStart, AppTheme.colors.heroEnd)))
@@ -217,14 +228,10 @@ private fun ProfileCard(profile: MeResponse, streak: Int?, enabled: Boolean, onA
                 Text(profile.displayName, color = AppTheme.colors.primaryText, fontSize = 18.sp, lineHeight = 23.sp,
                     fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(5.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    val specialization = Specialization.entries.firstOrNull { it.code == profile.specialization }
-                    Text(specialization?.let { stringResource(it.titleResource) } ?: profile.specialization.orEmpty(),
-                        modifier = Modifier.weight(1f), color = AppTheme.colors.secondaryText, fontSize = 11.sp, lineHeight = 14.sp,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    LinkText(text = stringResource(R.string.profile_account_settings), lineHeight = 12.sp,
-                        enabled = enabled, onClick = onAccount)
-                }
+                val specialization = Specialization.entries.firstOrNull { it.code == profile.specialization }
+                Text(specialization?.let { stringResource(it.titleResource) } ?: profile.specialization.orEmpty(),
+                    color = AppTheme.colors.secondaryText, fontSize = 11.sp, lineHeight = 14.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(6.dp))
                 Text(if (streak == null) stringResource(R.string.stats_unavailable)
                     else stringResource(R.string.profile_streak, streak), color = AppTheme.colors.warning,

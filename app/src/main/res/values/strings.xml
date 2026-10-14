@@ -169,4 +169,20 @@
     <string name="favorites_due_banner_description">Keep your memory fresh</string>
     <string name="save_question">Save question</string>
     <string name="unsave_question">Remove from saved questions</string>
+    <string name="profile_settings">Profile &amp; Settings</string>
+    <string name="profile_settings_subtitle">Manage your account and preferences</string>
+    <string name="profile_back">Back</string>
+    <string name="profile_account_settings">Account settings</string>
+    <string name="profile_streak">%1$d-day streak</string>
+    <string name="profile_preferences">Preferences</string>
+    <string name="profile_theme">Theme</string>
+    <string name="profile_theme_light">Light</string>
+    <string name="profile_theme_dark">Dark</string>
+    <string name="profile_theme_system">System</string>
+    <string name="profile_language_unselected">Choose a language</string>
+    <string name="profile_about">About</string>
+    <string name="profile_version">Version %1$s</string>
+    <string name="profile_data">Data</string>
+    <string name="profile_sign_out">Sign out</string>
+    <string name="profile_signing_out">Signing out…</string>
 </resources>

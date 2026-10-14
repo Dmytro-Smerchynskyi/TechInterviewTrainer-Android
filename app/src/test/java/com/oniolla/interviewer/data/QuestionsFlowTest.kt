@@ -83,6 +83,7 @@ class QuestionsFlowTest {
                         ?: if (request.url.queryParameter("cursor") == null) initialBody else nextBody
                     "/dashboard" -> """{"readiness":{"score":0,"answered":0,"practicedTopics":0,"totalTopics":0,
                         "gradePerformance":[]},"todayReview":[],"weakTopics":[],"dueCount":0}"""
+                    "/stats" -> """{"timeZone":"UTC","serverTime":"2026-10-14T12:00:00.000Z","weekStart":"2026-10-12","weekEnd":"2026-10-18","summary":{"answered":0,"streakDays":0,"dueCount":0,"averageStudySeconds":null},"readiness":{"score":0,"gradePerformance":[]},"studyProgress":[],"topics":[],"weakTopics":[],"weakKeyPoints":[]}"""
                     "/topics" -> "[]"
                     "/me" -> """{"id":"user","email":"developer@example.com","displayName":"Dmitry",
                         "emailVerified":true,"specialization":"ANDROID","createdAt":"","updatedAt":"",

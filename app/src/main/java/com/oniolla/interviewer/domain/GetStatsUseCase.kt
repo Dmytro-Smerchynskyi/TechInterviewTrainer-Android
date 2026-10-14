@@ -9,6 +9,8 @@ data class StatsRequest(val timeZone: String? = null, val weekStart: String? = n
 class GetStatsUseCase @Inject constructor(
     private val homeRepository: HomeRepository
 ) : UseCase<StatsRequest, ContentResult<StatsResponse>> {
+    fun clearCache() = homeRepository.clearStatsCache()
+
     override suspend fun invoke(input: StatsRequest): ContentResult<StatsResponse> = loadContent {
         homeRepository.getStats(input.timeZone, input.weekStart)
     }

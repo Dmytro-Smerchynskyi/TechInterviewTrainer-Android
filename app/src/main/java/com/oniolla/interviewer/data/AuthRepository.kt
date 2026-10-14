@@ -27,7 +27,8 @@ import kotlinx.coroutines.sync.withLock
 class AuthRepository @Inject constructor(
     private val tokenStorage: SessionTokenStorage,
     private val api: Api,
-    private val sessionRefresh: SessionRefreshCoordinator
+    private val sessionRefresh: SessionRefreshCoordinator,
+    private val localUserData: LocalUserData? = null
 ) {
     private data class CachedProfile(val sessionVersion: Long, val profile: MeResponse)
     private var cachedProfile: CachedProfile? = null
@@ -40,6 +41,11 @@ class AuthRepository @Inject constructor(
             tokenStorage.clear()
             cachedProfile = null
         }
+    }
+
+    suspend fun clearUserData() {
+        clearSession()
+        localUserData?.clear()
     }
 
     suspend fun login(loginPayload: LoginPayload): LoginResponse =
@@ -96,7 +102,12 @@ class AuthRepository @Inject constructor(
         api.resendVerificationCode(ResendCodePayload(email))
     }
 
-    suspend fun signup(signupPayload: SignupPayload): Single<SignupResponse> = apiCall {
-        api.signup(signupPayload)
+    suspend fun signup(signupPayload: SignupPayload): Single<SignupResponse> = try {
+        clearUserData()
+        apiCall { api.signup(signupPayload) }
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Exception) {
+        Single.error(error)
     }
 }

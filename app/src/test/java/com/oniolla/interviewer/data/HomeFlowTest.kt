@@ -118,11 +118,13 @@ class HomeFlowTest {
                     "/dashboard" -> dashboardStatus
                     "/topics" -> topicsStatus
                     "/questions" -> 200
+                    "/stats" -> 200
                     "/me" -> meStatus
                     else -> error("Unexpected endpoint $path")
                 }
                 val body = if (status >= 400) """{"error":{"code":"REQUEST_FAILED","message":"Server message"}}"""
                     else when (path) {
+                        "/stats" -> """{"timeZone":"UTC","serverTime":"2026-10-14T12:00:00.000Z","weekStart":"2026-10-12","weekEnd":"2026-10-18","summary":{"answered":0,"streakDays":0,"dueCount":0,"averageStudySeconds":null},"readiness":{"score":0,"gradePerformance":[]},"studyProgress":[],"topics":[],"weakTopics":[],"weakKeyPoints":[]}"""
                         "/dashboard" -> dashboardBody
                         "/topics" -> if (request.url.queryParameter("type") == "weak") weakTopicsBody ?: topicsBody else topicsBody
                         "/questions" -> """{"items":[],"nextCursor":null,"topics":[],"access":null}"""

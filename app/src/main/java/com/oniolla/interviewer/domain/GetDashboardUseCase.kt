@@ -14,6 +14,11 @@ class GetDashboardUseCase @Inject constructor(
     private val homeRepository: HomeRepository,
     private val authRepository: AuthRepository
 ) : UseCase<Unit, ContentResult<DashboardContent>> {
+    suspend fun refresh(): ContentResult<DashboardContent> = loadContent {
+        val profile = authRepository.getMe()
+        DashboardContent(profile, homeRepository.getDashboard())
+    }
+
     override suspend fun invoke(input: Unit): ContentResult<DashboardContent> = loadContent {
         coroutineScope {
             val profile = async { authRepository.getSessionProfile() }

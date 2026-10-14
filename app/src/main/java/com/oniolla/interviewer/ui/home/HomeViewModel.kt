@@ -22,6 +22,7 @@ import com.oniolla.interviewer.data.model.QuestionResponse
 import com.oniolla.interviewer.ui.UiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -93,11 +94,11 @@ class HomeViewModel @Inject constructor(
 
     init {
         loadDashboard()
+        loadStats()
         when (_stateFlow.value.tab) {
             HomeTab.TOPICS -> loadTopics()
             HomeTab.QUESTIONS -> loadQuestions()
             HomeTab.FAVORITES -> loadFavorites()
-            HomeTab.STATS -> loadStats()
             else -> Unit
         }
     }
@@ -463,11 +464,45 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun loadDashboard() {
+    fun stopSessionWork() {
+        viewModelScope.coroutineContext.cancelChildren()
+    }
+
+    fun reloadAfterProfileChange() {
+        stopSessionWork()
+        questionsGeneration++
+        favoritesGeneration++
+        topicsGeneration++
+        statsGeneration++
+        savedDebounceJobs.clear()
+        savedQuestionChanges.clear()
+        changedQuestions.clear()
+        removedSavedQuestions.clear()
+        consumedCursors.clear()
+        favoriteConsumedCursors.clear()
+        catalogScope = null
+        statsWeekStart = null
+        savedStateHandle["statsWeekStart"] = null
+        savedStateHandle["homeTab"] = HomeTab.HOME.name
+        savedStateHandle["questionTopicId"] = null
+        savedStateHandle["questionTopicName"] = null
+        savedStateHandle["questionSearch"] = ""
+        getStatsUseCase.clearCache()
+        _stateFlow.value = HomeViewState()
+        refreshDashboard(refreshProfile = true)
+        loadStats()
+        loadTopics()
+        loadQuestions()
+        loadFavorites()
+    }
+
+    fun loadDashboard() = refreshDashboard(refreshProfile = false)
+
+    private fun refreshDashboard(refreshProfile: Boolean) {
         if (dashboardJob?.isActive == true) return
         _stateFlow.update { it.copy(dashboard = ContentViewState.Loading) }
         dashboardJob = viewModelScope.launch {
-            val result = getDashboardUseCase(Unit)
+            val result = if (refreshProfile) getDashboardUseCase.refresh() else getDashboardUseCase(Unit)
             if (result is ContentResult.Success) {
                 val scope = topicCatalogUseCase.scope(result.content.profile)
                 val initializeCatalog = catalogScope != scope

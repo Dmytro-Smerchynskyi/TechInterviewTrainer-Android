@@ -232,12 +232,13 @@ class StatisticsFlowTest {
         assertEquals(listOf(5, 0, 0, 0, 0, 0, 0), days.map { it.answered })
     }
 
-    @Test fun statsLoadLazilyAndSendTheDeviceZoneWithoutInventingAWeek() = runTest(dispatcher) {
+    @Test fun statsLoadAtHomeStartupAndTabVisitsReuseTheLoadedStats() = runTest(dispatcher) {
         val fixture = Fixture()
         val vm = viewModel(fixture, SavedStateHandle())
-        assertTrue(fixture.statsRequests().isEmpty())
-        vm.selectTab(HomeTab.STATS)
         ready(vm)
+        assertEquals(HomeTab.HOME, vm.stateFlow.value.tab)
+        assertEquals(1, fixture.statsRequests().size)
+        vm.selectTab(HomeTab.STATS)
         val request = fixture.statsRequests().single()
         assertEquals("Europe/Prague", request.url.queryParameter("timeZone"))
         assertNull(request.url.queryParameter("weekStart"))

@@ -47,7 +47,8 @@ fun PreparationLanguageSelection(
     onBack: () -> Unit = {},
     onLanguageSelected: (String) -> Unit = {},
     onContinue: () -> Unit = {},
-    onRetry: () -> Unit = {}
+    onRetry: () -> Unit = {},
+    backDescriptionResource: Int = R.string.language_back_to_specialization
 ) {
     val canContinue = !state.isLoadingLanguages && state.languagesError == null &&
         state.languages.any { it.code == state.selectedLanguage }
@@ -58,7 +59,7 @@ fun PreparationLanguageSelection(
         ) {
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth().height(32.dp), verticalAlignment = Alignment.CenterVertically) {
-                val backDescription = stringResource(R.string.language_back_to_specialization)
+                val backDescription = stringResource(backDescriptionResource)
                 Surface(
                     onClick = onBack, enabled = !state.isSaving,
                     modifier = Modifier.size(24.dp).semantics { contentDescription = backDescription },

@@ -300,9 +300,12 @@ class SessionRefreshTest {
         assertTrue(failure { fixture.auth.verifyEmail(VerifyEmailPayload("developer@example.com", "123456")) } is ApiException.Unauthorized)
         assertTrue(failure { fixture.auth.forgotPassword("developer@example.com") } is ApiException.Unauthorized)
         assertTrue(failure { fixture.auth.sendVerificationEmail("developer@example.com") } is ApiException.Unauthorized)
+        assertEquals(snapshot, fixture.tokens.snapshot())
         failure { fixture.auth.signup(SignupPayload("developer@example.com", "password", "Developer")).blockingGet() }
         assertEquals(0, fixture.refreshCalls.get())
-        assertEquals(snapshot, fixture.tokens.snapshot())
+        assertNull(fixture.tokens.accessToken)
+        assertNull(fixture.tokens.refreshToken)
+        assertEquals(snapshot.version + 1, fixture.tokens.sessionVersion)
         assertTrue(fixture.requests.all { it.header("Authorization") == null })
     }
 

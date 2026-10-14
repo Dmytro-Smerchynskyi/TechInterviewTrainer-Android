@@ -113,13 +113,15 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class AuthActivity : ComponentActivity() {
 
+    @javax.inject.Inject lateinit var preferences: com.oniolla.interviewer.data.AppPreferences
     private val viewModel: AuthViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            InterviewTrainerTheme {
+            val theme by preferences.theme.collectAsStateWithLifecycle()
+            InterviewTrainerTheme(themeMode = theme) {
                 Screen(viewModel, onAuthorized = ::openHome)
             }
         }
@@ -1275,7 +1277,8 @@ fun SpecializationSelection(
     isLoading: Boolean = false,
     error: String? = null,
     onSpecializationSelected: (Specialization) -> Unit = {},
-    onContinueClicked: () -> Unit = {}
+    onContinueClicked: () -> Unit = {},
+    onBack: (() -> Unit)? = null
 ) {
     Scaffold(containerColor = AppTheme.colors.background) { innerPadding ->
         Column(
@@ -1286,13 +1289,23 @@ fun SpecializationSelection(
                 .padding(horizontal = 20.dp)
         ) {
             Spacer(Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.specialization),
-                color = AppTheme.colors.primaryText,
-                fontSize = 18.sp,
-                lineHeight = 23.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onBack != null) {
+                    Surface(onClick = onBack, enabled = !isLoading,
+                        modifier = Modifier.size(24.dp), shape = CircleShape,
+                        color = androidx.compose.ui.graphics.Color.Transparent) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("‹", color = AppTheme.colors.secondaryText, fontSize = 28.sp)
+                        }
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(
+                    text = stringResource(R.string.specialization),
+                    color = AppTheme.colors.primaryText,
+                    fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Bold
+                )
+            }
             Spacer(Modifier.height(27.dp))
 
             Column(
@@ -1434,7 +1447,7 @@ fun SpecializationOption(
     )
 }
 
-private val Specialization.badge: String
+internal val Specialization.badge: String
     get() = when (this) {
         Specialization.ANDROID -> "AD"
         Specialization.IOS -> "iOS"
@@ -1446,7 +1459,7 @@ private val Specialization.badge: String
         Specialization.DEVOPS -> "DO"
     }
 
-private val Specialization.titleResource: Int
+internal val Specialization.titleResource: Int
     get() = when (this) {
         Specialization.ANDROID -> R.string.specialization_android
         Specialization.IOS -> R.string.specialization_ios

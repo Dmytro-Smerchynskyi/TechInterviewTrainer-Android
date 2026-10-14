@@ -1,5 +1,6 @@
 package com.oniolla.interviewer.ui.theme
 
+import com.oniolla.interviewer.data.ThemeMode
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -132,17 +133,19 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun InterviewTrainerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean? = null,
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = false,
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+    val useDarkTheme = darkTheme ?: when (themeMode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
-
-    val appColors = if (darkTheme) DarkAppColors else LightAppColors
+    val colorScheme = if (useDarkTheme) DarkColorScheme else LightColorScheme
+    val appColors = if (useDarkTheme) DarkAppColors else LightAppColors
 
     CompositionLocalProvider(
         LocalAppColors provides appColors

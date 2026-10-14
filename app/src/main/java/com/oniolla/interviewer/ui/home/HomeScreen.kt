@@ -61,12 +61,13 @@ fun HomeScreen(
     onLoadMoreFavorites: () -> Unit,
     onRetryFavoritePage: () -> Unit,
     onRetryStats: () -> Unit,
-    onStatsWeekChanged: (Int) -> Unit
+    onStatsWeekChanged: (Int) -> Unit,
+    onProfileClicked: () -> Unit = {}
 ) {
     Scaffold(
         modifier = Modifier.imePadding(),
         containerColor = AppTheme.colors.background,
-        topBar = { HomeHeader(state) },
+        topBar = { HomeHeader(state, onProfileClicked) },
         bottomBar = {
             if (!WindowInsets.isImeVisible) HomeNavigation(state.tab, onTabSelected)
         }
@@ -102,7 +103,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeHeader(state: HomeViewState) {
+private fun HomeHeader(state: HomeViewState, onProfileClicked: () -> Unit) {
     val title = when (state.tab) {
         HomeTab.HOME -> if (state.displayName.isBlank()) stringResource(R.string.home_greeting_loading)
             else stringResource(R.string.home_greeting, state.displayName)
@@ -136,7 +137,7 @@ private fun HomeHeader(state: HomeViewState) {
         }
         val profileDescription = stringResource(R.string.profile)
         Surface(
-            onClick = {},
+            onClick = onProfileClicked,
             modifier = Modifier.size(34.dp).semantics { contentDescription = profileDescription },
             shape = CircleShape,
             color = AppTheme.colors.link.copy(alpha = 0.16f),

@@ -62,7 +62,8 @@ internal fun QuestionsScreen(
     onSelectTopic: (Long, String) -> Unit,
     onRetryTopicCatalog: () -> Unit,
     onToggleSaved: (Long) -> Unit,
-    onOpenQuestion: (QuestionResponse) -> Unit = {}
+    onOpenQuestion: (QuestionResponse) -> Unit = {},
+    onPro: () -> Unit = {}
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         QuestionsSearch(state.questionSearch, onSearch)
@@ -77,7 +78,7 @@ internal fun QuestionsScreen(
             when (current) {
                 ContentViewState.NotLoaded, ContentViewState.Loading -> QuestionsSkeleton()
                 is ContentViewState.Failed -> ContentError(current.message, onRetry)
-                is ContentViewState.Ready -> QuestionsList(current.content, onLoadMore, onRetryPage, onToggleSaved, onOpenQuestion = onOpenQuestion)
+                is ContentViewState.Ready -> QuestionsList(current.content, onLoadMore, onRetryPage, onToggleSaved, onOpenQuestion = onOpenQuestion, onPro = onPro)
             }
         }
     }
@@ -130,7 +131,7 @@ private fun QuestionsSearch(query: String, onSearch: (String) -> Unit) {
 @Composable
 internal fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onRetryPage: () -> Unit,
     onToggleSaved: (Long) -> Unit, compact: Boolean = false, emptyMessage: String? = null,
-    onOpenQuestion: (QuestionResponse) -> Unit = {}) {
+    onOpenQuestion: (QuestionResponse) -> Unit = {}, onPro: () -> Unit = {}) {
     val listState = key(content.resultRevision) { rememberLazyListState() }
     val lockedCount = content.access?.takeIf { it.limitedByPlan }?.lockedCount
         ?: content.topics.filter { it.limitedByPlan }.sumOf { it.lockedCount }
@@ -174,7 +175,7 @@ internal fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, on
             }
         }
         if (content.nextCursor == null && lockedCount > 0) {
-            item(key = "locked_questions") { LockedQuestionsCard(lockedCount) }
+            item(key = "locked_questions") { LockedQuestionsCard(lockedCount, onPro) }
         }
     }
 }
@@ -289,7 +290,7 @@ private fun DifficultyPill(difficulty: String) {
 }
 
 @Composable
-private fun gradeLabel(grade: String): String = when (grade) {
+internal fun gradeLabel(grade: String): String = when (grade) {
     "JUNIOR" -> stringResource(R.string.question_grade_junior)
     "MIDDLE" -> stringResource(R.string.question_grade_middle)
     "SENIOR" -> stringResource(R.string.question_grade_senior)
@@ -297,8 +298,9 @@ private fun gradeLabel(grade: String): String = when (grade) {
 }
 
 @Composable
-private fun LockedQuestionsCard(count: Int) {
+private fun LockedQuestionsCard(count: Int, onPro: () -> Unit) {
     Surface(
+        onClick = onPro,
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 74.dp),
         shape = RoundedCornerShape(13.dp),
         color = AppTheme.colors.container,

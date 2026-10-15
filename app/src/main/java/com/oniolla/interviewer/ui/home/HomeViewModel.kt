@@ -52,6 +52,7 @@ class HomeViewModel @Inject constructor(
     private val getQuestionAnswerUseCase: GetQuestionAnswerUseCase
 ) : ViewModel() {
     private val _stateFlow = MutableStateFlow(HomeViewState(
+        paywallOpen = savedStateHandle.get<Boolean>("paywallOpen") ?: false,
         tab = HomeTab.entries.firstOrNull { it.name == savedStateHandle.get<String>("homeTab") }
             ?: HomeTab.HOME,
         topicsFilter = TopicsFilter.entries.firstOrNull { it.name == savedStateHandle.get<String>("topicsFilter") }
@@ -614,6 +615,25 @@ class HomeViewModel @Inject constructor(
         loadTopics()
         loadQuestions()
         loadFavorites()
+    }
+
+    fun openPaywall() {
+        if (_stateFlow.value.sessionExpired) return
+        savedStateHandle["paywallOpen"] = true
+        _stateFlow.update { it.copy(paywallOpen = true) }
+    }
+
+    fun closePaywall() {
+        savedStateHandle["paywallOpen"] = false
+        _stateFlow.update { it.copy(paywallOpen = false) }
+    }
+
+    fun refreshAfterPractice() {
+        favoritesDirty = true
+        loadDashboard()
+        loadStats()
+        if (_stateFlow.value.questions is ContentViewState.Ready) loadQuestions()
+        if (_stateFlow.value.favorites is ContentViewState.Ready) loadFavorites()
     }
 
     fun loadDashboard() = refreshDashboard(refreshProfile = false)

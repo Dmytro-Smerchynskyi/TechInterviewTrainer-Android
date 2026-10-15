@@ -41,7 +41,8 @@ suspend fun <T> apiCall(
 
 class CustomError(
     @SerializedName("code") val code: String? = null,
-    @SerializedName("message") val message: String? = null
+    @SerializedName("message") val message: String? = null,
+    @SerializedName("subscriptionRequired") val subscriptionRequired: Boolean? = null
 )
 
 fun HttpException.getCustomError(): CustomError = response()?.errorBody()?.use {
@@ -68,7 +69,10 @@ class CustomErrorDeserializer : JsonDeserializer<CustomError> {
             ?.takeIf { it.isJsonObject }?.asJsonObject ?: return CustomError()
         fun string(name: String): String? = error.get(name)
             ?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
-        return CustomError(code = string("code"), message = string("message"))
+        val subscriptionRequired = error.get("subscriptionRequired")
+            ?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isBoolean }?.asBoolean
+        return CustomError(code = string("code"), message = string("message"),
+            subscriptionRequired = subscriptionRequired)
     }
 }
 

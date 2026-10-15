@@ -74,6 +74,7 @@ data class HomeViewState(
     val favorites: ContentViewState<QuestionsContent> = ContentViewState.NotLoaded,
     val statistics: ContentViewState<StatisticsContent> = ContentViewState.NotLoaded,
     val questionDetail: QuestionDetailState? = null,
+    val paywallOpen: Boolean = false,
     val sessionExpired: Boolean = false
 ) {
     val displayName: String

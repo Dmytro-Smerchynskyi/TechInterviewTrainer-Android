@@ -69,7 +69,8 @@ fun ProfileScreens(
     onSaveLanguage: () -> Unit,
     onRetryLanguages: () -> Unit,
     onAccount: () -> Unit = {},
-    onRetryUsage: () -> Unit = {}
+    onRetryUsage: () -> Unit = {},
+    onUpgrade: () -> Unit = {}
 ) {
     // Keep the outgoing profile visible while its parent fades to Home or Account.
     val visiblePage = when (state.page) {
@@ -86,7 +87,7 @@ fun ProfileScreens(
             )
             ProfilePage.LANGUAGE -> PreparationLanguageSelection(state.language, onBack,
                 onSelectLanguage, onSaveLanguage, onRetryLanguages, R.string.profile_back)
-            ProfilePage.PROFILE -> ProfileScreen(state, onBack, onRetry, onSpecialization, onLanguage, onTheme, onSignOut, onAccount, onRetryUsage)
+            ProfilePage.PROFILE -> ProfileScreen(state, onBack, onRetry, onSpecialization, onLanguage, onTheme, onSignOut, onAccount, onRetryUsage, onUpgrade)
             ProfilePage.CLOSED, ProfilePage.ACCOUNT -> Unit
         }
     }
@@ -95,7 +96,7 @@ fun ProfileScreens(
 
 @Composable
 private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: () -> Unit,
-    onSpecialization: () -> Unit, onLanguage: () -> Unit, onTheme: () -> Unit, onSignOut: () -> Unit, onAccount: () -> Unit, onRetryUsage: () -> Unit) {
+    onSpecialization: () -> Unit, onLanguage: () -> Unit, onTheme: () -> Unit, onSignOut: () -> Unit, onAccount: () -> Unit, onRetryUsage: () -> Unit, onUpgrade: () -> Unit) {
     Scaffold(containerColor = AppTheme.colors.background,
         topBar = {
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 12.dp, end = 20.dp, top = 12.dp, bottom = 16.dp),
@@ -205,7 +206,7 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
                     enabled = !state.isSigningOut, chevron = false, onClick = null) {
                     FigmaIcon("code", Modifier.size(20.dp), AppTheme.colors.homeIcon)
                 }
-                ProfileUsage(state.usage, !state.isSigningOut, onRetryUsage)
+                ProfileUsage(state.usage, !state.isSigningOut, onRetryUsage, onUpgrade)
                 Spacer(Modifier.height(20.dp))
             }
         }

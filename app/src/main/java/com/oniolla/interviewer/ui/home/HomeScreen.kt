@@ -70,7 +70,9 @@ fun HomeScreen(
     onOpenQuestion: (QuestionResponse) -> Unit = {},
     onCloseQuestion: () -> Unit = {},
     onRevealAnswer: () -> Unit = {},
-    onRetryQuestionUsage: () -> Unit = {}
+    onRetryQuestionUsage: () -> Unit = {},
+    onPractice: () -> Unit = {},
+    onPro: () -> Unit = {}
 ) {
     val stateHolder = rememberSaveableStateHolder()
     val focus = LocalFocusManager.current
@@ -89,7 +91,7 @@ fun HomeScreen(
     ) { detail ->
         if (detail != null) {
             QuestionDetailScreen(detail, onBack = onCloseQuestion, onReveal = onRevealAnswer,
-                onRetryUsage = onRetryQuestionUsage, onToggleSaved = onToggleQuestionSaved,
+                onRetryUsage = onRetryQuestionUsage, onToggleSaved = onToggleQuestionSaved, onPractice = onPractice,
                 bottomBar = { HomeNavigation(state.tab, onTabSelected) })
         } else stateHolder.SaveableStateProvider("homeTabs") {
             Scaffold(
@@ -120,11 +122,11 @@ fun HomeScreen(
                         }
                         HomeTab.QUESTIONS -> QuestionsScreen(state, onQuestionSearch, onClearQuestionTopic,
                             onRetryQuestions, onLoadMoreQuestions, onRetryQuestionPage,
-                            onQuestionTopicSelected, onRetryTopicCatalog, onToggleQuestionSaved, openQuestion)
+                            onQuestionTopicSelected, onRetryTopicCatalog, onToggleQuestionSaved, openQuestion, onPro)
                         HomeTab.STATS -> StatisticsScreen(state.statistics, onRetryStats,
                             onStatsWeekChanged, onQuestionTopicSelected)
                         HomeTab.FAVORITES -> FavoritesScreen(state, onFavoritesFilterSelected,
-                            onRetryFavorites, onLoadMoreFavorites, onRetryFavoritePage, onToggleQuestionSaved, openQuestion)
+                            onRetryFavorites, onLoadMoreFavorites, onRetryFavoritePage, onToggleQuestionSaved, openQuestion, onPro)
                     }
                 }
             }

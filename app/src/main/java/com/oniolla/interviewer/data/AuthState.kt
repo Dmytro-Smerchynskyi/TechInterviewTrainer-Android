@@ -24,6 +24,7 @@ sealed interface AuthState {
 fun ApiException.toAuthState(): AuthState {
     return when (this) {
         is ApiException.BadRequest -> AuthState.Error(customError.message)
+        is QuestionEvaluationLimitException -> AuthState.Error(error.message)
         is ApiException.CurrentPasswordRejected -> AuthState.Error(customError.message)
         is ApiException.Unauthorized -> AuthState.Error(customError.message)
         is ApiException.Forbidden -> {

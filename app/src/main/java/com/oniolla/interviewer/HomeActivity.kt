@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.background
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -38,6 +39,7 @@ class HomeActivity : ComponentActivity() {
     private val viewModel: HomeViewModel by viewModels()
     private val profileViewModel: ProfileViewModel by viewModels()
     private val accountViewModel: AccountViewModel by viewModels()
+    private val practiceViewModel: PracticeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +51,11 @@ class HomeActivity : ComponentActivity() {
                 val state by viewModel.stateFlow.collectAsStateWithLifecycle()
                 val profileState by profileViewModel.state.collectAsStateWithLifecycle()
                 val accountState by accountViewModel.state.collectAsStateWithLifecycle()
+                val practiceState by practiceViewModel.state.collectAsStateWithLifecycle()
+                val screenStateHolder = rememberSaveableStateHolder()
+                LaunchedEffect(practiceState.result?.id) {
+                    if (practiceViewModel.takeContentRefresh()) viewModel.refreshAfterPractice()
+                }
                 LaunchedEffect(profileState.page) {
                     if (profileState.page == ProfilePage.ACCOUNT) {
                         accountViewModel.open((profileState.profile as? ContentViewState.Ready)?.content)
@@ -59,11 +66,13 @@ class HomeActivity : ComponentActivity() {
                         launch { viewModel.uiEventsFlow.collect(::showEvent) }
                         launch { profileViewModel.events.collect(::showEvent) }
                         launch { accountViewModel.events.collect(::showEvent) }
+                        launch { practiceViewModel.events.collect(::showEvent) }
                     }
                 }
-                LaunchedEffect(state.sessionExpired, profileState.sessionExpired, profileState.signedOut, accountState.sessionExpired) {
-                    if ((state.sessionExpired || profileState.sessionExpired || profileState.signedOut || accountState.sessionExpired) && !isFinishing) {
+                LaunchedEffect(state.sessionExpired, profileState.sessionExpired, profileState.signedOut, accountState.sessionExpired, practiceState.sessionExpired) {
+                    if ((state.sessionExpired || profileState.sessionExpired || profileState.signedOut || accountState.sessionExpired || practiceState.sessionExpired) && !isFinishing) {
                         viewModel.stopSessionWork()
+                        practiceViewModel.stopSessionWork()
                         startActivity(Intent(this@HomeActivity, AuthActivity::class.java).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         })
@@ -81,85 +90,124 @@ class HomeActivity : ComponentActivity() {
                         }
                     } else if (profileViewModel.back()) viewModel.reloadAfterProfileChange()
                 }
-                BackHandler(enabled = profileOpen || state.questionDetail != null || state.tab != HomeTab.HOME) {
+                val closePractice: () -> Unit = {
+                    if (practiceState.isOpen && !practiceState.isBusy) {
+                        practiceState.question?.takeIf { state.questionDetail?.question?.id != it.id }
+                            ?.let(viewModel::openQuestion)
+                        practiceViewModel.close()
+                    }
+                }
+                val backPractice: () -> Unit = {
+                    if (practiceState.page == PracticePage.ANSWERING) practiceViewModel.back()
+                    else closePractice()
+                }
+                BackHandler(enabled = state.paywallOpen || practiceState.isOpen || profileOpen || state.questionDetail != null || state.tab != HomeTab.HOME) {
                     when {
+                        state.paywallOpen -> viewModel.closePaywall()
+                        practiceState.isOpen -> backPractice()
                         profileOpen -> back()
                         state.questionDetail != null -> viewModel.closeQuestion()
                         else -> viewModel.selectTab(HomeTab.HOME)
                     }
                 }
-                AnimatedContent(targetState = when (profileState.page) {
-                    ProfilePage.CLOSED -> "home"
-                    ProfilePage.ACCOUNT -> "account"
+                AnimatedContent(targetState = when {
+                    state.paywallOpen -> "paywall"
+                    practiceState.isOpen -> "practice"
+                    profileState.page == ProfilePage.CLOSED -> "home"
+                    profileState.page == ProfilePage.ACCOUNT -> "account"
                     else -> "profile"
                 }, modifier = Modifier.fillMaxSize().background(AppTheme.colors.background),
                     contentAlignment = Alignment.Center,
                     transitionSpec = { fadeIn(tween(250)).togetherWith(fadeOut(tween(250))).using(null) },
                     label = "profile navigation") { destination ->
-                    if (destination == "account") AccountScreens(
-                        state = accountState,
-                        onBack = back,
-                        onEdit = accountViewModel::edit,
-                        onUpdate = accountViewModel::update,
-                        onFocused = accountViewModel::clearError,
-                        onSubmit = accountViewModel::submit,
-                        onResend = accountViewModel::resend,
-                        onChangeEmailAddress = accountViewModel::changeEmailAddress,
-                        onPaste = accountViewModel::pasteCode,
-                        onRetryProfile = accountViewModel::loadProfile
-                    ) else if (destination == "profile") ProfileScreens(
-                        state = profileState,
-                        onBack = back,
-                        onRetry = profileViewModel::loadProfile,
-                        onSpecialization = profileViewModel::editSpecialization,
-                        onLanguage = profileViewModel::editLanguage,
-                        onTheme = profileViewModel::showThemeDialog,
-                        onDismissTheme = profileViewModel::dismissThemeDialog,
-                        onSelectTheme = profileViewModel::selectTheme,
-                        onSignOut = {
-                            viewModel.stopSessionWork()
-                            profileViewModel.signOut()
-                        },
-                        onSelectSpecialization = profileViewModel::selectSpecialization,
-                        onSaveSpecialization = profileViewModel::saveSpecialization,
-                        onSelectLanguage = profileViewModel::selectLanguage,
-                        onSaveLanguage = profileViewModel::saveLanguage,
-                        onRetryLanguages = profileViewModel::loadLanguages,
-                        onAccount = {
-                            accountViewModel.open((profileState.profile as? ContentViewState.Ready)?.content)
-                            profileViewModel.openAccount()
-                        },
-                        onRetryUsage = { profileViewModel.loadUsage() }
-                    ) else HomeScreen(
-                        state = state,
-                        onTabSelected = viewModel::selectTab,
-                        onTopicQuestions = viewModel::openTopicQuestions,
-                        onQuestionSearch = viewModel::updateQuestionSearch,
-                        onRetryDashboard = viewModel::loadDashboard,
-                        onRetryTopics = viewModel::loadTopics,
-                        onQuestionTopicSelected = viewModel::selectQuestionTopic,
-                        onClearQuestionTopic = viewModel::clearQuestionTopic,
-                        onRetryQuestions = viewModel::loadQuestions,
-                        onLoadMoreQuestions = viewModel::loadMoreQuestions,
-                        onRetryQuestionPage = viewModel::retryQuestionPage,
-                        onTopicsFilterSelected = viewModel::selectTopicsFilter,
-                        onSeeWeakTopics = viewModel::openWeakTopics,
-                        onRetryTopicCatalog = viewModel::refreshTopicCatalog,
-                        onToggleQuestionSaved = viewModel::toggleQuestionSaved,
-                        onFavoritesFilterSelected = viewModel::selectFavoritesFilter,
-                        onRetryFavorites = viewModel::loadFavorites,
-                        onLoadMoreFavorites = viewModel::loadMoreFavorites,
-                        onRetryFavoritePage = viewModel::retryFavoritePage,
-                        onRetryStats = viewModel::loadStats,
-                        onStatsWeekChanged = viewModel::changeStatsWeek,
-                        onOpenQuestion = viewModel::openQuestion,
-                        onCloseQuestion = viewModel::closeQuestion,
-                        onRevealAnswer = viewModel::revealQuestionAnswer,
-                        onRetryQuestionUsage = viewModel::refreshQuestionUsage,
-                        onProfileClicked = {
-                            profileViewModel.open((state.dashboard as? ContentViewState.Ready)?.content?.profile)
-                        }
-                    )
+                    screenStateHolder.SaveableStateProvider(destination) {
+                        if (destination == "paywall") PaywallScreen(
+                            onClose = viewModel::closePaywall,
+                            onUnavailable = { showEvent(UiEvent.Toast(getString(R.string.paywall_coming_soon))) }
+                        ) else if (destination == "practice") PracticeScreens(
+                            state = practiceState,
+                            onBack = backPractice,
+                            onClose = closePractice,
+                            onGrade = practiceViewModel::selectGrade,
+                            onContinue = practiceViewModel::continueToAnswer,
+                            onMode = practiceViewModel::setMode,
+                            onAnswer = practiceViewModel::updateAnswer,
+                            onEvaluate = practiceViewModel::evaluateAnswer,
+                            onPlans = viewModel::openPaywall,
+                            onRecordingStarted = practiceViewModel::recordingStarted,
+                            onTranscribing = practiceViewModel::transcriptionStarted,
+                            onRecordingFinished = practiceViewModel::recordingFinished,
+                            onVoiceLevel = practiceViewModel::updateVoiceLevel
+                        ) else if (destination == "account") AccountScreens(
+                            state = accountState,
+                            onBack = back,
+                            onEdit = accountViewModel::edit,
+                            onUpdate = accountViewModel::update,
+                            onFocused = accountViewModel::clearError,
+                            onSubmit = accountViewModel::submit,
+                            onResend = accountViewModel::resend,
+                            onChangeEmailAddress = accountViewModel::changeEmailAddress,
+                            onPaste = accountViewModel::pasteCode,
+                            onRetryProfile = accountViewModel::loadProfile
+                        ) else if (destination == "profile") ProfileScreens(
+                            state = profileState,
+                            onBack = back,
+                            onRetry = profileViewModel::loadProfile,
+                            onSpecialization = profileViewModel::editSpecialization,
+                            onLanguage = profileViewModel::editLanguage,
+                            onTheme = profileViewModel::showThemeDialog,
+                            onDismissTheme = profileViewModel::dismissThemeDialog,
+                            onSelectTheme = profileViewModel::selectTheme,
+                            onSignOut = {
+                                viewModel.stopSessionWork()
+                                profileViewModel.signOut()
+                            },
+                            onSelectSpecialization = profileViewModel::selectSpecialization,
+                            onSaveSpecialization = profileViewModel::saveSpecialization,
+                            onSelectLanguage = profileViewModel::selectLanguage,
+                            onSaveLanguage = profileViewModel::saveLanguage,
+                            onRetryLanguages = profileViewModel::loadLanguages,
+                            onAccount = {
+                                accountViewModel.open((profileState.profile as? ContentViewState.Ready)?.content)
+                                profileViewModel.openAccount()
+                            },
+                            onRetryUsage = { profileViewModel.loadUsage() },
+                            onUpgrade = viewModel::openPaywall
+                        ) else HomeScreen(
+                            state = state,
+                            onTabSelected = viewModel::selectTab,
+                            onTopicQuestions = viewModel::openTopicQuestions,
+                            onQuestionSearch = viewModel::updateQuestionSearch,
+                            onRetryDashboard = viewModel::loadDashboard,
+                            onRetryTopics = viewModel::loadTopics,
+                            onQuestionTopicSelected = viewModel::selectQuestionTopic,
+                            onClearQuestionTopic = viewModel::clearQuestionTopic,
+                            onRetryQuestions = viewModel::loadQuestions,
+                            onLoadMoreQuestions = viewModel::loadMoreQuestions,
+                            onRetryQuestionPage = viewModel::retryQuestionPage,
+                            onTopicsFilterSelected = viewModel::selectTopicsFilter,
+                            onSeeWeakTopics = viewModel::openWeakTopics,
+                            onRetryTopicCatalog = viewModel::refreshTopicCatalog,
+                            onToggleQuestionSaved = viewModel::toggleQuestionSaved,
+                            onFavoritesFilterSelected = viewModel::selectFavoritesFilter,
+                            onRetryFavorites = viewModel::loadFavorites,
+                            onLoadMoreFavorites = viewModel::loadMoreFavorites,
+                            onRetryFavoritePage = viewModel::retryFavoritePage,
+                            onRetryStats = viewModel::loadStats,
+                            onStatsWeekChanged = viewModel::changeStatsWeek,
+                            onOpenQuestion = viewModel::openQuestion,
+                            onCloseQuestion = viewModel::closeQuestion,
+                            onRevealAnswer = viewModel::revealQuestionAnswer,
+                            onRetryQuestionUsage = viewModel::refreshQuestionUsage,
+                            onPro = viewModel::openPaywall,
+                            onPractice = {
+                                state.questionDetail?.takeIf { it.canPractice }?.question?.let(practiceViewModel::open)
+                            },
+                            onProfileClicked = {
+                                profileViewModel.open((state.dashboard as? ContentViewState.Ready)?.content?.profile)
+                            }
+                        )
+                    }
                 }
             }
         }

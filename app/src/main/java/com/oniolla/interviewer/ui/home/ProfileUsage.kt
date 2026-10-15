@@ -25,13 +25,14 @@ import java.util.Locale
 internal fun ProfileUsage(
     usage: ContentViewState<DashboardUsage>,
     enabled: Boolean,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onUpgrade: () -> Unit = {}
 ) {
     Text(stringResource(R.string.account_plan_usage), fontSize = 15.sp, lineHeight = 19.sp,
         color = AppTheme.colors.primaryText, fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(top = 26.dp, bottom = 10.dp))
     when (usage) {
-        is ContentViewState.Ready -> UsageCard(usage.content, enabled)
+        is ContentViewState.Ready -> UsageCard(usage.content, enabled, onUpgrade)
         is ContentViewState.Failed -> Box(Modifier.fillMaxWidth().height(150.dp)) {
             ContentError(usage.message, onRetry)
         }
@@ -47,7 +48,7 @@ internal fun ProfileUsage(
 }
 
 @Composable
-private fun UsageCard(usage: DashboardUsage, enabled: Boolean) {
+private fun UsageCard(usage: DashboardUsage, enabled: Boolean, onUpgrade: () -> Unit) {
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, AccountHeroStroke), color = Color.Transparent) {
         Column(Modifier.background(Brush.horizontalGradient(listOf(AppTheme.colors.heroStart, AppTheme.colors.heroEnd)))
@@ -63,7 +64,7 @@ private fun UsageCard(usage: DashboardUsage, enabled: Boolean) {
                             ?: stringResource(R.string.stats_unavailable),
                         fontSize = 9.sp, lineHeight = 12.sp, color = AppTheme.colors.secondaryText)
                 }
-                Surface(onClick = {}, enabled = enabled, modifier = Modifier.width(120.dp).height(32.dp),
+                Surface(onClick = onUpgrade, enabled = enabled, modifier = Modifier.width(120.dp).height(32.dp),
                     shape = RoundedCornerShape(13.dp), color = AppTheme.colors.container,
                     border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
                     Box(contentAlignment = Alignment.Center) {

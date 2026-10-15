@@ -6,6 +6,8 @@ import com.oniolla.interviewer.data.model.StatsResponse
 import com.oniolla.interviewer.data.model.TopicResponse
 import com.oniolla.interviewer.data.model.QuestionsResponse
 import com.oniolla.interviewer.data.model.QuestionAnswerResponse
+import com.oniolla.interviewer.data.model.QuestionEvaluationResponse
+import com.oniolla.interviewer.data.payload.EvaluateQuestionPayload
 import javax.inject.Inject
 import kotlinx.coroutines.ensureActive
 
@@ -61,6 +63,27 @@ class HomeRepository @Inject constructor(
         sessionRefresh.authorizedApiCall { api.questionAnswer(questionId, it) }
 
     suspend fun getQuestionUsage() = usageRepository.refresh()
+
+    suspend fun evaluateQuestion(questionId: Long, payload: EvaluateQuestionPayload): QuestionEvaluationResponse =
+        sessionRefresh.authorizedApiCall { session ->
+            try {
+                apiCall { api.evaluateQuestion(questionId, payload, session) }
+            } catch (error: ApiException) {
+                val custom = when (error) {
+                    is ApiException.BadRequest -> error.customError
+                    is ApiException.Unauthorized -> error.customError
+                    is ApiException.Forbidden -> error.customError
+                    is ApiException.NotFound -> error.customError
+                    is ApiException.ServerError -> error.customError
+                    is ApiException.Unknown -> error.customError
+                    else -> null
+                }
+                if (custom?.code == "AI_EVALUATION_LIMIT_EXCEEDED") {
+                    throw QuestionEvaluationLimitException(custom)
+                }
+                throw error
+            }
+        }
 
     suspend fun getQuestions(
         topicId: Long?,

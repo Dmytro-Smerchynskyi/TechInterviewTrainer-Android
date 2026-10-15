@@ -39,7 +39,8 @@ internal fun FavoritesScreen(
     onLoadMore: () -> Unit,
     onRetryPage: () -> Unit,
     onToggleSaved: (Long) -> Unit,
-    onOpenQuestion: (QuestionResponse) -> Unit = {}
+    onOpenQuestion: (QuestionResponse) -> Unit = {},
+    onPro: () -> Unit = {}
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 18.dp).selectableGroup(),
@@ -93,7 +94,7 @@ internal fun FavoritesScreen(
                     ContentViewState.NotLoaded, ContentViewState.Loading -> FavoritesSkeleton()
                     is ContentViewState.Failed -> ContentError(current.message, onRetry)
                     is ContentViewState.Ready -> QuestionsList(current.content, onLoadMore, onRetryPage,
-                        onToggleSaved, compact = true, emptyMessage = emptyMessage, onOpenQuestion = onOpenQuestion)
+                        onToggleSaved, compact = true, emptyMessage = emptyMessage, onOpenQuestion = onOpenQuestion, onPro = onPro)
                 }
             }
         }

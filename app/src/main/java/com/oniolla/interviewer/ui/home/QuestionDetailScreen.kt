@@ -51,6 +51,7 @@ internal fun QuestionDetailScreen(
     onReveal: () -> Unit = {},
     onRetryUsage: () -> Unit = {},
     onToggleSaved: (Long) -> Unit = {},
+    onPractice: () -> Unit = {},
     bottomBar: @Composable () -> Unit = {}
 ) {
     Scaffold(containerColor = AppTheme.colors.background,
@@ -63,7 +64,7 @@ internal fun QuestionDetailScreen(
                 DetailChip(difficultyLabel(state.question.difficulty), difficultyTint(state.question.difficulty))
             }
             Spacer(Modifier.height(14.dp))
-            QuestionHero(state, onReveal, onToggleSaved)
+            QuestionHero(state, onReveal, onToggleSaved, onPractice)
             state.usageError?.let { message ->
                 Column(Modifier.fillMaxWidth().padding(top = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -125,7 +126,7 @@ private fun DetailChip(label: String, color: Color) {
 }
 
 @Composable
-private fun QuestionHero(state: QuestionDetailState, onReveal: () -> Unit, onToggleSaved: (Long) -> Unit) {
+private fun QuestionHero(state: QuestionDetailState, onReveal: () -> Unit, onToggleSaved: (Long) -> Unit, onPractice: () -> Unit) {
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = Color.Transparent,
         border = BorderStroke(1.dp, Color(0xFF47629A))) {
         Box(Modifier.background(Brush.horizontalGradient(listOf(AppTheme.colors.heroStart, AppTheme.colors.heroEnd)))) {
@@ -135,14 +136,14 @@ private fun QuestionHero(state: QuestionDetailState, onReveal: () -> Unit, onTog
                 Text(state.question.question, color = AppTheme.colors.primaryText,
                     fontSize = 21.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(24.dp))
-                QuestionActions(state, onReveal, onToggleSaved)
+                QuestionActions(state, onReveal, onToggleSaved, onPractice)
             }
         }
     }
 }
 
 @Composable
-private fun QuestionActions(state: QuestionDetailState, onReveal: () -> Unit, onToggleSaved: (Long) -> Unit) {
+private fun QuestionActions(state: QuestionDetailState, onReveal: () -> Unit, onToggleSaved: (Long) -> Unit, onPractice: () -> Unit) {
     val reveal: @Composable (Modifier) -> Unit = { modifier ->
         val hideAnswer = state.isAnswerVisible && state.answer is ContentViewState.Ready
         DetailAction(modifier,
@@ -160,7 +161,7 @@ private fun QuestionActions(state: QuestionDetailState, onReveal: () -> Unit, on
     val practice: @Composable (Modifier) -> Unit = { modifier ->
         DetailAction(modifier, stringResource(R.string.question_ai_practice),
             stringResource(R.string.question_ai_reviews_remaining, state.aiReviewsRemaining),
-            enabled = state.canPractice, usageLoading = state.isUsageLoading, onClick = {})
+            enabled = state.canPractice, usageLoading = state.isUsageLoading, onClick = onPractice)
     }
     val saved: @Composable () -> Unit = {
         Box(Modifier.padding(top = 3.dp)) {

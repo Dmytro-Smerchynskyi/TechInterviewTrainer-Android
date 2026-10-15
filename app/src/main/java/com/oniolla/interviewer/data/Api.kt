@@ -11,6 +11,8 @@ import com.oniolla.interviewer.data.model.StatsResponse
 import com.oniolla.interviewer.data.model.TopicResponse
 import com.oniolla.interviewer.data.model.QuestionsResponse
 import com.oniolla.interviewer.data.model.QuestionAnswerResponse
+import com.oniolla.interviewer.data.model.QuestionEvaluationResponse
+import com.oniolla.interviewer.data.payload.EvaluateQuestionPayload
 import com.oniolla.interviewer.data.model.ForgotPasswordResponse
 import com.oniolla.interviewer.data.model.LoginResponse
 import com.oniolla.interviewer.data.model.MeResponse
@@ -80,6 +82,13 @@ interface Api {
         @Tag session: SessionSnapshot? = null,
         @Query("mastered") mastered: Boolean? = null
     ): QuestionsResponse
+
+    @POST("questions/{id}/evaluate")
+    suspend fun evaluateQuestion(
+        @Path("id") questionId: Long,
+        @Body payload: EvaluateQuestionPayload,
+        @Tag session: SessionSnapshot? = null
+    ): QuestionEvaluationResponse
 
     @GET("questions/{id}/answer")
     suspend fun questionAnswer(

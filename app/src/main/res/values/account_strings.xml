@@ -8,7 +8,7 @@
     <string name="account_questions_per_topic">%1$d questions per topic</string>
     <string name="account_remaining">%1$d of %2$d remaining</string>
     <string name="account_ai_evaluations">AI evaluations</string>
-    <string name="account_reference_answers">Reference answers</string>
+    <string name="account_reference_answers">Answer reveals</string>
     <string name="account_upgrade">Upgrade</string>
     <string name="account_sign_in_methods">Sign-in methods</string>
     <string name="account_google">Google</string>

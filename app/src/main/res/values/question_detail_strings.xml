@@ -12,4 +12,6 @@
     <string name="question_answer_title">Answer</string>
     <string name="question_answer_failed">Unable to load answer</string>
     <string name="question_related_tags">Related tags</string>
+    <string name="question_last_score">Last score</string>
+    <string name="question_last_score_value">%1$d%%</string>
 </resources>

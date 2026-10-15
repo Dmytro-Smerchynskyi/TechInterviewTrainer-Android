@@ -42,6 +42,8 @@ import com.oniolla.interviewer.LinkText
 import com.oniolla.interviewer.MainButton
 import com.oniolla.interviewer.R
 import com.oniolla.interviewer.ui.theme.AppTheme
+import com.oniolla.interviewer.data.model.QuestionProgress
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -58,10 +60,16 @@ internal fun QuestionDetailScreen(
         topBar = { QuestionDetailHeader(onBack) }, bottomBar = bottomBar) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                DetailChip(state.question.topic.name, topicTint(state.question.topic.visual))
-                DetailChip(difficultyLabel(state.question.difficulty), difficultyTint(state.question.difficulty))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                FlowRow(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DetailChip(state.question.topic.name, topicTint(state.question.topic.visual))
+                    DetailChip(difficultyLabel(state.question.difficulty), difficultyTint(state.question.difficulty))
+                }
+                DetailLastScore(state.question.progress, Modifier.padding(start = 8.dp))
             }
             Spacer(Modifier.height(14.dp))
             QuestionHero(state, onReveal, onToggleSaved, onPractice)
@@ -121,6 +129,35 @@ private fun DetailChip(label: String, color: Color) {
             contentAlignment = Alignment.Center) {
             Text(label, color = AppTheme.colors.primaryText, fontSize = 10.sp, lineHeight = 13.sp,
                 fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
+private fun DetailLastScore(progress: QuestionProgress?, modifier: Modifier = Modifier) {
+    if (progress == null || progress.attempts <= 0 || !progress.lastScore.isFinite()) return
+    val score = progress.lastScore.coerceIn(0.0, 100.0).roundToInt()
+    val color = when {
+        score >= 80 -> AppTheme.colors.success
+        score >= 50 -> AppTheme.colors.warning
+        else -> AppTheme.colors.red
+    }
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = color.copy(alpha = 0.10f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.25f))
+    ) {
+        Row(
+            Modifier.heightIn(min = 24.dp).padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(4.dp).background(color, CircleShape))
+            Text(stringResource(R.string.question_last_score), color = AppTheme.colors.secondaryText,
+                fontSize = 9.sp, lineHeight = 13.sp, maxLines = 1)
+            Text(stringResource(R.string.question_last_score_value, score), color = color,
+                fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
     }
 }

@@ -8,7 +8,8 @@ import com.oniolla.interviewer.ui.theme.InterviewTrainerTheme
 private val detailPreview = QuestionDetailState(
     question = QuestionResponse(4, "What is the difference between cold and hot Flow?", "ANDROID",
         QuestionTopic(7, "flow", "Flow", TopicVisual(darkColor = "#10A8FF", lightColor = "#10A8FF")),
-        "MEDIUM", "JUNIOR", "MIDDLE", listOf("StateFlow", "SharedFlow", "RxJava")),
+        "MEDIUM", "JUNIOR", "MIDDLE", listOf("StateFlow", "SharedFlow", "RxJava"),
+        progress = QuestionProgress(4, 2, 85.0, 70.0, null, null, false, null)),
     usage = DashboardUsage("FREE", AnswerRevealsUsage(12,20,8),
         AiEvaluationsUsage(8,0,20,12,null,null), QuestionsUsage(true,null)),
     isUsageLoading = false
@@ -73,6 +74,28 @@ fun QuestionAlreadyRevealedPreview() { InterviewTrainerTheme(darkTheme = true) {
     DetailPreview(answerPreview.copy(isAnswerVisible = false,
         usage = DashboardUsage("FREE", AnswerRevealsUsage(20,20,0),
             AiEvaluationsUsage(20,0,20,0,null,null), QuestionsUsage(true,null))))
+} }
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun QuestionDetailNoAttemptsPreview() { InterviewTrainerTheme(darkTheme = true) {
+    DetailPreview(detailPreview.copy(question = detailPreview.question.copy(
+        progress = detailPreview.question.progress!!.copy(attempts = 0))))
+} }
+
+@Preview(widthDp = 320, heightDp = 640)
+@Composable
+fun QuestionDetailLongTopicPreview() { InterviewTrainerTheme(darkTheme = false) {
+    DetailPreview(detailPreview.copy(question = detailPreview.question.copy(
+        topic = detailPreview.question.topic.copy(name = "Coroutines and concurrency"),
+        progress = detailPreview.question.progress!!.copy(lastScore = 28.0))))
+} }
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun QuestionDetailMediumScorePreview() { InterviewTrainerTheme(darkTheme = true) {
+    DetailPreview(detailPreview.copy(question = detailPreview.question.copy(
+        progress = detailPreview.question.progress!!.copy(lastScore = 65.0))))
 } }
 
 @Preview(widthDp = 320, heightDp = 640)

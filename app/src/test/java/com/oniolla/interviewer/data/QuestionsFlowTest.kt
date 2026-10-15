@@ -10,6 +10,7 @@ import com.oniolla.interviewer.domain.SetQuestionSavedUseCase
 import com.oniolla.interviewer.domain.GetTopicsUseCase
 import com.oniolla.interviewer.domain.TopicCatalogUseCase
 import com.oniolla.interviewer.domain.QuestionsRequest
+import com.oniolla.interviewer.domain.QuestionDifficultyFilter
 import com.oniolla.interviewer.ui.home.ContentViewState
 import com.oniolla.interviewer.ui.home.HomeTab
 import com.oniolla.interviewer.ui.home.HomeViewModel
@@ -130,6 +131,91 @@ class QuestionsFlowTest {
     private fun content(vm: HomeViewModel) =
         (vm.stateFlow.value.questions as ContentViewState.Ready<QuestionsContent>).content
 
+    @Test fun difficultyFiltersUseBackendCodesAndAllOmitsTheParameter() = runBlocking {
+        val fixture = Fixture()
+        for (filter in QuestionDifficultyFilter.entries) {
+            fixture.getQuestions(QuestionsRequest(difficulty = filter))
+            val request = fixture.questionRequests().last()
+            assertEquals(filter.apiValue, request.url.queryParameter("difficulty"))
+            assertNull(request.url.queryParameter("grade"))
+            assertNull(request.url.queryParameter("saved"))
+        }
+    }
+
+    @Test fun changingDifficultyResetsPaginationKeepsOtherFiltersAndCancelsPendingSearch() = runTest(dispatcher) {
+        val fixture = Fixture()
+        val handle = SavedStateHandle()
+        val vm = fixture.viewModel(handle)
+        vm.stateFlow.first { it.dashboard is ContentViewState.Ready }
+        vm.selectQuestionTopic(7, "Coroutines")
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.loadMoreQuestions()
+        vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.items?.size == 3 }
+        val revision = content(vm).resultRevision
+        vm.updateQuestionSearch("flow")
+        assertTrue(vm.stateFlow.value.isQuestionSearchPending)
+        vm.selectQuestionDifficulty(QuestionDifficultyFilter.HARD)
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
+        assertTrue(content(vm).resultRevision > revision)
+        assertEquals(listOf(1L, 2L), content(vm).items.map { it.id })
+        assertEquals("HARD", handle.get<String>("questionDifficulty"))
+        val request = fixture.questionRequests().last()
+        assertEquals("HARD", request.url.queryParameter("difficulty"))
+        assertEquals("7", request.url.queryParameter("topicId"))
+        assertEquals("flow", request.url.queryParameter("search"))
+        assertNull(request.url.queryParameter("cursor"))
+        val count = fixture.questionRequests().size
+        vm.selectQuestionDifficulty(QuestionDifficultyFilter.HARD)
+        advanceTimeBy(1000)
+        runCurrent()
+        assertEquals(count, fixture.questionRequests().size)
+        vm.loadMoreQuestions()
+        vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.items?.size == 3 }
+        val page = fixture.questionRequests().last()
+        assertEquals("HARD", page.url.queryParameter("difficulty"))
+        assertEquals("7", page.url.queryParameter("topicId"))
+        assertEquals("flow", page.url.queryParameter("search"))
+        assertEquals("cursor+/= next", page.url.queryParameter("cursor"))
+        vm.selectQuestionDifficulty(QuestionDifficultyFilter.ALL)
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        assertNull(fixture.questionRequests().last().url.queryParameter("difficulty"))
+        assertNull(fixture.questionRequests().last().url.queryParameter("cursor"))
+    }
+
+    @Test fun difficultySurvivesTabsAndTopicPickerButResetsOnTopicNavigation() = runTest(dispatcher) {
+        val fixture = Fixture()
+        val handle = SavedStateHandle(mapOf(
+            "homeTab" to "QUESTIONS", "questionDifficulty" to "MEDIUM"
+        ))
+        val vm = fixture.viewModel(handle)
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        assertSame(QuestionDifficultyFilter.MEDIUM, vm.stateFlow.value.questionDifficulty)
+        assertEquals("MEDIUM", fixture.questionRequests().last().url.queryParameter("difficulty"))
+        val count = fixture.questionRequests().size
+        vm.selectTab(HomeTab.HOME)
+        vm.selectTab(HomeTab.QUESTIONS)
+        assertEquals(count, fixture.questionRequests().size)
+        assertSame(QuestionDifficultyFilter.MEDIUM, vm.stateFlow.value.questionDifficulty)
+        vm.selectQuestionTopic(7, "Coroutines")
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        assertEquals("MEDIUM", fixture.questionRequests().last().url.queryParameter("difficulty"))
+        // A redirect also resets difficulty if Questions was the underlying tab (interview summary).
+        vm.openQuestionTopic(8, "Kotlin")
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        assertSame(HomeTab.QUESTIONS, vm.stateFlow.value.tab)
+        assertSame(QuestionDifficultyFilter.ALL, vm.stateFlow.value.questionDifficulty)
+        assertEquals("ALL", handle.get<String>("questionDifficulty"))
+        assertEquals("8", fixture.questionRequests().last().url.queryParameter("topicId"))
+        assertNull(fixture.questionRequests().last().url.queryParameter("difficulty"))
+        vm.selectQuestionDifficulty(QuestionDifficultyFilter.EASY)
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        vm.selectTab(HomeTab.TOPICS)
+        vm.openQuestionTopic(7, "Coroutines")
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        assertSame(QuestionDifficultyFilter.ALL, vm.stateFlow.value.questionDifficulty)
+        assertNull(fixture.questionRequests().last().url.queryParameter("difficulty"))
+    }
+
     @Test fun questionsUseGetWithTwentyItemsAndLeaveOptionalFiltersOut() = runBlocking {
         val fixture = Fixture()
         fixture.getQuestions(QuestionsRequest())
@@ -223,6 +309,8 @@ class QuestionsFlowTest {
         vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
         vm.loadMoreQuestions()
         vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.items?.size == 3 }
+        vm.selectQuestionDifficulty(QuestionDifficultyFilter.HARD)
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
         vm.updateQuestionSearch("previous search")
         assertTrue(vm.stateFlow.value.isQuestionSearchPending)
         vm.openTopicQuestions(8, "Kotlin")
@@ -230,6 +318,8 @@ class QuestionsFlowTest {
         assertSame(HomeTab.QUESTIONS, vm.stateFlow.value.tab)
         assertEquals("Kotlin", vm.stateFlow.value.questionTopic!!.name)
         assertEquals(8L, vm.stateFlow.value.questionTopic!!.id)
+        assertSame(QuestionDifficultyFilter.ALL, vm.stateFlow.value.questionDifficulty)
+        assertNull(fixture.questionRequests().last().url.queryParameter("difficulty"))
         assertEquals("", vm.stateFlow.value.questionSearch)
         assertEquals("", handle.get<String>("questionSearch"))
         assertEquals(8L, handle.get<Long>("questionTopicId"))

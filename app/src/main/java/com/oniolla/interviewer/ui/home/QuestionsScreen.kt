@@ -8,6 +8,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -45,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oniolla.interviewer.LinkText
 import com.oniolla.interviewer.R
+import com.oniolla.interviewer.domain.QuestionDifficultyFilter
 import com.oniolla.interviewer.data.model.QuestionResponse
 import com.oniolla.interviewer.ui.theme.AppTheme
 import com.oniolla.interviewer.ui.theme.fonts
@@ -63,10 +67,24 @@ internal fun QuestionsScreen(
     onRetryTopicCatalog: () -> Unit,
     onToggleSaved: (Long) -> Unit,
     onOpenQuestion: (QuestionResponse) -> Unit = {},
-    onPro: () -> Unit = {}
+    onPro: () -> Unit = {},
+    onDifficultySelected: (QuestionDifficultyFilter) -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         QuestionsSearch(state.questionSearch, onSearch)
+        Row(
+            Modifier.fillMaxWidth().padding(top = 12.dp)
+                .horizontalScroll(rememberScrollState()).selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            QuestionDifficultyFilter.entries.forEach { filter ->
+                val label = filter.apiValue?.let { difficultyLabel(it) }
+                    ?: stringResource(R.string.topics_filter_all)
+                HomeFilterChip(label, filter == state.questionDifficulty, 48.dp) {
+                    onDifficultySelected(filter)
+                }
+            }
+        }
         QuestionTopicPicker(state.questionTopic, state.topicCatalog, onSelectTopic, onClearTopic, onRetryTopicCatalog)
         AnimatedContent(
             targetState = state.questions,

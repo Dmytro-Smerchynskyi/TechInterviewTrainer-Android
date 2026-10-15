@@ -125,6 +125,7 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
             onTabSelected = {}, onTopicQuestions = { _, _ -> }, onQuestionSearch = {},
             onRetryDashboard = {}, onRetryTopics = {},
             onQuestionTopicSelected = { _, _ -> }, onClearQuestionTopic = {},
+            onOpenQuestionTopic = { _, _ -> }, onQuestionDifficultySelected = {},
             onRetryQuestions = {}, onLoadMoreQuestions = {}, onRetryQuestionPage = {},
             onTopicsFilterSelected = {}, onSeeWeakTopics = {}, onRetryTopicCatalog = {},
             onToggleQuestionSaved = {}, onFavoritesFilterSelected = {},

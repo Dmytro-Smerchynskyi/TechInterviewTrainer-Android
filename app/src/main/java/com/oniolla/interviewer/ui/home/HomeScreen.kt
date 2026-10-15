@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import com.oniolla.interviewer.domain.TopicsFilter
+import com.oniolla.interviewer.domain.QuestionDifficultyFilter
 import com.oniolla.interviewer.domain.FavoritesFilter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,6 +53,8 @@ fun HomeScreen(
     onRetryDashboard: () -> Unit,
     onRetryTopics: () -> Unit,
     onQuestionTopicSelected: (Long, String) -> Unit,
+    onOpenQuestionTopic: (Long, String) -> Unit,
+    onQuestionDifficultySelected: (QuestionDifficultyFilter) -> Unit,
     onClearQuestionTopic: () -> Unit,
     onRetryQuestions: () -> Unit,
     onLoadMoreQuestions: () -> Unit,
@@ -124,13 +127,14 @@ fun HomeScreen(
                             onRetry = onRetryDashboard, onOpenQuestion = openQuestion,
                             onStartInterview = onStartInterview, interviewHistory = interviewHistory)
                         HomeTab.TOPICS -> TopicsScreen(state.topics, state.topicsFilter, onTopicsFilterSelected, onRetryTopics) { topic ->
-                            onQuestionTopicSelected(topic.id, topic.name)
+                            onOpenQuestionTopic(topic.id, topic.name)
                         }
                         HomeTab.QUESTIONS -> QuestionsScreen(state, onQuestionSearch, onClearQuestionTopic,
                             onRetryQuestions, onLoadMoreQuestions, onRetryQuestionPage,
-                            onQuestionTopicSelected, onRetryTopicCatalog, onToggleQuestionSaved, openQuestion, onPro)
+                            onQuestionTopicSelected, onRetryTopicCatalog, onToggleQuestionSaved, openQuestion, onPro,
+                            onDifficultySelected = onQuestionDifficultySelected)
                         HomeTab.STATS -> StatisticsScreen(state.statistics, onRetryStats,
-                            onStatsWeekChanged, onQuestionTopicSelected)
+                            onStatsWeekChanged, onOpenQuestionTopic)
                         HomeTab.FAVORITES -> FavoritesScreen(state, onFavoritesFilterSelected,
                             onRetryFavorites, onLoadMoreFavorites, onRetryFavoritePage, onToggleQuestionSaved, openQuestion, onPro)
                     }

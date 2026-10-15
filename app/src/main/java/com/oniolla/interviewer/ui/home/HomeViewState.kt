@@ -9,6 +9,7 @@ import com.oniolla.interviewer.data.model.QuestionTopicAccess
 import com.oniolla.interviewer.domain.ContentResult
 import com.oniolla.interviewer.domain.DashboardContent
 import com.oniolla.interviewer.domain.TopicsFilter
+import com.oniolla.interviewer.domain.QuestionDifficultyFilter
 import com.oniolla.interviewer.domain.FavoritesFilter
 import java.util.Locale
 
@@ -67,6 +68,7 @@ data class HomeViewState(
     val topicsFilter: TopicsFilter = TopicsFilter.ALL,
     val topicCatalog: ContentViewState<List<TopicResponse>> = ContentViewState.Loading,
     val questionSearch: String = "",
+    val questionDifficulty: QuestionDifficultyFilter = QuestionDifficultyFilter.ALL,
     val isQuestionSearchPending: Boolean = false,
     val questionTopic: QuestionTopicFilter? = null,
     val questions: ContentViewState<QuestionsContent> = ContentViewState.NotLoaded,

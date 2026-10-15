@@ -165,7 +165,7 @@ class HomeActivity : ComponentActivity() {
                                 transcribing = interviewViewModel::transcriptionStarted,
                                 recordingFinished = interviewViewModel::recordingFinished,
                                 level = interviewViewModel::voiceLevel,
-                                topic = { id, name -> interviewViewModel.close(); viewModel.selectQuestionTopic(id, name) },
+                                topic = { id, name -> interviewViewModel.close(); viewModel.openQuestionTopic(id, name) },
                                 weak = { interviewViewModel.close(); viewModel.openWeakTopics() },
                                 due = {
                                     interviewViewModel.close()
@@ -216,6 +216,8 @@ class HomeActivity : ComponentActivity() {
                             onRetryDashboard = viewModel::loadDashboard,
                             onRetryTopics = viewModel::loadTopics,
                             onQuestionTopicSelected = viewModel::selectQuestionTopic,
+                            onOpenQuestionTopic = viewModel::openQuestionTopic,
+                            onQuestionDifficultySelected = viewModel::selectQuestionDifficulty,
                             onClearQuestionTopic = viewModel::clearQuestionTopic,
                             onRetryQuestions = viewModel::loadQuestions,
                             onLoadMoreQuestions = viewModel::loadMoreQuestions,

@@ -17,6 +17,7 @@ import com.oniolla.interviewer.domain.FavoritesFilter
 import com.oniolla.interviewer.domain.GetQuestionAnswerUseCase
 import com.oniolla.interviewer.domain.GetQuestionsUseCase
 import com.oniolla.interviewer.domain.QuestionsRequest
+import com.oniolla.interviewer.domain.QuestionDifficultyFilter
 import com.oniolla.interviewer.domain.SetQuestionSavedUseCase
 import com.oniolla.interviewer.domain.QuestionSavedRequest
 import com.oniolla.interviewer.data.model.QuestionResponse
@@ -61,6 +62,9 @@ class HomeViewModel @Inject constructor(
             it.name == savedStateHandle.get<String>("favoritesFilter")
         } ?: FavoritesFilter.SAVED,
         questionSearch = savedStateHandle.get<String>("questionSearch").orEmpty(),
+        questionDifficulty = QuestionDifficultyFilter.entries.firstOrNull {
+            it.name == savedStateHandle.get<String>("questionDifficulty")
+        } ?: QuestionDifficultyFilter.ALL,
         questionTopic = savedStateHandle.get<Long>("questionTopicId")?.let {
             QuestionTopicFilter(it, savedStateHandle.get<String>("questionTopicName").orEmpty())
         }
@@ -224,7 +228,20 @@ class HomeViewModel @Inject constructor(
     fun openTopicQuestions(topicId: Long, topicName: String) {
         savedStateHandle["questionSearch"] = ""
         _stateFlow.update { it.copy(questionSearch = "") }
+        openQuestionTopic(topicId, topicName)
+    }
+
+    fun openQuestionTopic(topicId: Long, topicName: String) {
+        savedStateHandle["questionDifficulty"] = QuestionDifficultyFilter.ALL.name
+        _stateFlow.update { it.copy(questionDifficulty = QuestionDifficultyFilter.ALL) }
         selectQuestionTopic(topicId, topicName)
+    }
+
+    fun selectQuestionDifficulty(filter: QuestionDifficultyFilter) {
+        if (filter == _stateFlow.value.questionDifficulty) return
+        savedStateHandle["questionDifficulty"] = filter.name
+        _stateFlow.update { it.copy(questionDifficulty = filter) }
+        refreshQuestions()
     }
 
     fun selectQuestionTopic(topicId: Long, topicName: String) {
@@ -299,7 +316,8 @@ class HomeViewModel @Inject constructor(
     private fun questionRequest(cursor: String? = null) = QuestionsRequest(
         topicId = _stateFlow.value.questionTopic?.id,
         search = _stateFlow.value.questionSearch,
-        cursor = cursor
+        cursor = cursor,
+        difficulty = _stateFlow.value.questionDifficulty
     )
 
     fun loadMoreQuestions() {

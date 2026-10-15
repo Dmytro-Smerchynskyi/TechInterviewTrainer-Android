@@ -123,17 +123,31 @@ internal fun rememberPracticeVoiceInput(
     )
 }
 
-/** Owns one recognition session; stale callbacks cannot change a later transcript. Main thread only. */
+/** Owns one session; ignores callbacks from a canceled session. Main thread only. */
 internal class VoiceTranscriber(
     private val context: Context,
     private val onText: (String) -> Unit,
     private val onStarted: (Long) -> Unit,
     private val onTranscribing: () -> Unit,
     private val onFinished: (String?) -> Unit,
-    private val onLevel: (Float) -> Unit
+    private val onLevel: (Float) -> Unit,
+    private val audioFactory: () -> SpeechAudioInput = {
+        check(android.os.Build.VERSION.SDK_INT >= 33)
+        MicrophoneSpeechAudio(context)
+    }
 ) {
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
+    private var audio: SpeechAudioInput? = null
     private var generation = 0
+    private var sessionActive = false
+    private var checking = false
+    private var segmented = false
+    private var stopping = false
+    private var committed = ""
+    private var partial = ""
+    private var languageTag = ""
+    private var startedAt = 0L
 
     fun start(base: String, language: String?) {
         cancel()
@@ -145,32 +159,85 @@ internal class VoiceTranscriber(
             onFinished(context.getString(R.string.practice_speech_unavailable))
             return
         }
+        committed = base.trim()
+        partial = ""
+        languageTag = language ?: Locale.getDefault().toLanguageTag()
+        startedAt = SystemClock.elapsedRealtime()
+        stopping = false
+        sessionActive = true
+        onStarted(startedAt)
+        begin(trySegmented = android.os.Build.VERSION.SDK_INT >= 33)
+    }
+
+    private fun intent() = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
+        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5_000L)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 5_000L)
+    }
+
+    private fun combined(text: String) =
+        listOf(committed, text.trim()).filter { it.isNotBlank() }.joinToString(" ").take(10_000)
+
+    private fun commit(text: String = partial) {
+        if (text.isNotBlank()) {
+            committed = combined(text)
+            onText(committed)
+        }
+        partial = ""
+    }
+
+    private fun begin(trySegmented: Boolean) {
         val id = ++generation
-        fun active() = id == generation
-        fun combined(text: String) = listOf(base.trim(), text.trim()).filter { it.isNotBlank() }.joinToString(" ").take(10_000)
+        fun active() = id == generation && recognizer != null
         try {
             val speech = SpeechRecognizer.createSpeechRecognizer(context)
             recognizer = speech
             speech.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {}
                 override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) { if (active()) onLevel((rmsdB / 12f).coerceIn(0f, 1f)) }
+                override fun onRmsChanged(rmsdB: Float) {
+                    if (active() && !stopping && !segmented) onLevel((rmsdB / 12f).coerceIn(0f, 1f))
+                }
                 override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() { if (active()) onTranscribing() }
+                override fun onEndOfSpeech() {
+                    if (active() && !segmented) onTranscribing()
+                }
                 override fun onPartialResults(partialResults: Bundle?) {
                     if (!active()) return
-                    partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                        ?.takeIf { it.isNotBlank() }?.let { onText(combined(it)) }
+                    text(partialResults)?.takeIf { it.isNotBlank() }?.let {
+                        partial = it
+                        onText(combined(it))
+                    }
+                }
+                override fun onSegmentResults(segmentResults: Bundle) {
+                    if (!active() || !segmented) return
+                    commit(text(segmentResults) ?: partial)
+                }
+                override fun onEndOfSegmentedSession() {
+                    if (!active()) return
+                    commit()
+                    // A provider ending before Stop does not support the requested stream lifetime.
+                    if (segmented && !stopping) fallback("service ended segmented session before Stop") else finish(null)
                 }
                 override fun onResults(results: Bundle?) {
                     if (!active()) return
-                    val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                    if (!text.isNullOrBlank()) onText(combined(text))
-                    finish(if (text.isNullOrBlank()) context.getString(R.string.practice_speech_no_match) else null)
+                    commit(text(results) ?: partial)
+                    if (segmented && !stopping) fallback("service ended segmented session before Stop") else finish(null)
                 }
                 override fun onError(error: Int) {
                     if (!active()) return
-                    finish(context.getString(when (error) {
+                    debug("Recognition error=$error segmented=$segmented stopping=$stopping")
+                    commit()
+                    if (segmented && !stopping && error in setOf(SpeechRecognizer.ERROR_CLIENT,
+                            SpeechRecognizer.ERROR_AUDIO, SpeechRecognizer.ERROR_NO_MATCH,
+                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT, SpeechRecognizer.ERROR_SERVER)) {
+                        fallback("recognition error=$error")
+                    } else if (stopping && error in setOf(SpeechRecognizer.ERROR_NO_MATCH,
+                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT)) finish(null)
+                    else finish(context.getString(when (error) {
                         SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> R.string.practice_mic_permission_denied
                         SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> R.string.practice_speech_no_match
                         else -> R.string.practice_speech_error
@@ -178,42 +245,125 @@ internal class VoiceTranscriber(
                 }
                 override fun onEvent(eventType: Int, params: Bundle?) {}
             })
-            onStarted(SystemClock.elapsedRealtime())
-            speech.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, language ?: Locale.getDefault().toLanguageTag())
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                // Recognition services may choose to ignore these silence thresholds.
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5_000L)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 5_000L)
-            })
+            val request = intent()
+            if (trySegmented && android.os.Build.VERSION.SDK_INT >= 33) {
+                val source = audioFactory()
+                audio = source
+                source.attach(request)
+                checking = true
+                fun startStreaming() {
+                    if (!active() || !checking) return
+                    checking = false
+                    handler.removeCallbacksAndMessages(null)
+                    segmented = true
+                    debug("Starting segmented audio stream")
+                    try {
+                        speech.startListening(request)
+                        if (active() && segmented && !stopping) source.start(
+                            { level -> handler.post { if (active() && !stopping) onLevel(level) } },
+                            { error -> handler.post {
+                                if (active()) {
+                                    if (error is SecurityException) finish(context.getString(R.string.practice_mic_permission_denied))
+                                    else fallback("audio source: ${error.javaClass.simpleName}")
+                                }
+                            } })
+                    } catch (_: SecurityException) { finish(context.getString(R.string.practice_mic_permission_denied)) }
+                    catch (error: Exception) { if (active()) fallback("stream start: ${error.javaClass.simpleName}") }
+                }
+                // Unable to check support does not mean the requested mode is unsupported.
+                handler.postDelayed({
+                    if (active() && checking) {
+                        debug("Support check timed out; trying segmented mode")
+                        startStreaming()
+                    }
+                }, 3_000)
+                speech.checkRecognitionSupport(request, java.util.concurrent.Executor { handler.post(it) },
+                    object : android.speech.RecognitionSupportCallback {
+                        override fun onSupportResult(support: android.speech.RecognitionSupport) {
+                            startStreaming()
+                        }
+                        override fun onError(error: Int) {
+                            if (!active() || !checking) return
+                            debug("Support check error=$error")
+                            if (error == SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT) startStreaming()
+                            else fallback("support check error=$error")
+                        }
+                    })
+            } else {
+                segmented = false
+                debug("Starting legacy recognition")
+                speech.startListening(request)
+            }
         } catch (_: SecurityException) { finish(context.getString(R.string.practice_mic_permission_denied)) }
-        catch (_: RuntimeException) { finish(context.getString(R.string.practice_speech_unavailable)) }
+        catch (_: Exception) {
+            if (trySegmented && recognizer != null) fallback("segmented setup exception")
+            else finish(context.getString(R.string.practice_speech_unavailable))
+        }
+    }
+
+    private fun text(results: Bundle?) = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+        ?.firstOrNull()?.takeIf { it.isNotBlank() }
+
+    private fun debug(message: String) {
+        if (com.oniolla.interviewer.BuildConfig.DEBUG) android.util.Log.d("PracticeVoice", message)
+    }
+
+    private fun fallback(reason: String) {
+        debug("Switching to legacy: $reason")
+        if (stopping) { finish(null); return }
+        commit()
+        release(cancel = true)
+        checking = false
+        segmented = false
+        val id = generation
+        // Allow the capture thread to release the mic before the legacy service opens it.
+        handler.postDelayed({ if (generation == id && !stopping) begin(trySegmented = false) }, 250)
     }
 
     fun stop() {
-        try { recognizer?.stopListening(); onTranscribing() }
-        catch (_: SecurityException) { finish(context.getString(R.string.practice_mic_permission_denied)) }
-        catch (_: RuntimeException) { finish(context.getString(R.string.practice_speech_error)) }
+        if (stopping) return
+        stopping = true
+        if (checking || recognizer == null) { commit(); finish(null); return }
+        onTranscribing()
+        try {
+            if (segmented) audio?.stop() else recognizer?.stopListening()
+            val id = generation
+            if (sessionActive) handler.postDelayed({
+                if (sessionActive && generation == id) { commit(); finish(null) }
+            }, 5_000)
+        } catch (_: SecurityException) { finish(context.getString(R.string.practice_mic_permission_denied)) }
+        catch (_: Exception) { commit(); finish(context.getString(R.string.practice_speech_error)) }
     }
 
     private fun finish(error: String?) {
-        release(cancel = false)
+        if (!sessionActive) return
+        sessionActive = false
+        handler.removeCallbacksAndMessages(null)
+        release(cancel = true)
+        checking = false
+        segmented = false
+        stopping = false
         onFinished(error)
     }
 
     private fun release(cancel: Boolean) {
         generation++
+        audio?.close()
+        audio = null
         val speech = recognizer
         recognizer = null
-        try { if (cancel) speech?.cancel() } catch (_: RuntimeException) { /* Service already stopped. */ }
-        finally { try { speech?.destroy() } catch (_: RuntimeException) { /* Service already detached. */ } }
+        try { if (cancel) speech?.cancel() } catch (_: RuntimeException) { }
+        finally { try { speech?.destroy() } catch (_: RuntimeException) { } }
     }
 
     fun cancel() {
-        val active = recognizer != null
+        val active = sessionActive
+        sessionActive = false
+        handler.removeCallbacksAndMessages(null)
         release(cancel = true)
+        checking = false
+        segmented = false
+        stopping = false
         if (active) onFinished(null)
     }
 }

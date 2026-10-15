@@ -268,7 +268,9 @@ private fun VoiceAnswerPanel(state: PracticeViewState, voice: VoiceInputActions,
                 .size(68.dp).semantics { contentDescription = description }, shape = CircleShape, color = Color.Transparent) {
                 Box(Modifier.background(Brush.horizontalGradient(listOf(AppTheme.colors.leftGradient, AppTheme.colors.rightGradient))),
                     contentAlignment = Alignment.Center) {
-                    PracticeIcon(R.drawable.practice_record_mic, 32.dp, Color.White)
+                    if (state.isRecording) {
+                        Box(Modifier.size(20.dp).background(Color.White, RoundedCornerShape(4.dp)))
+                    } else PracticeIcon(R.drawable.practice_record_mic, 32.dp, Color.White)
                 }
             }
             Text(when {

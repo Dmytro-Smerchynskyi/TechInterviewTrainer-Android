@@ -101,6 +101,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oniolla.interviewer.data.model.Specialization
 import com.oniolla.interviewer.ui.AuthViewModel
+import com.oniolla.interviewer.ui.GoogleAuthButton
+import com.oniolla.interviewer.ui.rememberGoogleSignIn
 import com.oniolla.interviewer.ui.UiEvent
 import com.oniolla.interviewer.ui.EMAIL_CODE_LENGTH
 import com.oniolla.interviewer.ui.normalizeEmailCode
@@ -154,6 +156,12 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
     }
 
     val state = viewModel.stateFlow.collectAsStateWithLifecycle()
+    val googleSignIn = rememberGoogleSignIn(viewModel)
+    BackHandler(enabled = when (val current = state.value) {
+        is AuthViewModel.AuthViewState.Unauthorized.Login -> current.isGoogleLoading
+        is AuthViewModel.AuthViewState.Unauthorized.SignUp -> current.isGoogleLoading
+        else -> false
+    }) { }
 
     LaunchedEffect(state.value) {
         if (state.value is AuthViewModel.AuthViewState.Authorized) onAuthorized()
@@ -249,6 +257,9 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
                 is AuthViewModel.AuthViewState.Unauthorized.SignUp ->
                     SignUp(
                         isLoading = state.isLoading,
+                        isGoogleLoading = state.isGoogleLoading,
+                        googleError = state.googleError,
+                        onGoogleClicked = googleSignIn,
                         nameText = nameText,
                         emailText = emailText,
                         passwordText = passwordText,
@@ -265,6 +276,9 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
                 is AuthViewModel.AuthViewState.Unauthorized.Login ->
                     Login(
                         isLoading = state.isLoading,
+                        isGoogleLoading = state.isGoogleLoading,
+                        googleError = state.googleError,
+                        onGoogleClicked = googleSignIn,
                         emailText = emailText,
                         passwordText = passwordText,
                         emailError = state.emailError,
@@ -459,7 +473,10 @@ fun SignUp(
     onSignUpRequested: (String, String, String) -> Unit = { _, _, _ -> },
     onNameFocused: () -> Unit = {},
     onEmailFocused: () -> Unit = {},
-    onPasswordFocused: () -> Unit = {}
+    onPasswordFocused: () -> Unit = {},
+    isGoogleLoading: Boolean = false,
+    googleError: String? = null,
+    onGoogleClicked: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 //    val density = LocalDensity.current
@@ -565,8 +582,12 @@ fun SignUp(
                 onClick = {
                     onSignUpRequested(nameText.value, emailText.value, passwordText.value)
                 },
-                isLoading = isLoading
+                enabled = !isLoading,
+                isLoading = isLoading && !isGoogleLoading
             )
+
+            GoogleAuthButton(enabled = !isLoading, loading = isGoogleLoading,
+                error = googleError, onClick = onGoogleClicked, compact = true)
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -605,6 +626,9 @@ fun Login(
     onLoginRequested: (String, String) -> Unit = { _, _ -> },
     onEmailFocused: () -> Unit = {},
     onPasswordFocused: () -> Unit = {},
+    isGoogleLoading: Boolean = false,
+    googleError: String? = null,
+    onGoogleClicked: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -692,9 +716,13 @@ fun Login(
                 onClick = {
                     onLoginRequested(emailText.value, passwordText.value)
                 },
-                isLoading = isLoading,
+                isLoading = isLoading && !isGoogleLoading,
+                enabled = !isLoading,
                 loadingButtonText = stringResource(R.string.signing_in)
             )
+
+            GoogleAuthButton(enabled = !isLoading, loading = isGoogleLoading,
+                error = googleError, onClick = onGoogleClicked)
 
             Spacer(modifier = Modifier.height(20.dp))
 

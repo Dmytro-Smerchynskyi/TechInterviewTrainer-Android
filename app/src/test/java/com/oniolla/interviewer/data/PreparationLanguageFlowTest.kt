@@ -131,7 +131,8 @@ class PreparationLanguageFlowTest {
             RestoreSessionUseCase(repository, resolve), LoginUseCase(repository, resend, resolve),
             SignupUseCase(repository), ForgotPasswordUseCase(repository), VerifyEmailUseCase(repository, resolve),
             resend, ClearSessionUseCase(repository), SelectSpecializationUseCase(repository, resolve),
-            GetPreparationLanguagesUseCase(repository), SelectPreparationLanguageUseCase(repository, resolve)
+            GetPreparationLanguagesUseCase(repository), SelectPreparationLanguageUseCase(repository, resolve),
+            GoogleSignInUseCase(repository, resolve)
         )
 
         fun paths() = requests.map { it.url.encodedPath }

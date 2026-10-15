@@ -39,6 +39,9 @@ import retrofit2.http.DELETE
 
 interface Api {
 
+    @POST("auth/google")
+    suspend fun googleSignIn(@Body payload: com.oniolla.interviewer.data.payload.GoogleSignInPayload): LoginResponse
+
     @GET("interviews/history")
     suspend fun interviewHistory(
         @Query("limit") limit: Int = 20,

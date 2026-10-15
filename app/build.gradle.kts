@@ -18,6 +18,10 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        val googleWebClientId = providers.gradleProperty("GOOGLE_WEB_CLIENT_ID")
+            .orElse(providers.environmentVariable("GOOGLE_WEB_CLIENT_ID")).getOrElse("")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${googleWebClientId}\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -43,6 +47,9 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.credentials.core)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.appcompat)

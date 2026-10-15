@@ -50,7 +50,8 @@ class AuthViewModel @Inject constructor(
     private val clearSessionUseCase: ClearSessionUseCase,
     private val selectSpecializationUseCase: SelectSpecializationUseCase,
     private val getPreparationLanguagesUseCase: GetPreparationLanguagesUseCase,
-    private val selectPreparationLanguageUseCase: SelectPreparationLanguageUseCase
+    private val selectPreparationLanguageUseCase: SelectPreparationLanguageUseCase,
+    private val googleSignInUseCase: com.oniolla.interviewer.domain.GoogleSignInUseCase
 ) : ViewModel() {
 
     private val _stateFlow: MutableStateFlow<AuthViewState> = MutableStateFlow(
@@ -66,6 +67,8 @@ class AuthViewModel @Inject constructor(
     private var loadingJob: Job? = null
     private var signupDisposable: Disposable? = null
     private var preparationLanguagesJob: Job? = null
+    private var googleOrigin: AuthViewState? = null
+    private var googleExchangeJob: Job? = null
 
     override fun onCleared() {
         signupDisposable?.dispose()
@@ -149,6 +152,65 @@ class AuthViewModel @Inject constructor(
         val state = _stateFlow.value as? AuthViewState.Unauthorized.ForgotPassword ?: return
         if (!state.isLoading) {
             _stateFlow.value = state.copy(resetLinkSent = false, sentEmail = null)
+        }
+    }
+
+    fun beginGoogleSignIn(): Boolean {
+        if (isBusy()) return false
+        val state = _stateFlow.value
+        googleOrigin = when (state) {
+            is AuthViewState.Unauthorized.Login -> state.copy(emailError = null, passwordError = null, googleError = null)
+            is AuthViewState.Unauthorized.SignUp -> state.copy(nameError = null, emailError = null, passwordError = null, googleError = null)
+            else -> return false
+        }
+        _stateFlow.value = when (val origin = googleOrigin) {
+            is AuthViewState.Unauthorized.Login -> origin.copy(isLoading = true, isGoogleLoading = true)
+            is AuthViewState.Unauthorized.SignUp -> origin.copy(isLoading = true, isGoogleLoading = true)
+            else -> return false
+        }
+        return true
+    }
+
+    fun googleTokenReceived(idToken: String) {
+        val origin = googleOrigin ?: return
+        if (googleExchangeJob?.isActive == true) return
+        if (idToken.isBlank()) {
+            googleSignInFailed("Unable to sign in with Google. Please try again.")
+            return
+        }
+        googleExchangeJob = viewModelScope.launch {
+            when (val result = googleSignInUseCase(com.oniolla.interviewer.domain.GoogleSignInRequest(
+                idToken, origin is AuthViewState.Unauthorized.SignUp))) {
+                is AuthState.Error -> {
+                    val message = result.message ?: "Unable to sign in with Google."
+                    restoreGoogleForm(message)
+                    _uiEventsFlow.emit(UiEvent.Toast(message))
+                }
+                else -> {
+                    googleOrigin = null
+                    showAuthState(result)
+                }
+            }
+        }
+    }
+
+    fun googleSignInCancelled() {
+        if (googleOrigin != null && googleExchangeJob?.isActive != true) restoreGoogleForm(null)
+    }
+
+    fun googleSignInFailed(message: String) {
+        if (googleOrigin == null || googleExchangeJob?.isActive == true) return
+        restoreGoogleForm(message)
+        viewModelScope.launch { _uiEventsFlow.emit(UiEvent.Toast(message)) }
+    }
+
+    private fun restoreGoogleForm(error: String?) {
+        val origin = googleOrigin ?: return
+        googleOrigin = null
+        _stateFlow.value = when (origin) {
+            is AuthViewState.Unauthorized.Login -> origin.copy(isLoading = false, isGoogleLoading = false, googleError = error)
+            is AuthViewState.Unauthorized.SignUp -> origin.copy(isLoading = false, isGoogleLoading = false, googleError = error)
+            else -> origin
         }
     }
 
@@ -503,7 +565,9 @@ class AuthViewModel @Inject constructor(
             data class Login(
                 val emailError: String? = null,
                 val passwordError: String? = null,
-                val isLoading: Boolean = false
+                val isLoading: Boolean = false,
+                val isGoogleLoading: Boolean = false,
+                val googleError: String? = null
             ) : Unauthorized()
 
             data class EmailConfirmation(
@@ -525,7 +589,9 @@ class AuthViewModel @Inject constructor(
                 val nameError: String? = null,
                 val emailError: String? = null,
                 val passwordError: String? = null,
-                val isLoading: Boolean = false
+                val isLoading: Boolean = false,
+                val isGoogleLoading: Boolean = false,
+                val googleError: String? = null
             ) : Unauthorized()
         }
 

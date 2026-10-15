@@ -23,5 +23,11 @@ class LocalUserData @Inject constructor(
         val loader = SingletonImageLoader.get(context)
         loader.memoryCache?.clear()
         loader.diskCache?.clear()
+        try {
+            androidx.credentials.CredentialManager.create(context).clearCredentialState(
+                androidx.credentials.ClearCredentialStateRequest())
+        } catch (_: androidx.credentials.exceptions.ClearCredentialException) {
+            // Local sign-out still succeeds when the provider is unavailable.
+        }
     }
 }

@@ -32,10 +32,15 @@ object NetworkModule {
             .addInterceptor(SessionAuthorizationInterceptor(tokenStorage))
             .apply {
                 if (BuildConfig.DEBUG) {
-                    addInterceptor(HttpLoggingInterceptor().apply {
+                    val httpLogger = HttpLoggingInterceptor().apply {
                         level = HttpLoggingInterceptor.Level.BODY
                         redactHeader("Authorization")
-                    })
+                    }
+                    addInterceptor { chain ->
+                        // Google ID tokens must not be written into debug request/response logs.
+                        if (chain.request().url.encodedPath.endsWith("/auth/google")) chain.proceed(chain.request())
+                        else httpLogger.intercept(chain)
+                    }
                 }
             }
             .build()

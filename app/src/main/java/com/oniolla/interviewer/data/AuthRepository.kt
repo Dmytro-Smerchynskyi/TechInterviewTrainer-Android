@@ -58,6 +58,18 @@ class AuthRepository @Inject constructor(
     suspend fun login(loginPayload: LoginPayload): LoginResponse =
         apiCall { api.login(loginPayload) }.also(::saveTokens)
 
+    suspend fun googleSignIn(
+        payload: com.oniolla.interviewer.data.payload.GoogleSignInPayload,
+        fromSignUp: Boolean
+    ): LoginResponse {
+        val response = apiCall { api.googleSignIn(payload) }
+        currentCoroutineContext().ensureActive()
+        check(response.accessToken.isNotBlank() && response.refreshToken.isNotBlank()) { "Invalid token response" }
+        if (fromSignUp) clearUserData()
+        saveTokens(response)
+        return response
+    }
+
     suspend fun verifyEmail(payload: VerifyEmailPayload): LoginResponse =
         apiCall { api.verifyEmail(payload) }.also(::saveTokens)
 

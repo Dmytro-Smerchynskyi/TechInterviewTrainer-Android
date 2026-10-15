@@ -1,0 +1,9 @@
+<resources>
+    <string name="google_continue">Continue with Google</string>
+    <string name="google_signing_in">Signing in with Google…</string>
+    <string name="auth_or">or</string>
+    <string name="google_sign_in_failed">Unable to sign in with Google. Please try again.</string>
+    <string name="google_no_credentials">No Google account is available. Add an account to your device and try again.</string>
+    <string name="google_unavailable">Google sign-in is unavailable on this device. Check Google Play services and try again.</string>
+    <string name="google_not_configured">Google sign-in is not configured yet.</string>
+</resources>

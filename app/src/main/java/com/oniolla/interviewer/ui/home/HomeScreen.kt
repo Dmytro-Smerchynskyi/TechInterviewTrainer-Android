@@ -115,7 +115,10 @@ fun HomeScreen(
                     when (tab) {
                         HomeTab.HOME -> DashboardScreen(state.dashboard, onTopicQuestions,
                             onSeeTopics = onSeeWeakTopics,
-                            onSeeQuestions = { onTabSelected(HomeTab.QUESTIONS) },
+                            onSeeQuestions = {
+                                onFavoritesFilterSelected(FavoritesFilter.DUE)
+                                onTabSelected(HomeTab.FAVORITES)
+                            },
                             onRetry = onRetryDashboard, onOpenQuestion = openQuestion)
                         HomeTab.TOPICS -> TopicsScreen(state.topics, state.topicsFilter, onTopicsFilterSelected, onRetryTopics) { topic ->
                             onQuestionTopicSelected(topic.id, topic.name)

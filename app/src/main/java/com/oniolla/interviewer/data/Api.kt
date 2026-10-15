@@ -39,6 +39,43 @@ import retrofit2.http.DELETE
 
 interface Api {
 
+    @GET("interviews/history")
+    suspend fun interviewHistory(
+        @Query("limit") limit: Int = 20,
+        @Query("cursor") cursor: String? = null,
+        @Tag session: SessionSnapshot? = null
+    ): com.oniolla.interviewer.data.model.InterviewHistoryResponse
+
+    @POST("interviews")
+    suspend fun createInterview(
+        @Body payload: com.oniolla.interviewer.data.payload.CreateInterviewPayload,
+        @Tag session: SessionSnapshot? = null
+    ): com.oniolla.interviewer.data.model.InterviewResponse
+
+    @GET("interviews/{id}")
+    suspend fun interview(@Path("id") id: String, @Tag session: SessionSnapshot? = null):
+        com.oniolla.interviewer.data.model.InterviewResponse
+
+    @GET("interviews/{id}/current-question")
+    suspend fun currentInterviewQuestion(@Path("id") id: String, @Tag session: SessionSnapshot? = null):
+        com.oniolla.interviewer.data.model.CurrentInterviewQuestion
+
+    @POST("interviews/{id}/answers")
+    suspend fun answerInterview(
+        @Path("id") id: String,
+        @Body payload: com.oniolla.interviewer.data.payload.InterviewAnswerPayload,
+        @Tag session: SessionSnapshot? = null
+    ): QuestionEvaluationResponse
+
+    @POST("interviews/{id}/finish")
+    suspend fun finishInterview(@Path("id") id: String, @Tag session: SessionSnapshot? = null):
+        com.oniolla.interviewer.data.model.InterviewResponse
+
+    @GET("interviews/{id}/result")
+    suspend fun interviewResult(@Path("id") id: String, @Tag session: SessionSnapshot? = null):
+        com.oniolla.interviewer.data.model.InterviewResponse
+
+
     @GET("me/usage")
     suspend fun accountUsage(@Tag session: SessionSnapshot? = null): DashboardUsage
 

@@ -45,7 +45,8 @@ fun MainButton(
     textSize: TextUnit = 10.sp,
     leadingIcon: (@Composable () -> Unit)? = null,
     enabled: Boolean = true,
-    contentPadding: PaddingValues = ButtonDefaults.ContentPadding
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+    gradientColors: List<Color>? = null
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -57,8 +58,7 @@ fun MainButton(
             .clip(buttonShape)
             .background(
                 brush = Brush.horizontalGradient(
-                    Pair(0f, AppTheme.colors.leftGradient),
-                    Pair(1f, AppTheme.colors.rightGradient)
+                    gradientColors ?: listOf(AppTheme.colors.leftGradient, AppTheme.colors.rightGradient)
                 ),
                 shape = buttonShape
             )

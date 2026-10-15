@@ -33,10 +33,12 @@ import com.oniolla.interviewer.data.model.EvaluationKeyPoint
 import com.oniolla.interviewer.ui.theme.AppTheme
 
 @Composable
-internal fun PracticeReviewScreen(state: PracticeViewState, onBack: () -> Unit) {
+internal fun PracticeReviewScreen(state: PracticeViewState, onBack: () -> Unit,
+    onContinue: () -> Unit = onBack, continueText: String? = null, loading: Boolean = false,
+    header: (@Composable () -> Unit)? = null, error: String? = null) {
     val result = state.result ?: return
     Scaffold(containerColor = AppTheme.colors.background,
-        topBar = { PracticeHeader(stringResource(R.string.practice_review_title), onBack) }) { padding ->
+        topBar = { if (header != null) header() else PracticeHeader(stringResource(R.string.practice_review_title), onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             Spacer(Modifier.height(17.dp))
@@ -76,17 +78,20 @@ internal fun PracticeReviewScreen(state: PracticeViewState, onBack: () -> Unit) 
                 }
             }
             Spacer(Modifier.height(20.dp))
-            MainButton(Modifier.fillMaxWidth().height(50.dp), buttonText = stringResource(R.string.practice_back_to_question),
-                onClick = onBack, textSize = 11.sp)
+            error?.let { Text(it, color = AppTheme.colors.red, fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp)) }
+            MainButton(Modifier.fillMaxWidth().height(50.dp), buttonText = continueText ?: stringResource(R.string.practice_back_to_question),
+                onClick = onContinue, isLoading = loading, textSize = 11.sp)
             Spacer(Modifier.height(24.dp))
         }
     }
 }
 
 @Composable
-internal fun PracticeLimitScreen(state: PracticeViewState, onBack: () -> Unit, onPlans: () -> Unit) {
+internal fun PracticeLimitScreen(state: PracticeViewState, onBack: () -> Unit, onPlans: () -> Unit,
+    continueText: String? = null, loading: Boolean = false, header: (@Composable () -> Unit)? = null,
+    error: String? = null) {
     Scaffold(containerColor = AppTheme.colors.background,
-        topBar = { PracticeHeader(stringResource(R.string.practice_review_title), onBack) }) { padding ->
+        topBar = { if (header != null) header() else PracticeHeader(stringResource(R.string.practice_review_title), onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             Spacer(Modifier.height(17.dp))
@@ -107,10 +112,13 @@ internal fun PracticeLimitScreen(state: PracticeViewState, onBack: () -> Unit, o
             MainButton(Modifier.fillMaxWidth().height(50.dp), buttonText = stringResource(R.string.practice_view_plans),
                 onClick = onPlans, textSize = 11.sp)
             Spacer(Modifier.height(16.dp))
-            Surface(onClick = onBack, modifier = Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(23.dp),
+            error?.let { Text(it, color = AppTheme.colors.red, fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp)) }
+            if (loading) Box(Modifier.fillMaxWidth().height(46.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), color = AppTheme.colors.info)
+            } else Surface(onClick = onBack, modifier = Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(23.dp),
                 color = AppTheme.colors.container, border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.practice_back_to_question), color = AppTheme.colors.primaryText,
+                    Text(continueText ?: stringResource(R.string.practice_back_to_question), color = AppTheme.colors.primaryText,
                         fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }

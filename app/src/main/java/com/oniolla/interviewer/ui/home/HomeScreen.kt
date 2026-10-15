@@ -72,7 +72,9 @@ fun HomeScreen(
     onRevealAnswer: () -> Unit = {},
     onRetryQuestionUsage: () -> Unit = {},
     onPractice: () -> Unit = {},
-    onPro: () -> Unit = {}
+    onPro: () -> Unit = {},
+    onStartInterview: () -> Unit = {},
+    interviewHistory: ContentViewState<com.oniolla.interviewer.data.model.LastInterview?> = ContentViewState.Ready(null)
 ) {
     val stateHolder = rememberSaveableStateHolder()
     val focus = LocalFocusManager.current
@@ -119,7 +121,8 @@ fun HomeScreen(
                                 onFavoritesFilterSelected(FavoritesFilter.DUE)
                                 onTabSelected(HomeTab.FAVORITES)
                             },
-                            onRetry = onRetryDashboard, onOpenQuestion = openQuestion)
+                            onRetry = onRetryDashboard, onOpenQuestion = openQuestion,
+                            onStartInterview = onStartInterview, interviewHistory = interviewHistory)
                         HomeTab.TOPICS -> TopicsScreen(state.topics, state.topicsFilter, onTopicsFilterSelected, onRetryTopics) { topic ->
                             onQuestionTopicSelected(topic.id, topic.name)
                         }

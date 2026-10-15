@@ -86,10 +86,10 @@ internal fun PracticeChip(label: String, color: Color) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PracticeQuestionCard(question: QuestionResponse) {
+internal fun PracticeQuestionCard(question: QuestionResponse, interview: Boolean = false) {
     PracticeCard(Modifier.fillMaxWidth().heightIn(min = 170.dp), hero = true, corner = 20.dp,
         contentPadding = PaddingValues(17.dp)) {
-        Text(stringResource(R.string.practice_question_label), fontSize = 10.sp, lineHeight = 13.sp,
+        Text(stringResource(if (interview) R.string.interview_question_label else R.string.practice_question_label), fontSize = 10.sp, lineHeight = 13.sp,
             fontWeight = FontWeight.Medium, color = AppTheme.colors.secondaryText)
         Spacer(Modifier.height(12.dp))
         Text(question.question, color = AppTheme.colors.primaryText, fontSize = 20.sp, lineHeight = 25.sp,

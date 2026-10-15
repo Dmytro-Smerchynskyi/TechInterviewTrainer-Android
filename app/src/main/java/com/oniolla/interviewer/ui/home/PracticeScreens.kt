@@ -72,50 +72,53 @@ fun PracticeScreens(state: PracticeViewState, onBack: () -> Unit = {}, onClose: 
 }
 
 @Composable
-private fun PracticeGradeScreen(state: PracticeViewState, onBack: () -> Unit,
-    onGrade: (PracticeGrade) -> Unit, onContinue: () -> Unit) {
+internal fun PracticeGradeScreen(state: PracticeViewState, onBack: () -> Unit,
+    onGrade: (PracticeGrade) -> Unit, onContinue: () -> Unit,
+    interview: Boolean = false, loading: Boolean = false, error: String? = null) {
     Scaffold(containerColor = AppTheme.colors.background,
-        topBar = { PracticeHeader(stringResource(R.string.practice_title), onBack) },
+        topBar = { PracticeHeader(stringResource(if (interview) R.string.interview_setup else R.string.practice_title), onBack, enabled = !loading) },
         bottomBar = {
             Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 20.dp, end = 20.dp,
                 top = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 Surface(shape = RoundedCornerShape(13.dp), color = AppTheme.colors.info.copy(alpha = 0.07f)) {
                     Box(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(18.dp), contentAlignment = Alignment.CenterStart) {
-                        Text(state.reviewsRemaining?.let { stringResource(R.string.practice_usage, it) }
+                        Text(if (interview) stringResource(R.string.interview_setup_info) else state.reviewsRemaining?.let { stringResource(R.string.practice_usage, it) }
                             ?: stringResource(R.string.practice_usage_unknown), fontSize = 10.sp, lineHeight = 13.sp,
                             color = AppTheme.colors.secondaryText)
                     }
                 }
                 MainButton(Modifier.fillMaxWidth().height(50.dp), onClick = onContinue,
-                    buttonText = stringResource(R.string.practice_continue), textSize = 12.sp)
+                    buttonText = stringResource(if (interview) R.string.start_interview else R.string.practice_continue),
+                    isLoading = loading, textSize = 12.sp)
             }
         }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             Spacer(Modifier.height(8.dp))
-            PracticeCard(Modifier.fillMaxWidth().heightIn(min = 158.dp), hero = true, corner = 20.dp,
+            PracticeCard(Modifier.fillMaxWidth().heightIn(min = if (interview) 150.dp else 158.dp), hero = true, corner = 20.dp,
                 contentPadding = PaddingValues(18.dp), borderColor = AppTheme.colors.stroke) {
                 PracticeIcon(R.drawable.specialization_grade, 34.dp)
                 Spacer(Modifier.height(14.dp))
-                Text(stringResource(R.string.practice_choose_level), fontSize = 20.sp, lineHeight = 26.sp,
+                Text(stringResource(if (interview) R.string.interview_choose_level else R.string.practice_choose_level), fontSize = 20.sp, lineHeight = 26.sp,
                     fontWeight = FontWeight.Bold, color = AppTheme.colors.primaryText)
                 Spacer(Modifier.height(7.dp))
-                Text(stringResource(R.string.practice_grade_explanation), fontSize = 10.sp, lineHeight = 14.sp,
+                Text(stringResource(if (interview) R.string.interview_grade_description else R.string.practice_grade_explanation), fontSize = 10.sp, lineHeight = 14.sp,
                     color = AppTheme.colors.secondaryText)
             }
             Text(stringResource(R.string.practice_select_grade), color = AppTheme.colors.primaryText,
                 fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 28.dp, bottom = 16.dp))
             Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                PracticeGrade.entries.forEach { grade -> GradeChoice(grade, grade == state.grade) { onGrade(grade) } }
+                PracticeGrade.entries.forEach { grade -> GradeChoice(grade, grade == state.grade, enabled = !loading) { onGrade(grade) } }
             }
+            error?.let { Text(it, color = AppTheme.colors.red, fontSize = 11.sp, modifier = Modifier.padding(top = 12.dp)) }
             Spacer(Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
-private fun GradeChoice(grade: PracticeGrade, selected: Boolean, onClick: () -> Unit) {
+private fun GradeChoice(grade: PracticeGrade, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     val color = when (grade) {
         PracticeGrade.JUNIOR -> AppTheme.colors.success
         PracticeGrade.MIDDLE -> AppTheme.colors.leftGradient
@@ -127,7 +130,7 @@ private fun GradeChoice(grade: PracticeGrade, selected: Boolean, onClick: () -> 
     val border by animateColorAsState(
         if (selected) AppTheme.colors.leftGradient else AppTheme.colors.stroke,
         tween(200), label = "grade border")
-    Surface(selected = selected, onClick = onClick,
+    Surface(selected = selected, onClick = onClick, enabled = enabled,
         modifier = Modifier.fillMaxWidth().heightIn(min = 108.dp).semantics { role = Role.RadioButton },
         shape = RoundedCornerShape(16.dp),
         color = background, border = BorderStroke(1.dp, border)) {
@@ -161,16 +164,20 @@ private fun GradeChoice(grade: PracticeGrade, selected: Boolean, onClick: () -> 
 }
 
 @Composable
-private fun PracticeAnswerScreen(state: PracticeViewState, onBack: () -> Unit, onMode: (AnswerMode) -> Unit,
+internal fun PracticeAnswerScreen(state: PracticeViewState, onBack: () -> Unit, onMode: (AnswerMode) -> Unit,
     onAnswer: (String) -> Unit, onEvaluate: () -> Unit, onStarted: (Long) -> Unit,
-    onTranscribing: () -> Unit, onFinished: (String?) -> Unit, onLevel: (Float) -> Unit) {
+    onTranscribing: () -> Unit, onFinished: (String?) -> Unit, onLevel: (Float) -> Unit,
+    interview: Boolean = false, header: (@Composable (() -> Unit) -> Unit)? = null) {
     val voice = rememberPracticeVoiceInput(state, onAnswer, onStarted, onTranscribing, onFinished, onLevel)
     Scaffold(Modifier.imePadding(), containerColor = AppTheme.colors.background,
-        topBar = { PracticeHeader(stringResource(R.string.practice_answer_title), { voice.cancel(); onBack() }) }) { padding ->
+        topBar = {
+            val back = { voice.cancel(); onBack() }
+            if (header != null) header(back) else PracticeHeader(stringResource(R.string.practice_answer_title), back)
+        }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             Spacer(Modifier.height(20.dp))
-            state.question?.let { PracticeQuestionCard(it) }
+            state.question?.let { PracticeQuestionCard(it, interview = interview) }
             Spacer(Modifier.height(18.dp))
             AnswerModeSelector(state.mode) { voice.cancel(); onMode(it) }
             Spacer(Modifier.height(16.dp))
@@ -183,7 +190,7 @@ private fun PracticeAnswerScreen(state: PracticeViewState, onBack: () -> Unit, o
             }
             Spacer(Modifier.height(18.dp))
             MainButton(Modifier.fillMaxWidth().height(48.dp).alpha(if (state.canEvaluate) 1f else 0.4f),
-                buttonText = stringResource(R.string.practice_evaluate), textSize = 11.sp,
+                buttonText = stringResource(if (interview) R.string.interview_finish_answer else R.string.practice_evaluate), textSize = 11.sp,
                 leadingIcon = { PracticeIcon(R.drawable.practice_ai, 22.dp, Color.White) },
                 enabled = state.canEvaluate, onClick = onEvaluate)
             Spacer(Modifier.height(16.dp))
@@ -319,15 +326,16 @@ private fun VoiceWaveform(recording: Boolean, level: Float) {
 }
 
 @Composable
-private fun PracticeEvaluatingScreen(state: PracticeViewState) {
+internal fun PracticeEvaluatingScreen(state: PracticeViewState, interview: Boolean = false,
+    header: (@Composable () -> Unit)? = null) {
     var step by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { delay(1000); step = 1; delay(1000); step = 2 }
     Scaffold(containerColor = AppTheme.colors.background,
-        topBar = { PracticeHeader(stringResource(R.string.practice_evaluating_title), {}, enabled = false) }) { padding ->
+        topBar = { if (header != null) header() else PracticeHeader(stringResource(R.string.practice_evaluating_title), {}, enabled = false) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             Spacer(Modifier.height(20.dp))
-            state.question?.let { PracticeQuestionCard(it) }
+            state.question?.let { PracticeQuestionCard(it, interview = interview) }
             Spacer(Modifier.height(42.dp))
             PracticeCard(Modifier.fillMaxWidth().heightIn(min = 250.dp), hero = true) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {

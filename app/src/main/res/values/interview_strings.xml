@@ -1,0 +1,34 @@
+<resources>
+    <string name="interview_setup">Set up interview</string>
+    <string name="interview_choose_level">Choose your interview level</string>
+    <string name="interview_grade_description">Questions and AI evaluation depth will adapt to the selected developer grade.</string>
+    <string name="interview_setup_info">Questions adapted to your level • AI evaluation</string>
+    <string name="interview_session">Interview Session</string>
+    <string name="interview_review">Answer Review</string>
+    <string name="interview_question_label">INTERVIEW QUESTION</string>
+    <string name="interview_position">Question %1$d of %2$d</string>
+    <string name="interview_finish_answer">Finish Answer</string>
+    <string name="interview_next">Next Question</string>
+    <string name="interview_results">See Results</string>
+    <string name="interview_continue">Continue Interview</string>
+    <string name="interview_history_retry">Retry Interview</string>
+    <string name="interview_all_answered">Your interview is ready to finish</string>
+    <string name="interview_all_answered_description">See your results to complete this interview and review your progress.</string>
+    <string name="interview_summary">Session Summary</string>
+    <string name="interview_summary_subtitle">Your interview results</string>
+    <string name="interview_summary_score">%1$d / 100</string>
+    <string name="interview_progress_good">Great progress</string>
+    <string name="interview_progress_keep">Keep practising</string>
+    <string name="interview_summary_answered">%1$d of %2$d questions answered</string>
+    <string name="interview_knew">Knew well</string>
+    <string name="interview_partly">Partly</string>
+    <string name="interview_missed">Missed</string>
+    <string name="interview_weakest">Weakest areas</string>
+    <string name="interview_recommended">Recommended next</string>
+    <string name="interview_review_weak">Review weak topics</string>
+    <string name="interview_weak_count">%1$d topics need attention</string>
+    <string name="interview_spaced">Start spaced repetition</string>
+    <string name="interview_due_count">%1$d reviews scheduled</string>
+    <string name="interview_finish">Finish</string>
+    <string name="interview_summary_retry">Could not load recommendations. Tap to retry.</string>
+</resources>

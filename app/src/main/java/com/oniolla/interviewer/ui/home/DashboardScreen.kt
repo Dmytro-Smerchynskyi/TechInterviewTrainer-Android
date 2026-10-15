@@ -51,7 +51,9 @@ internal fun DashboardScreen(
     onSeeTopics: () -> Unit,
     onSeeQuestions: () -> Unit,
     onRetry: () -> Unit,
-    onOpenQuestion: (QuestionResponse) -> Unit = {}
+    onOpenQuestion: (QuestionResponse) -> Unit = {},
+    onStartInterview: () -> Unit = {},
+    interviewHistory: ContentViewState<com.oniolla.interviewer.data.model.LastInterview?> = ContentViewState.Ready(null)
 ) {
     AnimatedContent(
         targetState = state,
@@ -68,7 +70,7 @@ internal fun DashboardScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 20.dp)
                 ) {
-                    item(key = "readiness") { ReadinessCard(current.content) }
+                    item(key = "readiness") { ReadinessCard(current.content, onStartInterview, interviewHistory) }
                     item(key = "summary") {
                         Row(Modifier.padding(top = 18.dp).fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(19.dp)) {
@@ -116,7 +118,8 @@ internal fun DashboardScreen(
 }
 
 @Composable
-private fun ReadinessCard(content: DashboardContent) {
+private fun ReadinessCard(content: DashboardContent, onStartInterview: () -> Unit,
+    interviewHistory: ContentViewState<com.oniolla.interviewer.data.model.LastInterview?>) {
     val colors = AppTheme.colors
     val dashboard = content.dashboard
     Surface(
@@ -153,7 +156,16 @@ private fun ReadinessCard(content: DashboardContent) {
                 Spacer(Modifier.height(20.dp))
                 MainButton(
                     modifier = Modifier.widthIn(max = 160.dp).fillMaxWidth().height(38.dp),
-                    buttonText = stringResource(R.string.start_interview), textSize = 11.sp,
+                    buttonText = stringResource(when {
+                        interviewHistory is ContentViewState.Failed -> R.string.interview_history_retry
+                        (interviewHistory as? ContentViewState.Ready)?.content != null -> R.string.interview_continue
+                        else -> R.string.start_interview
+                    }), textSize = 11.sp,
+                    onClick = onStartInterview,
+                    isLoading = interviewHistory == ContentViewState.Loading,
+                    enabled = interviewHistory != ContentViewState.NotLoaded,
+                    gradientColors = if ((interviewHistory as? ContentViewState.Ready)?.content != null)
+                        listOf(colors.success, colors.info) else null,
                     leadingIcon = { FigmaIcon("practice", Modifier.size(20.dp)) }
                 )
                 dashboard.usage?.aiEvaluations?.let { usage ->

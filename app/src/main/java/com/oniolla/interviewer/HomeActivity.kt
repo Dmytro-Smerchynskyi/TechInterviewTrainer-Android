@@ -40,6 +40,7 @@ class HomeActivity : ComponentActivity() {
     private val profileViewModel: ProfileViewModel by viewModels()
     private val accountViewModel: AccountViewModel by viewModels()
     private val practiceViewModel: PracticeViewModel by viewModels()
+    private val interviewViewModel: InterviewViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +53,10 @@ class HomeActivity : ComponentActivity() {
                 val profileState by profileViewModel.state.collectAsStateWithLifecycle()
                 val accountState by accountViewModel.state.collectAsStateWithLifecycle()
                 val practiceState by practiceViewModel.state.collectAsStateWithLifecycle()
+                val interviewState by interviewViewModel.state.collectAsStateWithLifecycle()
+                LaunchedEffect(interviewState.page) {
+                    if (interviewViewModel.takeContentRefresh()) viewModel.refreshAfterPractice()
+                }
                 val screenStateHolder = rememberSaveableStateHolder()
                 LaunchedEffect(practiceState.result?.id) {
                     if (practiceViewModel.takeContentRefresh()) viewModel.refreshAfterPractice()
@@ -67,12 +72,14 @@ class HomeActivity : ComponentActivity() {
                         launch { profileViewModel.events.collect(::showEvent) }
                         launch { accountViewModel.events.collect(::showEvent) }
                         launch { practiceViewModel.events.collect(::showEvent) }
+                        launch { interviewViewModel.events.collect(::showEvent) }
                     }
                 }
-                LaunchedEffect(state.sessionExpired, profileState.sessionExpired, profileState.signedOut, accountState.sessionExpired, practiceState.sessionExpired) {
-                    if ((state.sessionExpired || profileState.sessionExpired || profileState.signedOut || accountState.sessionExpired || practiceState.sessionExpired) && !isFinishing) {
+                LaunchedEffect(state.sessionExpired, profileState.sessionExpired, profileState.signedOut, accountState.sessionExpired, practiceState.sessionExpired, interviewState.sessionExpired) {
+                    if ((state.sessionExpired || profileState.sessionExpired || profileState.signedOut || accountState.sessionExpired || practiceState.sessionExpired || interviewState.sessionExpired) && !isFinishing) {
                         viewModel.stopSessionWork()
                         practiceViewModel.stopSessionWork()
+                        interviewViewModel.stopSessionWork()
                         startActivity(Intent(this@HomeActivity, AuthActivity::class.java).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         })
@@ -101,10 +108,11 @@ class HomeActivity : ComponentActivity() {
                     if (practiceState.page == PracticePage.ANSWERING) practiceViewModel.back()
                     else closePractice()
                 }
-                BackHandler(enabled = state.paywallOpen || practiceState.isOpen || profileOpen || state.questionDetail != null || state.tab != HomeTab.HOME) {
+                BackHandler(enabled = state.paywallOpen || practiceState.isOpen || interviewState.isOpen || profileOpen || state.questionDetail != null || state.tab != HomeTab.HOME) {
                     when {
                         state.paywallOpen -> viewModel.closePaywall()
                         practiceState.isOpen -> backPractice()
+                        interviewState.isOpen -> interviewViewModel.close()
                         profileOpen -> back()
                         state.questionDetail != null -> viewModel.closeQuestion()
                         else -> viewModel.selectTab(HomeTab.HOME)
@@ -113,6 +121,7 @@ class HomeActivity : ComponentActivity() {
                 AnimatedContent(targetState = when {
                     state.paywallOpen -> "paywall"
                     practiceState.isOpen -> "practice"
+                    interviewState.isOpen -> "interview"
                     profileState.page == ProfilePage.CLOSED -> "home"
                     profileState.page == ProfilePage.ACCOUNT -> "account"
                     else -> "profile"
@@ -138,6 +147,32 @@ class HomeActivity : ComponentActivity() {
                             onTranscribing = practiceViewModel::transcriptionStarted,
                             onRecordingFinished = practiceViewModel::recordingFinished,
                             onVoiceLevel = practiceViewModel::updateVoiceLevel
+                        ) else if (destination == "interview") InterviewScreens(
+                            interviewState,
+                            InterviewActions(
+                                close = interviewViewModel::close,
+                                grade = interviewViewModel::selectGrade,
+                                create = interviewViewModel::create,
+                                retry = interviewViewModel::retry,
+                                evaluate = interviewViewModel::evaluate,
+                                next = interviewViewModel::next,
+                                finish = interviewViewModel::finish,
+                                plans = viewModel::openPaywall,
+                                retrySummary = interviewViewModel::loadSummary,
+                                mode = interviewViewModel::setMode,
+                                answer = interviewViewModel::updateAnswer,
+                                recordingStarted = interviewViewModel::recordingStarted,
+                                transcribing = interviewViewModel::transcriptionStarted,
+                                recordingFinished = interviewViewModel::recordingFinished,
+                                level = interviewViewModel::voiceLevel,
+                                topic = { id, name -> interviewViewModel.close(); viewModel.selectQuestionTopic(id, name) },
+                                weak = { interviewViewModel.close(); viewModel.openWeakTopics() },
+                                due = {
+                                    interviewViewModel.close()
+                                    viewModel.selectFavoritesFilter(com.oniolla.interviewer.domain.FavoritesFilter.DUE)
+                                    viewModel.selectTab(HomeTab.FAVORITES)
+                                }
+                            )
                         ) else if (destination == "account") AccountScreens(
                             state = accountState,
                             onBack = back,
@@ -200,6 +235,8 @@ class HomeActivity : ComponentActivity() {
                             onRevealAnswer = viewModel::revealQuestionAnswer,
                             onRetryQuestionUsage = viewModel::refreshQuestionUsage,
                             onPro = viewModel::openPaywall,
+                            onStartInterview = interviewViewModel::open,
+                            interviewHistory = interviewState.history,
                             onPractice = {
                                 state.questionDetail?.takeIf { it.canPractice }?.question?.let(practiceViewModel::open)
                             },

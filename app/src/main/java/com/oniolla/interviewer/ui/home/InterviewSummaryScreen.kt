@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,7 +34,16 @@ internal fun InterviewSummaryScreen(state: InterviewViewState, actions: Intervie
     val missed = interview.questions.size - known - partly
     val answered = interview.questions.count { it.evaluation != null || it.answer != null || it.score != null }
     val colors = AppTheme.colors
-    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
+    Scaffold(containerColor = colors.background, bottomBar = {
+        Surface(color = colors.background) {
+            Column(Modifier.fillMaxWidth().navigationBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp)) {
+                MainButton(Modifier.fillMaxWidth().height(50.dp), actions.close,
+                    stringResource(R.string.interview_finish), textSize = 11.sp)
+            }
+        }
+    }) { padding ->
+    Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
         .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
         Text(stringResource(R.string.interview_summary), color = colors.primaryText, fontSize = 26.sp,
             lineHeight = 33.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 22.dp))
@@ -119,10 +129,8 @@ internal fun InterviewSummaryScreen(state: InterviewViewState, actions: Intervie
                 }
             }
         }
-        Spacer(Modifier.height(18.dp))
-        MainButton(Modifier.fillMaxWidth().height(40.dp), actions.close,
-            stringResource(R.string.interview_finish), textSize = 11.sp)
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(20.dp))
+    }
     }
 }
 

@@ -38,6 +38,11 @@ internal fun PracticeReviewScreen(state: PracticeViewState, onBack: () -> Unit,
     header: (@Composable () -> Unit)? = null, error: String? = null) {
     val result = state.result ?: return
     Scaffold(containerColor = AppTheme.colors.background,
+        bottomBar = { ReviewActions {
+            error?.let { Text(it, color = AppTheme.colors.red, fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp)) }
+            MainButton(Modifier.fillMaxWidth().height(50.dp), buttonText = continueText ?: stringResource(R.string.practice_back_to_question),
+                onClick = onContinue, isLoading = loading, textSize = 11.sp)
+        } },
         topBar = { if (header != null) header() else PracticeHeader(stringResource(R.string.practice_review_title), onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
@@ -78,10 +83,7 @@ internal fun PracticeReviewScreen(state: PracticeViewState, onBack: () -> Unit,
                 }
             }
             Spacer(Modifier.height(20.dp))
-            error?.let { Text(it, color = AppTheme.colors.red, fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp)) }
-            MainButton(Modifier.fillMaxWidth().height(50.dp), buttonText = continueText ?: stringResource(R.string.practice_back_to_question),
-                onClick = onContinue, isLoading = loading, textSize = 11.sp)
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(4.dp))
         }
     }
 }
@@ -91,6 +93,23 @@ internal fun PracticeLimitScreen(state: PracticeViewState, onBack: () -> Unit, o
     continueText: String? = null, loading: Boolean = false, header: (@Composable () -> Unit)? = null,
     error: String? = null) {
     Scaffold(containerColor = AppTheme.colors.background,
+        bottomBar = { ReviewActions {
+            MainButton(Modifier.fillMaxWidth().height(50.dp), buttonText = stringResource(R.string.practice_view_plans),
+                onClick = onPlans, textSize = 11.sp)
+            Spacer(Modifier.height(16.dp))
+            error?.let { Text(it, color = AppTheme.colors.red, fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp)) }
+            if (loading) Box(Modifier.fillMaxWidth().height(46.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), color = AppTheme.colors.info)
+            } else Surface(onClick = onBack, modifier = Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(23.dp),
+                color = AppTheme.colors.container, border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(continueText ?: stringResource(R.string.practice_back_to_question), color = AppTheme.colors.primaryText,
+                        fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Text(stringResource(R.string.practice_upgrade_anytime), Modifier.fillMaxWidth().padding(top = 14.dp),
+                color = AppTheme.colors.primaryText, fontSize = 8.5.sp, lineHeight = 11.sp, textAlign = TextAlign.Center)
+        } },
         topBar = { if (header != null) header() else PracticeHeader(stringResource(R.string.practice_review_title), onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
@@ -108,23 +127,17 @@ internal fun PracticeLimitScreen(state: PracticeViewState, onBack: () -> Unit, o
                 Text(stringResource(R.string.practice_reference_locked_description), color = AppTheme.colors.secondaryText,
                     fontSize = 8.5.sp, lineHeight = 13.sp)
             }
-            Spacer(Modifier.height(36.dp))
-            MainButton(Modifier.fillMaxWidth().height(50.dp), buttonText = stringResource(R.string.practice_view_plans),
-                onClick = onPlans, textSize = 11.sp)
-            Spacer(Modifier.height(16.dp))
-            error?.let { Text(it, color = AppTheme.colors.red, fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp)) }
-            if (loading) Box(Modifier.fillMaxWidth().height(46.dp), contentAlignment = Alignment.Center) {
-                androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), color = AppTheme.colors.info)
-            } else Surface(onClick = onBack, modifier = Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(23.dp),
-                color = AppTheme.colors.container, border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(continueText ?: stringResource(R.string.practice_back_to_question), color = AppTheme.colors.primaryText,
-                        fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-            Text(stringResource(R.string.practice_upgrade_anytime), Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 24.dp),
-                color = AppTheme.colors.primaryText, fontSize = 8.5.sp, lineHeight = 11.sp, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(20.dp))
         }
+    }
+}
+
+@Composable
+private fun ReviewActions(content: @Composable ColumnScope.() -> Unit) {
+    Surface(color = AppTheme.colors.background) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding()
+            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp),
+            content = content)
     }
 }
 

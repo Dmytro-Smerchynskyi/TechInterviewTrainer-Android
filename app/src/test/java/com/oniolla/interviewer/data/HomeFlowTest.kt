@@ -395,23 +395,28 @@ class HomeFlowTest {
         assertEquals(1, fixture.cache.refreshes.value)
     }
 
-    @Test fun weakTopicOpensQuestionsAndPreservesTheSearchAcrossTabChanges() = runTest(dispatcher) {
+    @Test fun weakTopicOpensQuestionsAndPreservesTheTopicAcrossTabChanges() = runTest(dispatcher) {
         val fixture = Fixture()
         val handle = SavedStateHandle()
         val vm = fixture.viewModel(handle)
         vm.stateFlow.first { it.dashboard is ContentViewState.Ready }
-        vm.openTopicQuestions("Coroutines")
+        vm.openTopicQuestions(7, "Coroutines")
         vm.stateFlow.first { it.questions is ContentViewState.Ready }
         assertSame(HomeTab.QUESTIONS, vm.stateFlow.value.tab)
-        assertEquals("Coroutines", vm.stateFlow.value.questionSearch)
+        assertEquals("", vm.stateFlow.value.questionSearch)
+        assertEquals(7L, vm.stateFlow.value.questionTopic!!.id)
+        assertEquals("Coroutines", vm.stateFlow.value.questionTopic!!.name)
         assertEquals("QUESTIONS", handle.get<String>("homeTab"))
-        assertEquals("Coroutines", handle.get<String>("questionSearch"))
+        assertEquals("", handle.get<String>("questionSearch"))
+        assertEquals(7L, handle.get<Long>("questionTopicId"))
+        assertEquals("Coroutines", handle.get<String>("questionTopicName"))
+        val request = fixture.requests.last { it.url.encodedPath == "/questions" }
+        assertEquals("7", request.url.queryParameter("topicId"))
+        assertNull(request.url.queryParameter("search"))
         vm.selectTab(HomeTab.HOME)
         vm.selectTab(HomeTab.QUESTIONS)
-        assertEquals("Coroutines", vm.stateFlow.value.questionSearch)
-        vm.updateQuestionSearch("")
-        vm.stateFlow.first { it.questions is ContentViewState.Ready }
-        assertEquals("", handle.get<String>("questionSearch"))
+        assertEquals("Coroutines", vm.stateFlow.value.questionTopic!!.name)
+        assertEquals("", vm.stateFlow.value.questionSearch)
         assertEquals(1, fixture.paths().count { it == "/topics" })
         assertEquals(1, fixture.cache.refreshes.value)
         assertSame(ContentViewState.NotLoaded, vm.stateFlow.value.topics)

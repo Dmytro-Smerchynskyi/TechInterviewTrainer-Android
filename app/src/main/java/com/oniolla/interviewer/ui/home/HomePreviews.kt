@@ -122,7 +122,7 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
                     isAppending = appending, appendError = appendError
                 ))
             ),
-            onTabSelected = {}, onTopicQuestions = {}, onQuestionSearch = {},
+            onTabSelected = {}, onTopicQuestions = { _, _ -> }, onQuestionSearch = {},
             onRetryDashboard = {}, onRetryTopics = {},
             onQuestionTopicSelected = { _, _ -> }, onClearQuestionTopic = {},
             onRetryQuestions = {}, onLoadMoreQuestions = {}, onRetryQuestionPage = {},

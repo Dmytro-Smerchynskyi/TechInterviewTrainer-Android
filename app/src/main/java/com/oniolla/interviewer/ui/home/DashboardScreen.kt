@@ -47,7 +47,7 @@ import java.util.Locale
 @Composable
 internal fun DashboardScreen(
     state: ContentViewState<DashboardContent>,
-    onTopic: (String) -> Unit,
+    onTopic: (Long, String) -> Unit,
     onSeeTopics: () -> Unit,
     onSeeQuestions: () -> Unit,
     onRetry: () -> Unit,
@@ -94,7 +94,7 @@ internal fun DashboardScreen(
                                 horizontalArrangement = Arrangement.spacedBy(13.dp)
                             ) {
                                 items(dashboard.weakTopics, key = { it.topicId }) { topic ->
-                                    WeakTopicCard(topic) { onTopic(topic.name) }
+                                    WeakTopicCard(topic) { onTopic(topic.topicId, topic.name) }
                                 }
                             }
                         }

@@ -214,19 +214,39 @@ class QuestionsFlowTest {
         assertEquals("flow", request.url.queryParameter("search"))
     }
 
-    @Test fun weakTopicSearchDoesNotChangeTheSelectedTopicCaption() = runTest(dispatcher) {
+    @Test fun weakTopicReplacesPreviousFilterAndClearsPendingSearchAndPagination() = runTest(dispatcher) {
         val fixture = Fixture()
-        val vm = fixture.viewModel()
+        val handle = SavedStateHandle()
+        val vm = fixture.viewModel(handle)
         vm.stateFlow.first { it.dashboard is ContentViewState.Ready }
         vm.selectQuestionTopic(7, "Coroutines")
         vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
-        vm.openTopicQuestions("Flow")
+        vm.loadMoreQuestions()
+        vm.stateFlow.first { (it.questions as? ContentViewState.Ready)?.content?.items?.size == 3 }
+        vm.updateQuestionSearch("previous search")
+        assertTrue(vm.stateFlow.value.isQuestionSearchPending)
+        vm.openTopicQuestions(8, "Kotlin")
         vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
-        assertEquals("Coroutines", vm.stateFlow.value.questionTopic!!.name)
-        assertEquals(7L, vm.stateFlow.value.questionTopic!!.id)
-        assertEquals("Flow", vm.stateFlow.value.questionSearch)
-        assertEquals("7", fixture.questionRequests().last().url.queryParameter("topicId"))
-        assertEquals("Flow", fixture.questionRequests().last().url.queryParameter("search"))
+        assertSame(HomeTab.QUESTIONS, vm.stateFlow.value.tab)
+        assertEquals("Kotlin", vm.stateFlow.value.questionTopic!!.name)
+        assertEquals(8L, vm.stateFlow.value.questionTopic!!.id)
+        assertEquals("", vm.stateFlow.value.questionSearch)
+        assertEquals("", handle.get<String>("questionSearch"))
+        assertEquals(8L, handle.get<Long>("questionTopicId"))
+        assertEquals("Kotlin", handle.get<String>("questionTopicName"))
+        assertEquals(listOf(1L, 2L), content(vm).items.map { it.id })
+        val request = fixture.questionRequests().last()
+        assertEquals("8", request.url.queryParameter("topicId"))
+        assertNull(request.url.queryParameter("search"))
+        assertNull(request.url.queryParameter("cursor"))
+        val count = fixture.questionRequests().size
+        advanceTimeBy(1000)
+        runCurrent()
+        assertEquals(count, fixture.questionRequests().size)
+        vm.clearQuestionTopic()
+        vm.stateFlow.first { it.questions is ContentViewState.Ready && !it.isQuestionSearchPending }
+        assertNull(vm.stateFlow.value.questionTopic)
+        assertNull(fixture.questionRequests().last().url.queryParameter("topicId"))
     }
 
     @Test fun freshResultsResetScrollRevisionWhilePaginationPreservesIt() = runTest(dispatcher) {

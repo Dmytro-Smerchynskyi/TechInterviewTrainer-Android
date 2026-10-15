@@ -47,7 +47,7 @@ import com.oniolla.interviewer.ui.theme.AppTheme
 fun HomeScreen(
     state: HomeViewState,
     onTabSelected: (HomeTab) -> Unit,
-    onTopicQuestions: (String) -> Unit,
+    onTopicQuestions: (Long, String) -> Unit,
     onQuestionSearch: (String) -> Unit,
     onRetryDashboard: () -> Unit,
     onRetryTopics: () -> Unit,

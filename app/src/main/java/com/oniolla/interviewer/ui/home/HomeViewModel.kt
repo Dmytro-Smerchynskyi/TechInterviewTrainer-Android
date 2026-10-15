@@ -221,12 +221,10 @@ class HomeViewModel @Inject constructor(
                 previousTab != tab && favoritesDirty)) loadFavorites()
     }
 
-    // Weak topics on Home retain their existing search-based navigation.
-    fun openTopicQuestions(topicName: String) {
-        savedStateHandle["questionSearch"] = topicName
-        savedStateHandle["homeTab"] = HomeTab.QUESTIONS.name
-        _stateFlow.update { it.copy(tab = HomeTab.QUESTIONS, questionSearch = topicName) }
-        refreshQuestions()
+    fun openTopicQuestions(topicId: Long, topicName: String) {
+        savedStateHandle["questionSearch"] = ""
+        _stateFlow.update { it.copy(questionSearch = "") }
+        selectQuestionTopic(topicId, topicName)
     }
 
     fun selectQuestionTopic(topicId: Long, topicName: String) {

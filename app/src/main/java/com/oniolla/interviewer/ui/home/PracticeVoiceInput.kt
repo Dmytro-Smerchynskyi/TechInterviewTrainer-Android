@@ -67,7 +67,7 @@ internal fun rememberPracticeVoiceInput(
     fun startIfStillAnswering() {
         if (current.page == PracticePage.ANSWERING && current.mode == AnswerMode.VOICE &&
             current.question?.id == pendingQuestion) {
-            voice.start(pendingBase, current.question?.requestedLanguage ?: current.question?.language)
+            voice.start(pendingBase, current.question?.language)
         }
     }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -184,6 +184,9 @@ internal class VoiceTranscriber(
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, language ?: Locale.getDefault().toLanguageTag())
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                // Recognition services may choose to ignore these silence thresholds.
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5_000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 5_000L)
             })
         } catch (_: SecurityException) { finish(context.getString(R.string.practice_mic_permission_denied)) }
         catch (_: RuntimeException) { finish(context.getString(R.string.practice_speech_unavailable)) }

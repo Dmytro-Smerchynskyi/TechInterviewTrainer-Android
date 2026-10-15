@@ -136,7 +136,7 @@ private fun GradeChoice(grade: PracticeGrade, selected: Boolean, onClick: () -> 
             Box(Modifier.size(44.dp).background(color.copy(alpha = 0.14f), RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center) { PracticeIcon(R.drawable.practice_grade, 24.dp, color) }
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(gradeLabel(grade.name), Modifier.weight(1f), color = AppTheme.colors.primaryText,
                         fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold)
                     if (selected) Surface(shape = RoundedCornerShape(12.dp),

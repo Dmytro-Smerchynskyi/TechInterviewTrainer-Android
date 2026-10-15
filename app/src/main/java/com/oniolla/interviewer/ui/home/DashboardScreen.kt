@@ -162,6 +162,7 @@ private fun ReadinessCard(content: DashboardContent, onStartInterview: () -> Uni
                         else -> R.string.start_interview
                     }), textSize = 11.sp,
                     onClick = onStartInterview,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     isLoading = interviewHistory == ContentViewState.Loading,
                     enabled = interviewHistory != ContentViewState.NotLoaded,
                     gradientColors = if ((interviewHistory as? ContentViewState.Ready)?.content != null)

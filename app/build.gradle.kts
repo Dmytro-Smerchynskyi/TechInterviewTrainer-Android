@@ -26,7 +26,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "API_BASE_URL",
+                "\"${providers.gradleProperty("DEBUG_API_BASE_URL").get()}\"")
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
+            buildConfigField("String", "API_BASE_URL",
+                "\"${providers.gradleProperty("RELEASE_API_BASE_URL").getOrElse("")}\"")
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")

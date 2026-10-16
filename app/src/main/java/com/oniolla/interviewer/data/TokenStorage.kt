@@ -1,6 +1,7 @@
 package com.oniolla.interviewer.data
 
 import android.content.SharedPreferences
+import java.security.GeneralSecurityException
 import javax.inject.Inject
 import javax.inject.Singleton
 import androidx.core.content.edit
@@ -43,12 +44,22 @@ class TokenStorage @Inject constructor(
     }
 
     private fun getRefresh(): String? {
-        return encryptor.decrypt(
-            Encryptor.EncryptedValue(
-                sharedPreferences.getString(REFRESH_TOKEN_KEY, null) ?: return null,
-                sharedPreferences.getString(REFRESH_TOKEN_IV_KEY, null) ?: return null
-            )
-        )
+        val data = sharedPreferences.getString(REFRESH_TOKEN_KEY, null)
+        val iv = sharedPreferences.getString(REFRESH_TOKEN_IV_KEY, null)
+        if (data == null && iv == null) return null
+        if (data == null || iv == null) {
+            clear()
+            return null
+        }
+        return try {
+            encryptor.decrypt(Encryptor.EncryptedValue(data, iv))
+        } catch (_: GeneralSecurityException) {
+            clear()
+            null
+        } catch (_: IllegalArgumentException) {
+            clear()
+            null
+        }
     }
 
     companion object {

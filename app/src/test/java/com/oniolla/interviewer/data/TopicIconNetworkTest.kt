@@ -30,10 +30,28 @@ class TopicIconNetworkTest {
         val base = "http://192.168.0.117:8080/"
         listOf("localhost", "127.0.0.1", "[::1]").forEach { host ->
             assertEquals("http://192.168.0.117:8080/assets/topics/android/kotlin-v1.svg?v=2",
-                resolveTopicIconUrl("http://$host:8080/assets/topics/android/kotlin-v1.svg?v=2", base))
+                resolveTopicIconUrl("http://$host:8080/assets/topics/android/kotlin-v1.svg?v=2", base, rewriteLoopback = true))
         }
         assertEquals("https://api.example.test:8443/assets/kotlin.svg",
-            resolveTopicIconUrl("http://localhost:8080/assets/kotlin.svg", "https://api.example.test:8443/"))
+            resolveTopicIconUrl("http://localhost:8080/assets/kotlin.svg", "https://api.example.test:8443/", rewriteLoopback = true))
+    }
+
+    @Test fun releaseIconUrlsKeepTheirOriginalOriginEvenForLoopback() {
+        val base = "https://api.example.test/"
+        listOf("localhost", "127.0.0.1", "[::1]").forEach { host ->
+            val url = "http://$host:8080/assets/kotlin.svg?v=3"
+            assertEquals(url, resolveTopicIconUrl(url, base, rewriteLoopback = false))
+            assertEquals(url, resolveTopicIconUrl(url, "", rewriteLoopback = false))
+        }
+        assertEquals("https://api.example.test/icons/kotlin.svg",
+            resolveTopicIconUrl("/icons/kotlin.svg", base, rewriteLoopback = false))
+        assertNull(resolveTopicIconUrl("/icons/kotlin.svg", "", rewriteLoopback = false))
+    }
+
+    @Test fun iconRewriteDefaultsToTheBuildType() {
+        val url = "http://localhost:8080/icon.svg"
+        assertEquals(if (com.oniolla.interviewer.BuildConfig.DEBUG) "https://api.example.test/icon.svg" else url,
+            resolveTopicIconUrl(url, "https://api.example.test/"))
     }
 
     @Test fun absoluteCdnUrlsKeepTheirOwnOriginAndPath() {

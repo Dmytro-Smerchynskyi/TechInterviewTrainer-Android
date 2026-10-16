@@ -128,7 +128,9 @@ class AccountViewModel @Inject constructor(
                 errors[AccountField.CODE] = "Enter the 6-digit code"
             AccountPage.OVERVIEW -> return
         }
-        _state.update { it.copy(errors = errors) }
+        // Keep only the request's local snapshot; clear all visible password fields on submit.
+        _state.update { it.copy(errors = errors,
+            currentPassword = "", newPassword = "", confirmPassword = "") }
         if (errors.isNotEmpty()) return
         _state.update { it.copy(isSaving = true) }
         viewModelScope.launch {

@@ -174,7 +174,8 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
 
     val nameText = rememberSaveable { mutableStateOf("") }
     val emailText = rememberSaveable { mutableStateOf("") }
-    val passwordText = rememberSaveable { mutableStateOf("") }
+    // Passwords must never enter Android saved instance state.
+    val passwordText = remember(state.value::class) { mutableStateOf("") }
 
     BackHandler(
         enabled = state.value is AuthViewModel.AuthViewState.Unauthorized.ForgotPassword ||
@@ -259,7 +260,7 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
                         isLoading = state.isLoading,
                         isGoogleLoading = state.isGoogleLoading,
                         googleError = state.googleError,
-                        onGoogleClicked = googleSignIn,
+                        onGoogleClicked = { passwordText.value = ""; googleSignIn() },
                         nameText = nameText,
                         emailText = emailText,
                         passwordText = passwordText,
@@ -267,7 +268,10 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
                         emailError = state.emailError,
                         passwordError = state.passwordError,
                         onSignInClicked = viewModel::showLogin,
-                        onSignUpRequested = viewModel::signup,
+                        onSignUpRequested = { name, email, password ->
+                            try { viewModel.signup(name, email, password) }
+                            finally { passwordText.value = "" }
+                        },
                         onNameFocused = viewModel::clearNameError,
                         onEmailFocused = viewModel::clearEmailError,
                         onPasswordFocused = viewModel::clearPasswordError
@@ -278,14 +282,17 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
                         isLoading = state.isLoading,
                         isGoogleLoading = state.isGoogleLoading,
                         googleError = state.googleError,
-                        onGoogleClicked = googleSignIn,
+                        onGoogleClicked = { passwordText.value = ""; googleSignIn() },
                         emailText = emailText,
                         passwordText = passwordText,
                         emailError = state.emailError,
                         passwordError = state.passwordError,
                         onSignUpClicked = viewModel::showSignup,
                         onForgotPasswordClicked = viewModel::showForgotPassword,
-                        onLoginRequested = viewModel::login,
+                        onLoginRequested = { email, password ->
+                            try { viewModel.login(email, password) }
+                            finally { passwordText.value = "" }
+                        },
                         onEmailFocused = viewModel::clearEmailError,
                         onPasswordFocused = viewModel::clearPasswordError
                     )

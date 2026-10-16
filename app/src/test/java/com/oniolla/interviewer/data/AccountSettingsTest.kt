@@ -278,6 +278,9 @@ class AccountSettingsTest {
         vm.update(AccountField.CONFIRM_PASSWORD, "otherpassword")
         vm.submit()
         assertEquals("Passwords do not match", vm.state.value.errors[AccountField.CONFIRM_PASSWORD])
+        assertEquals("", vm.state.value.currentPassword)
+        assertEquals("", vm.state.value.newPassword)
+        assertEquals("", vm.state.value.confirmPassword)
         assertEquals(0, f.calls("/me/password/change"))
     }
 
@@ -315,6 +318,28 @@ class AccountSettingsTest {
         assertTrue(vm.state.value.hasPassword)
     }
 
+    @Test fun failedPasswordSetupClearsSecretsAndDoesNotRestoreThem() = runTest(dispatcher) {
+        val f = Fixture().apply { providers = listOf("GOOGLE"); failPath = "/me/password/set" }
+        val handle = SavedStateHandle()
+        val vm = f.vm(handle)
+        open(vm)
+        password(vm, "")
+        vm.submit()
+        assertEquals("", vm.state.value.newPassword)
+        assertEquals("", vm.state.value.confirmPassword)
+        vm.state.first { !it.isSaving }
+        assertEquals(AccountPage.PASSWORD, vm.state.value.page)
+        assertEquals("", vm.state.value.newPassword)
+        assertEquals("", vm.state.value.currentPassword)
+        assertEquals("newpassword", f.payload(f.request("/me/password/set")).get("password").asString)
+        assertFalse(handle.keys().any { it.contains("password", ignoreCase = true) })
+        val restored = f.vm(handle)
+        open(restored)
+        assertEquals("", restored.state.value.currentPassword)
+        assertEquals("", restored.state.value.newPassword)
+        assertEquals("", restored.state.value.confirmPassword)
+    }
+
     @Test fun duplicateSubmitBackAndEditsAreBlockedDuringSave() = runTest(dispatcher) {
         val started = CompletableDeferred<Unit>()
         val release = CountDownLatch(1)
@@ -330,7 +355,7 @@ class AccountSettingsTest {
             vm.update(AccountField.NEW_PASSWORD, "changedvalue")
             vm.edit(AccountPage.EMAIL)
             assertEquals(AccountPage.PASSWORD, vm.state.value.page)
-            assertEquals("newpassword", vm.state.value.newPassword)
+            assertEquals("", vm.state.value.newPassword)
             assertEquals(1, f.calls("/me/password/change"))
         } finally { release.countDown() }
         finished(vm)
@@ -390,7 +415,12 @@ class AccountSettingsTest {
         assertEquals(0, f.calls("/auth/refresh"))
         assertEquals(1, f.calls("/me/password/change"))
         assertEquals(1, f.calls("/me"))
+        assertEquals("", vm.state.value.currentPassword)
+        assertEquals("", vm.state.value.newPassword)
+        assertEquals("", vm.state.value.confirmPassword)
         vm.update(AccountField.CURRENT_PASSWORD, "currentpass")
+        vm.update(AccountField.NEW_PASSWORD, "newpassword")
+        vm.update(AccountField.CONFIRM_PASSWORD, "newpassword")
         assertNull(vm.state.value.errors[AccountField.CURRENT_PASSWORD])
         f.rejectCurrentPassword = false
         vm.submit()
@@ -493,7 +523,7 @@ class AccountSettingsTest {
         assertEquals(1, f.calls("/me/password/change"))
     }
 
-    @Test fun failedPasswordMutationKeepsDraftAndDoesNotReplaceTokens() = runTest(dispatcher) {
+    @Test fun failedPasswordMutationClearsSecretsAndDoesNotReplaceTokens() = runTest(dispatcher) {
         val f = Fixture().apply { failPath = "/me/password/change" }
         val vm = f.vm()
         open(vm)
@@ -501,7 +531,9 @@ class AccountSettingsTest {
         vm.submit()
         vm.state.first { !it.isSaving }
         assertEquals(AccountPage.PASSWORD, vm.state.value.page)
-        assertEquals("newpassword", vm.state.value.newPassword)
+        assertEquals("", vm.state.value.currentPassword)
+        assertEquals("", vm.state.value.newPassword)
+        assertEquals("", vm.state.value.confirmPassword)
         assertFalse(vm.state.value.changed)
         assertEquals("access", f.tokens.accessToken)
         assertEquals("refresh", f.tokens.refreshToken)

@@ -1,15 +1,20 @@
 package com.oniolla.interviewer.data
 
-import okhttp3.HttpUrl.Companion.toHttpUrl
+import com.oniolla.interviewer.BuildConfig
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
-internal const val API_BASE_URL = "http://192.168.0.117:8080/"
+internal val API_BASE_URL = BuildConfig.API_BASE_URL
 
-internal fun resolveTopicIconUrl(value: String?, baseUrl: String = API_BASE_URL): String? {
+internal fun resolveTopicIconUrl(
+    value: String?,
+    baseUrl: String = API_BASE_URL,
+    rewriteLoopback: Boolean = BuildConfig.DEBUG
+): String? {
     val url = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-    val apiUrl = baseUrl.toHttpUrl()
-    val resolved = apiUrl.resolve(url) ?: return null
-    // Local backend exports localhost URLs; on Android that is the device itself.
-    return if (resolved.host in setOf("localhost", "127.0.0.1", "::1")) {
+    val apiUrl = baseUrl.toHttpUrlOrNull()
+    val resolved = url.toHttpUrlOrNull() ?: apiUrl?.resolve(url) ?: return null
+    // Only the local debug backend needs its loopback origin rewritten.
+    return if (rewriteLoopback && apiUrl != null && resolved.host in setOf("localhost", "127.0.0.1", "::1")) {
         resolved.newBuilder()
             .scheme(apiUrl.scheme)
             .host(apiUrl.host)

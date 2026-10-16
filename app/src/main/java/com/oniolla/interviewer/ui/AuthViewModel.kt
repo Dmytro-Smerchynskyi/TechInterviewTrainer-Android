@@ -61,6 +61,9 @@ class AuthViewModel @Inject constructor(
     )
     val stateFlow = _stateFlow.asStateFlow()
 
+    // Memory only: survives Activity recreation, never enters saved instance state.
+    val passwordText = androidx.compose.runtime.mutableStateOf("")
+
     private val _uiEventsFlow: MutableSharedFlow<UiEvent> = MutableSharedFlow()
     val uiEventsFlow = _uiEventsFlow.asSharedFlow()
 
@@ -72,6 +75,7 @@ class AuthViewModel @Inject constructor(
 
     override fun onCleared() {
         signupDisposable?.dispose()
+        passwordText.value = ""
         super.onCleared()
     }
 
@@ -80,6 +84,7 @@ class AuthViewModel @Inject constructor(
     }
 
     fun load() {
+        passwordText.value = ""
         loadingJob?.cancel()
         preparationLanguagesJob?.cancel()
         _stateFlow.value = AuthViewState.Loading(0f)
@@ -95,16 +100,19 @@ class AuthViewModel @Inject constructor(
 
     fun showLogin() {
         if (isBusy()) return
+        passwordText.value = ""
         _stateFlow.value = AuthViewState.Unauthorized.Login()
     }
 
     fun showSignup() {
         if (isBusy()) return
+        passwordText.value = ""
         _stateFlow.value = AuthViewState.Unauthorized.SignUp()
     }
 
     fun showForgotPassword() {
         if ((_stateFlow.value as? AuthViewState.Unauthorized.Login)?.isLoading == true) return
+        passwordText.value = ""
         _stateFlow.value = AuthViewState.Unauthorized.ForgotPassword()
     }
 
@@ -260,6 +268,7 @@ class AuthViewModel @Inject constructor(
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe(
                         {
+                            passwordText.value = ""
                             setLoading(false)
                             viewModelScope.launch {
                                 _stateFlow.value = AuthState.VerificationEmailSent(email.trim()).toUi()
@@ -372,6 +381,7 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun showAuthState(result: AuthState) {
+        passwordText.value = ""
         preparationLanguagesJob?.cancel()
         _stateFlow.value = result.toUi()
         if (result is AuthState.PreparationLanguageSelectionRequired) loadPreparationLanguages()

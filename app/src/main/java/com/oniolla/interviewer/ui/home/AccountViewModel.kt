@@ -137,9 +137,7 @@ class AccountViewModel @Inject constructor(
                 errors[AccountField.CODE] = "Enter the 6-digit code"
             AccountPage.OVERVIEW -> return
         }
-        // Keep only the request's local snapshot; clear all visible password fields on submit.
-        _state.update { it.copy(errors = errors, googleError = null,
-            currentPassword = "", newPassword = "", confirmPassword = "") }
+        _state.update { it.copy(errors = errors, googleError = null) }
         if (errors.isNotEmpty()) return
         if (!state.hasPassword && state.page in listOf(AccountPage.EMAIL, AccountPage.PASSWORD)) {
             requestGoogle(state, resend = false)
@@ -169,8 +167,7 @@ class AccountViewModel @Inject constructor(
     fun googleReauthenticationCancelled(requestId: Long) {
         if (pendingGoogleAction?.id != requestId) return
         pendingGoogleAction = null
-        _state.update { it.copy(isSaving = false, isResending = false, googleRequestId = null,
-            currentPassword = "", newPassword = "", confirmPassword = "") }
+        _state.update { it.copy(isSaving = false, isResending = false, googleRequestId = null) }
     }
 
     fun googleReauthenticationFailed(requestId: Long, message: String) {
@@ -194,7 +191,8 @@ class AccountViewModel @Inject constructor(
                 passwordError(result)
                 if (result.currentPasswordError != null) _state.update { it.copy(showResendPasswordDialog = true) }
                 when (val outcome = result.result) {
-                    is ContentResult.Success -> _state.update { it.copy(isSaving = false, isResending = false, code = "") }
+                    is ContentResult.Success -> _state.update { it.copy(isSaving = false, isResending = false, code = "",
+                        currentPassword = "", newPassword = "", confirmPassword = "") }
                     else -> failed(outcome, showCodeError = result.currentPasswordError == null)
                 }
             } else when (state.page) {
@@ -232,7 +230,8 @@ class AccountViewModel @Inject constructor(
         when (result) {
             is ContentResult.Success -> {
                 savedState["pendingNewEmail"] = email
-                _state.update { it.copy(email = email, code = "", isSaving = false) }
+                _state.update { it.copy(email = email, code = "", isSaving = false,
+                    currentPassword = "", newPassword = "", confirmPassword = "") }
                 show(AccountPage.CODE)
             }
             else -> failed(result)
@@ -245,7 +244,8 @@ class AccountViewModel @Inject constructor(
                 val old = (draft.profile as ContentViewState.Ready).content
                 val updated = if (draft.page == AccountPage.CODE) old.copy(email = draft.email, emailVerified = true)
                     else old.copy(linkedProviders = (old.linkedProviders + "PASSWORD").distinct())
-                _state.update { it.copy(profile = ContentViewState.Ready(updated)) }
+                _state.update { it.copy(profile = ContentViewState.Ready(updated),
+                    currentPassword = "", newPassword = "", confirmPassword = "") }
                 // The mutation already succeeded: a subsequent /me failure must never resubmit it.
                 val profile = manage.refreshProfile()
                 if (profile is ContentResult.Success) {
@@ -281,7 +281,7 @@ class AccountViewModel @Inject constructor(
     fun resend() {
         val state = _state.value
         if (state.page != AccountPage.CODE || state.isSaving || state.profile !is ContentViewState.Ready) return
-        _state.update { it.copy(currentPassword = "", newPassword = "", confirmPassword = "", googleError = null) }
+        _state.update { it.copy(googleError = null) }
         if (!state.hasPassword) {
             requestGoogle(state, resend = true)
             return

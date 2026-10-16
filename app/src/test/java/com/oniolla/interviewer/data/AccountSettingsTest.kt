@@ -4,7 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import com.google.gson.Gson
 import com.google.gson.JsonObject
-import com.oniolla.interviewer.domain.ManageAccountUseCase
+import com.oniolla.interviewer.domain.*
+import com.oniolla.interviewer.ui.AuthViewModel
+import com.oniolla.interviewer.ui.AuthViewModel.AuthViewState
 import com.oniolla.interviewer.ui.home.*
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
@@ -103,6 +105,8 @@ class AccountSettingsTest {
                             email = payload(request).get("newEmail").asString
                             credentials()
                         }
+                        path == "/auth/login" -> credentials()
+                        path == "/auth/register" -> """{"message":"Sent"}"""
                         path == "/auth/password/change" -> credentials()
                         path == "/auth/password/set" -> { providers = providers + "PASSWORD"; credentials() }
                         path == "/auth/refresh" -> """{"accessToken":"refreshed","refreshToken":"refreshed-refresh","expiresIn":900}"""
@@ -112,7 +116,9 @@ class AccountSettingsTest {
                         .code(status).message("Test").body(body.toResponseBody("application/json".toMediaType())).build()
                 }.build()
             val api = Retrofit.Builder().baseUrl("https://example.test/").client(client)
-                .addConverterFactory(GsonConverterFactory.create()).build().create(Api::class.java)
+                .addConverterFactory(GsonConverterFactory.create())
+                .addCallAdapterFactory(retrofit2.adapter.rxjava3.RxJava3CallAdapterFactory.create())
+                .build().create(Api::class.java)
             repository = AuthRepository(tokens, api, SessionRefreshCoordinator(tokens, api))
             manage = ManageAccountUseCase(repository)
         }
@@ -124,6 +130,18 @@ class AccountSettingsTest {
             Gson().fromJson(Buffer().also { request.body!!.writeTo(it) }.readUtf8(), JsonObject::class.java)
         fun calls(path: String) = requests.count { it.url.encodedPath == path }
         fun request(path: String) = requests.last { it.url.encodedPath == path }
+        fun authVm(): AuthViewModel {
+            val resend = ResendVerificationCodeUseCase(repository)
+            val resolve = ResolveAuthStateUseCase(repository, resend)
+            return AuthViewModel(RestoreSessionUseCase(repository, resolve),
+                LoginUseCase(repository, resend, resolve), SignupUseCase(repository),
+                ForgotPasswordUseCase(repository), VerifyEmailUseCase(repository, resolve),
+                resend, ClearSessionUseCase(repository), SelectSpecializationUseCase(repository, resolve),
+                GetPreparationLanguagesUseCase(repository), SelectPreparationLanguageUseCase(repository, resolve),
+                GoogleSignInUseCase(repository, resolve))
+                .also { stores += ViewModelStore().apply { put("auth", it) } }
+        }
+
         fun vm(handle: SavedStateHandle = SavedStateHandle()) =
             AccountViewModel(manage, handle).also { stores += ViewModelStore().apply { put("account", it) } }
     }
@@ -140,6 +158,96 @@ class AccountSettingsTest {
         vm.update(AccountField.CURRENT_PASSWORD, current)
         vm.update(AccountField.NEW_PASSWORD, next)
         vm.update(AccountField.CONFIRM_PASSWORD, next)
+    }
+
+    @Test fun authPasswordSurvivesActivityRecreationButNeverRestoresInANewViewModel() = runTest(dispatcher) {
+        val f = Fixture()
+        f.tokens.clear()
+        val controller = org.robolectric.Robolectric.buildActivity(androidx.activity.ComponentActivity::class.java).setup()
+        val factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T = f.authVm() as T
+        }
+        try {
+            val vm = androidx.lifecycle.ViewModelProvider(controller.get(), factory)[AuthViewModel::class.java]
+            vm.stateFlow.first { it is AuthViewState.Unauthorized.Login }
+            vm.passwordText.value = "login-password"
+            val configuration = android.content.res.Configuration(controller.get().resources.configuration)
+            configuration.orientation = android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            controller.configurationChange(configuration)
+            val recreated = androidx.lifecycle.ViewModelProvider(controller.get(), factory)[AuthViewModel::class.java]
+            assertSame(vm, recreated)
+            assertEquals("login-password", recreated.passwordText.value)
+            recreated.showSignup()
+            assertEquals("", recreated.passwordText.value)
+            recreated.passwordText.value = "signup-password"
+            configuration.orientation = android.content.res.Configuration.ORIENTATION_PORTRAIT
+            controller.configurationChange(configuration)
+            val signup = androidx.lifecycle.ViewModelProvider(controller.get(), factory)[AuthViewModel::class.java]
+            assertSame(vm, signup)
+            assertEquals("signup-password", signup.passwordText.value)
+            assertEquals("", f.authVm().passwordText.value)
+            signup.showLogin()
+            assertEquals("", signup.passwordText.value)
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test fun loginKeepsPasswordAfterValidationAndServerErrorsAndClearsOnSuccess() = runTest(dispatcher) {
+        val f = Fixture()
+        f.tokens.clear()
+        val vm = f.authVm()
+        vm.stateFlow.first { it is AuthViewState.Unauthorized.Login }
+        vm.passwordText.value = "short"
+        vm.login("not-email", vm.passwordText.value)
+        assertEquals("short", vm.passwordText.value)
+        assertEquals(0, f.calls("/auth/login"))
+        vm.passwordText.value = "login-password"
+        f.failPath = "/auth/login"
+        vm.login("developer@example.com", vm.passwordText.value)
+        vm.stateFlow.first { it is AuthViewState.Unauthorized.Login && !it.isLoading }
+        assertEquals("login-password", vm.passwordText.value)
+        assertEquals(1, f.calls("/auth/login"))
+        assertTrue(vm.beginGoogleSignIn())
+        vm.googleSignInCancelled()
+        assertEquals("login-password", vm.passwordText.value)
+        f.failPath = null
+        vm.login("developer@example.com", vm.passwordText.value)
+        vm.stateFlow.first { it is AuthViewState.Authorized }
+        assertEquals("", vm.passwordText.value)
+    }
+
+    @Test fun signupKeepsPasswordAfterValidationAndServerErrorsAndClearsOnSuccess() = runTest(dispatcher) {
+        io.reactivex.rxjava3.android.plugins.RxAndroidPlugins.setMainThreadSchedulerHandler {
+            io.reactivex.rxjava3.schedulers.Schedulers.trampoline()
+        }
+        try {
+            val f = Fixture()
+            f.tokens.clear()
+            val vm = f.authVm()
+            vm.stateFlow.first { it is AuthViewState.Unauthorized.Login }
+            vm.showSignup()
+            vm.passwordText.value = "short"
+            vm.signup("", "not-email", vm.passwordText.value)
+            assertEquals("short", vm.passwordText.value)
+            assertEquals(0, f.calls("/auth/register"))
+            vm.passwordText.value = "signup-password"
+            f.failPath = "/auth/register"
+            vm.signup("Developer", "developer@example.com", vm.passwordText.value)
+            vm.stateFlow.first { it is AuthViewState.Unauthorized.SignUp && !it.isLoading }
+            assertEquals("signup-password", vm.passwordText.value)
+            assertEquals(1, f.calls("/auth/register"))
+            assertTrue(vm.beginGoogleSignIn())
+            vm.googleSignInFailed("Google unavailable")
+            assertEquals("signup-password", vm.passwordText.value)
+            f.failPath = null
+            vm.signup("Developer", "developer@example.com", vm.passwordText.value)
+            vm.stateFlow.first { it is AuthViewState.Unauthorized.EmailConfirmation }
+            assertEquals("", vm.passwordText.value)
+        } finally {
+            io.reactivex.rxjava3.android.plugins.RxAndroidPlugins.reset()
+        }
     }
 
     @Test fun rejectedGoogleProofKeepsSessionAndAllowsFreshRetryForRequestResendAndSetup() = runTest(dispatcher) {
@@ -173,8 +281,8 @@ class AccountSettingsTest {
                 assertEquals(f.failMessage, vm.state.value.googleError)
                 assertNull(vm.state.value.googleRequestId)
                 assertEquals("", vm.state.value.currentPassword)
-                assertEquals("", vm.state.value.newPassword)
-                assertEquals("", vm.state.value.confirmPassword)
+                assertEquals(if (path == "/auth/password/set") "newpassword" else "", vm.state.value.newPassword)
+                assertEquals(if (path == "/auth/password/set") "newpassword" else "", vm.state.value.confirmPassword)
                 assertEquals(if (expiredBearer) 1 else 0, f.calls("/auth/refresh"))
                 if (expiredBearer) {
                     assertEquals("refreshed", f.tokens.accessToken)
@@ -348,9 +456,9 @@ class AccountSettingsTest {
         vm.update(AccountField.CONFIRM_PASSWORD, "otherpassword")
         vm.submit()
         assertEquals("Passwords do not match", vm.state.value.errors[AccountField.CONFIRM_PASSWORD])
-        assertEquals("", vm.state.value.currentPassword)
-        assertEquals("", vm.state.value.newPassword)
-        assertEquals("", vm.state.value.confirmPassword)
+        assertEquals("currentpass", vm.state.value.currentPassword)
+        assertEquals("newpassword", vm.state.value.newPassword)
+        assertEquals("otherpassword", vm.state.value.confirmPassword)
         assertEquals(0, f.calls("/auth/password/change"))
     }
 
@@ -393,19 +501,19 @@ class AccountSettingsTest {
         assertTrue(vm.state.value.hasPassword)
     }
 
-    @Test fun failedPasswordSetupClearsSecretsAndDoesNotRestoreThem() = runTest(dispatcher) {
+    @Test fun failedPasswordSetupKeepsSecretsOnlyInMemoryAndDoesNotRestoreThem() = runTest(dispatcher) {
         val f = Fixture().apply { providers = listOf("GOOGLE"); failPath = "/auth/password/set" }
         val handle = SavedStateHandle()
         val vm = f.vm(handle)
         open(vm)
         password(vm, "")
         vm.submit()
-        assertEquals("", vm.state.value.newPassword)
-        assertEquals("", vm.state.value.confirmPassword)
+        assertEquals("newpassword", vm.state.value.newPassword)
+        assertEquals("newpassword", vm.state.value.confirmPassword)
         vm.googleTokenReceived(requireNotNull(vm.state.value.googleRequestId), "fresh-google-token")
         vm.state.first { !it.isSaving }
         assertEquals(AccountPage.PASSWORD, vm.state.value.page)
-        assertEquals("", vm.state.value.newPassword)
+        assertEquals("newpassword", vm.state.value.newPassword)
         assertEquals("", vm.state.value.currentPassword)
         assertEquals("newpassword", f.payload(f.request("/auth/password/set")).get("password").asString)
         assertFalse(handle.keys().any { it.contains("password", ignoreCase = true) })
@@ -431,7 +539,7 @@ class AccountSettingsTest {
             vm.update(AccountField.NEW_PASSWORD, "changedvalue")
             vm.edit(AccountPage.EMAIL)
             assertEquals(AccountPage.PASSWORD, vm.state.value.page)
-            assertEquals("", vm.state.value.newPassword)
+            assertEquals("newpassword", vm.state.value.newPassword)
             assertEquals(1, f.calls("/auth/password/change"))
         } finally { release.countDown() }
         finished(vm)
@@ -491,9 +599,9 @@ class AccountSettingsTest {
         assertEquals(0, f.calls("/auth/refresh"))
         assertEquals(1, f.calls("/auth/password/change"))
         assertEquals(1, f.calls("/me"))
-        assertEquals("", vm.state.value.currentPassword)
-        assertEquals("", vm.state.value.newPassword)
-        assertEquals("", vm.state.value.confirmPassword)
+        assertEquals("wrongpassword", vm.state.value.currentPassword)
+        assertEquals("newpassword", vm.state.value.newPassword)
+        assertEquals("newpassword", vm.state.value.confirmPassword)
         vm.update(AccountField.CURRENT_PASSWORD, "currentpass")
         vm.update(AccountField.NEW_PASSWORD, "newpassword")
         vm.update(AccountField.CONFIRM_PASSWORD, "newpassword")
@@ -599,7 +707,7 @@ class AccountSettingsTest {
         assertEquals(1, f.calls("/auth/password/change"))
     }
 
-    @Test fun failedPasswordMutationClearsSecretsAndDoesNotReplaceTokens() = runTest(dispatcher) {
+    @Test fun failedPasswordMutationKeepsSecretsAndDoesNotReplaceTokens() = runTest(dispatcher) {
         val f = Fixture().apply { failPath = "/auth/password/change" }
         val vm = f.vm()
         open(vm)
@@ -607,9 +715,9 @@ class AccountSettingsTest {
         vm.submit()
         vm.state.first { !it.isSaving }
         assertEquals(AccountPage.PASSWORD, vm.state.value.page)
-        assertEquals("", vm.state.value.currentPassword)
-        assertEquals("", vm.state.value.newPassword)
-        assertEquals("", vm.state.value.confirmPassword)
+        assertEquals("currentpass", vm.state.value.currentPassword)
+        assertEquals("newpassword", vm.state.value.newPassword)
+        assertEquals("newpassword", vm.state.value.confirmPassword)
         assertFalse(vm.state.value.changed)
         assertEquals("access", f.tokens.accessToken)
         assertEquals("refresh", f.tokens.refreshToken)
@@ -696,11 +804,11 @@ class AccountSettingsTest {
         password(vm, "")
         vm.submit()
         val first = requireNotNull(vm.state.value.googleRequestId)
-        assertEquals("", vm.state.value.newPassword)
+        assertEquals("newpassword", vm.state.value.newPassword)
         vm.googleReauthenticationCancelled(first)
         assertFalse(vm.state.value.isSaving)
         assertNull(vm.state.value.googleRequestId)
-        assertEquals("", vm.state.value.confirmPassword)
+        assertEquals("newpassword", vm.state.value.confirmPassword)
         vm.googleTokenReceived(first, "late-token")
         assertEquals(0, f.calls("/auth/password/set"))
         password(vm, "")
@@ -731,7 +839,7 @@ class AccountSettingsTest {
         vm.state.first { !it.isSaving }
         assertEquals(AccountPage.EMAIL, vm.state.value.page)
         assertEquals("Current password is incorrect.", vm.state.value.errors[AccountField.CURRENT_PASSWORD])
-        assertEquals("", vm.state.value.currentPassword)
+        assertEquals("wrongpassword", vm.state.value.currentPassword)
         assertFalse(vm.state.value.sessionExpired)
         assertEquals(session, f.tokens.snapshot())
         assertEquals(0, f.calls("/auth/refresh"))
@@ -751,7 +859,7 @@ class AccountSettingsTest {
         vm.resend()
         vm.state.first { !it.isSaving }
         assertTrue(vm.state.value.showResendPasswordDialog)
-        assertEquals("", vm.state.value.currentPassword)
+        assertEquals("wrongpassword", vm.state.value.currentPassword)
         assertEquals("Current password is incorrect.", vm.state.value.errors[AccountField.CURRENT_PASSWORD])
         assertNull(vm.state.value.errors[AccountField.CODE])
         assertEquals(session, f.tokens.snapshot())

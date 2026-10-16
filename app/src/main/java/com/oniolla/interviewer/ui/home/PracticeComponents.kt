@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oniolla.interviewer.R
@@ -104,14 +105,15 @@ internal fun PracticeQuestionCard(question: QuestionResponse, interview: Boolean
 }
 
 @Composable
-internal fun PracticeInfo(title: String? = null, text: String) {
+internal fun PracticeInfo(title: String? = null, text: String,
+    textSize: TextUnit = if (title == null) 10.sp else 9.sp) {
     Surface(shape = RoundedCornerShape(14.dp), color = AppTheme.colors.info.copy(alpha = 0.07f)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PracticeIcon(R.drawable.practice_ai_note, 20.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (title != null) Text(title, color = AppTheme.colors.info, fontSize = 11.sp,
                     lineHeight = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(text, color = AppTheme.colors.secondaryText, fontSize = if (title == null) 10.sp else 9.sp,
+                Text(text, color = AppTheme.colors.secondaryText, fontSize = textSize,
                     lineHeight = 13.sp)
             }
         }

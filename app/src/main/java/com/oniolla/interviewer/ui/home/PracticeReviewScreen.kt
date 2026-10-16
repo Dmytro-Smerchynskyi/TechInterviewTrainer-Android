@@ -63,7 +63,7 @@ internal fun PracticeReviewScreen(state: PracticeViewState, onBack: () -> Unit,
             ReviewAnswer(state, result.userAnswer ?: state.answer)
             if (!result.overallFeedback.isNullOrBlank()) {
                 Spacer(Modifier.height(14.dp))
-                PracticeInfo(stringResource(R.string.practice_feedback), result.overallFeedback, textSize = 10.sp)
+                PracticeInfo(stringResource(R.string.practice_feedback), result.overallFeedback)
             }
             if (result.strengths.isNotEmpty() || result.improvements.isNotEmpty()) {
                 Spacer(Modifier.height(14.dp))

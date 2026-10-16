@@ -39,7 +39,7 @@ object NetworkModule {
                     addInterceptor { chain ->
                         // Reauthentication proofs and rotated credentials must never appear in body logs.
                         val path = chain.request().url.encodedPath
-                        val sensitive = listOf("/auth/google", "/auth/password/set", "/auth/password/change",
+                        val sensitive = listOf("/auth/logout", "/auth/google", "/auth/password/set", "/auth/password/change",
                             "/auth/email/change/request", "/auth/email/change/resend", "/auth/email/change/confirm")
                         if (sensitive.any(path::endsWith)) chain.proceed(chain.request())
                         else httpLogger.intercept(chain)

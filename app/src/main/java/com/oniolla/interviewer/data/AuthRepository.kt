@@ -23,6 +23,9 @@ import io.reactivex.rxjava3.core.Single
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import com.oniolla.interviewer.data.payload.RefreshPayload
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
@@ -53,6 +56,28 @@ class AuthRepository @Inject constructor(
     suspend fun clearUserData() {
         clearSession()
         localUserData?.clear()
+    }
+
+    suspend fun logout() {
+        val session = tokenStorage.snapshot()
+        try {
+            session.refreshToken?.takeIf { it.isNotBlank() }?.let {
+                // Revoke this refresh token directly; logout must never refresh or retry itself.
+                apiCall { api.logout(RefreshPayload(it)) }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: ApiException) {
+            // Offline or already revoked: still allow the user to leave this device.
+        } finally {
+            withContext(NonCancellable) {
+                val cleared = synchronized(tokenStorage) {
+                    if (tokenStorage.sessionVersion != session.version) false
+                    else { clearSession(); true }
+                }
+                if (cleared) localUserData?.clear()
+            }
+        }
     }
 
     suspend fun login(loginPayload: LoginPayload): LoginResponse =

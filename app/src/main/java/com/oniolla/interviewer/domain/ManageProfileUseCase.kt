@@ -31,5 +31,5 @@ class ManageProfileUseCase @Inject constructor(
         }
     }
     fun setTheme(value: ThemeMode) = preferences.setTheme(value)
-    suspend fun signOut() = loadContent { authRepository.clearUserData() }
+    suspend fun signOut() = loadContent { authRepository.logout() }
 }

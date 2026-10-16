@@ -171,6 +171,9 @@ interface Api {
     @POST("auth/refresh")
     suspend fun refresh(@Body refreshPayload: RefreshPayload): LoginResponse
 
+    @POST("auth/logout")
+    suspend fun logout(@Body payload: RefreshPayload)
+
     @GET("me")
     suspend fun me(@Tag session: SessionSnapshot? = null): MeResponse
 

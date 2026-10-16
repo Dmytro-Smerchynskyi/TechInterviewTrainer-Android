@@ -9,7 +9,7 @@ internal class SessionAuthorizationInterceptor(
     baseUrl: String = API_BASE_URL
 ) : Interceptor {
     private val apiUrl = baseUrl.toHttpUrl()
-    private val publicPaths = setOf("auth/refresh", "auth/login", "auth/register",
+    private val publicPaths = setOf("auth/refresh", "auth/logout", "auth/login", "auth/register",
         "auth/email/verify", "auth/email/resend-code", "auth/password/forgot")
         .mapNotNull { apiUrl.resolve(it)?.encodedPath }.toSet()
 

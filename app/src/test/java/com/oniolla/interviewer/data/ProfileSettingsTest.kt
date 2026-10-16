@@ -74,6 +74,9 @@ class ProfileSettingsTest {
         var streak = 7
         var updateStatus = 200
         var usageStatus = 200
+        var logoutStatus = 204
+        var logoutOffline = false
+        var beforeLogout: (() -> Unit)? = null
         var reveals = 8
         var beforeUsage: (() -> Unit)? = null
         var beforeDashboard: (() -> Unit)? = null
@@ -84,11 +87,18 @@ class ProfileSettingsTest {
         val manage: ManageProfileUseCase
 
         init {
-            val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val client = OkHttpClient.Builder()
+                .addInterceptor(SessionAuthorizationInterceptor(tokens, "https://api.example.test/"))
+                .addInterceptor { chain ->
                 val request = chain.request()
                 requests.add(request)
                 val path = request.url.encodedPath
-                val code = if (path == "/me/usage") usageStatus else if (request.method == "PUT") updateStatus else 200
+                if (path == "/auth/logout") {
+                    beforeLogout?.invoke()
+                    if (logoutOffline) throw java.io.IOException("Offline")
+                }
+                val code = if (path == "/auth/logout") logoutStatus
+                    else if (path == "/me/usage") usageStatus else if (request.method == "PUT") updateStatus else 200
                 if (request.method == "PUT") beforeUpdate?.invoke()
                 val body = if (code >= 400) """{"error":{"code":"FAILED","message":"Unable to update profile"}}"""
                     else when (path) {
@@ -120,6 +130,7 @@ class ProfileSettingsTest {
                             beforeStats?.invoke()
                             body
                         }
+                        "/auth/logout" -> ""
                         "/auth/register" -> """{"message":"Account created"}"""
                         else -> error("Unexpected path $path")
                     }
@@ -511,6 +522,14 @@ class ProfileSettingsTest {
         readyProfile(vm)
         vm.signOut()
         vm.state.first { it.signedOut }
+        val request = f.requests.single { it.url.encodedPath == "/auth/logout" }
+        assertEquals("POST", request.method)
+        assertNull(request.url.query)
+        assertNull(request.header("Authorization"))
+        val body = Gson().fromJson(Buffer().also { request.body!!.writeTo(it) }.readUtf8(), JsonObject::class.java)
+        assertEquals(setOf("refreshToken"), body.keySet())
+        assertEquals("refresh", body["refreshToken"].asString)
+        assertEquals(0, f.calls("/auth/refresh"))
         assertNull(f.tokens.accessToken)
         assertNull(f.tokens.refreshToken)
         assertFalse(f.database.topicDao().hasCatalog("seed"))
@@ -521,6 +540,77 @@ class ProfileSettingsTest {
         assertSame(ContentViewState.NotLoaded, vm.state.value.profile)
         assertNull(f.manage.currentUsage())
         assertNull(f.home.currentUsage())
+    }
+
+    @Test fun logoutStillClearsLocalDataWhenOfflineOrRejectedAndNeverRefreshes() = runTest(dispatcher) {
+        for (failure in listOf("offline", "unauthorized", "server")) {
+            val f = Fixture()
+            f.seedData()
+            f.logoutOffline = failure == "offline"
+            f.logoutStatus = if (failure == "unauthorized") 401 else 500
+            val vm = f.profileVm()
+            vm.signOut()
+            vm.state.first { it.signedOut }
+            assertEquals(1, f.calls("/auth/logout"))
+            assertEquals(0, f.calls("/auth/refresh"))
+            assertNull(f.tokens.accessToken)
+            assertNull(f.tokens.refreshToken)
+            assertFalse(f.database.topicDao().hasCatalog("seed"))
+            assertTrue(f.prefs.all.isEmpty())
+            assertNull(f.cache.observe(f.tokens.sessionVersion).first())
+        }
+    }
+
+    @Test fun logoutWithoutRefreshTokenSkipsRequestButClearsLocalData() = runTest(dispatcher) {
+        val f = Fixture()
+        f.seedData()
+        f.tokens.refreshToken = null
+        val vm = f.profileVm()
+        vm.signOut()
+        vm.state.first { it.signedOut }
+        assertEquals(0, f.calls("/auth/logout"))
+        assertEquals(0, f.calls("/auth/refresh"))
+        assertNull(f.tokens.accessToken)
+        assertFalse(f.database.topicDao().hasCatalog("seed"))
+        assertTrue(f.prefs.all.isEmpty())
+    }
+
+    @Test fun logoutLocksUiAndIgnoresDuplicateClicksUntilRevocationCompletes() = runTest(dispatcher) {
+        val started = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val f = Fixture()
+        f.seedData()
+        f.beforeLogout = { started.complete(Unit); check(release.await(5, TimeUnit.SECONDS)) }
+        val vm = f.profileVm()
+        try {
+            vm.signOut()
+            started.await()
+            assertTrue(vm.state.value.isSigningOut)
+            assertFalse(vm.state.value.signedOut)
+            assertEquals("refresh", f.tokens.refreshToken)
+            vm.signOut()
+            assertEquals(1, f.calls("/auth/logout"))
+        } finally { release.countDown() }
+        vm.state.first { it.signedOut }
+        assertNull(f.tokens.refreshToken)
+    }
+
+    @Test fun lateLogoutCannotClearANewerSession() = runTest(dispatcher) {
+        val started = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val f = Fixture()
+        f.seedData()
+        f.beforeLogout = { started.complete(Unit); check(release.await(5, TimeUnit.SECONDS)) }
+        val logout = async { f.auth.logout() }
+        try {
+            started.await()
+            f.tokens.saveSession("other-access", "other-refresh")
+        } finally { release.countDown() }
+        logout.await()
+        assertEquals("other-access", f.tokens.accessToken)
+        assertEquals("other-refresh", f.tokens.refreshToken)
+        assertTrue(f.database.topicDao().hasCatalog("seed"))
+        assertEquals(1, f.calls("/auth/logout"))
     }
 
     @Test fun signupUsesTheSameDataCleanupBeforeRegisteringAnotherAccount() = runTest(dispatcher) {

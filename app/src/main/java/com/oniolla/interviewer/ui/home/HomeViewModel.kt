@@ -74,6 +74,7 @@ class HomeViewModel @Inject constructor(
     private val _uiEventsFlow = MutableSharedFlow<UiEvent>()
     val uiEventsFlow = _uiEventsFlow.asSharedFlow()
     private var answerJob: Job? = null
+    private var questionRefreshJob: Job? = null
     private var questionUsageJob: Job? = null
     private var detailGeneration = 0
     private val revealedQuestionIds = mutableSetOf<Long>()
@@ -128,6 +129,7 @@ class HomeViewModel @Inject constructor(
 
     fun openQuestion(question: QuestionResponse) {
         answerJob?.cancel()
+        questionRefreshJob?.cancel()
         questionUsageJob?.cancel()
         detailGeneration++
         val current = applySavedChanges(listOf(question)).single()
@@ -138,6 +140,7 @@ class HomeViewModel @Inject constructor(
 
     fun closeQuestion() {
         answerJob?.cancel()
+        questionRefreshJob?.cancel()
         questionUsageJob?.cancel()
         detailGeneration++
         _stateFlow.update { it.copy(questionDetail = null) }
@@ -644,12 +647,32 @@ class HomeViewModel @Inject constructor(
         _stateFlow.update { it.copy(paywallOpen = false) }
     }
 
-    fun refreshAfterPractice() {
+    fun refreshAfterPractice(questionId: Long? = null) {
+        questionId?.let(::refreshPracticedQuestion)
         favoritesDirty = true
         loadDashboard()
         loadStats()
         if (_stateFlow.value.questions is ContentViewState.Ready) loadQuestions()
         if (_stateFlow.value.favorites is ContentViewState.Ready) loadFavorites()
+    }
+
+    private fun refreshPracticedQuestion(questionId: Long) {
+        questionRefreshJob?.cancel()
+        val generation = detailGeneration
+        questionRefreshJob = viewModelScope.launch {
+            val result = getQuestionsUseCase.question(questionId)
+            currentCoroutineContext().ensureActive()
+            if (generation != detailGeneration) return@launch
+            when (result) {
+                is ContentResult.Success -> _stateFlow.update { state ->
+                    val detail = state.questionDetail?.takeIf { it.question.id == questionId } ?: return@update state
+                    state.copy(questionDetail = detail.copy(
+                        question = applySavedChanges(listOf(result.content)).single()))
+                }
+                is ContentResult.Error -> _uiEventsFlow.emit(UiEvent.Toast(result.message))
+                ContentResult.SessionExpired -> _stateFlow.update { it.copy(sessionExpired = true) }
+            }
+        }
     }
 
     fun loadDashboard() = refreshDashboard(refreshProfile = false)

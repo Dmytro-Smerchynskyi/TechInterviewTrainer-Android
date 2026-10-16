@@ -59,6 +59,9 @@ class HomeRepository @Inject constructor(
         if (saved) api.saveQuestion(questionId, it) else api.unsaveQuestion(questionId, it)
     }
 
+    suspend fun getQuestion(questionId: Long): com.oniolla.interviewer.data.model.QuestionResponse =
+        sessionRefresh.authorizedApiCall { api.question(questionId, it) }
+
     suspend fun getQuestionAnswer(questionId: Long): QuestionAnswerResponse =
         sessionRefresh.authorizedApiCall { api.questionAnswer(questionId, it) }
 

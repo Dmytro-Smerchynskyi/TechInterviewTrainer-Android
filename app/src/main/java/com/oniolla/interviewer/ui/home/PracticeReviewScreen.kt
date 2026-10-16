@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -37,6 +38,8 @@ internal fun PracticeReviewScreen(state: PracticeViewState, onBack: () -> Unit,
     onContinue: () -> Unit = onBack, continueText: String? = null, loading: Boolean = false,
     header: (@Composable () -> Unit)? = null, error: String? = null) {
     val result = state.result ?: return
+    // Each evaluation opens at the top; do not restore another visit's saved scroll position.
+    val scrollState = remember(result.id) { ScrollState(0) }
     Scaffold(containerColor = AppTheme.colors.background,
         bottomBar = { ReviewActions {
             error?.let { Text(it, color = AppTheme.colors.red, fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp)) }
@@ -45,7 +48,7 @@ internal fun PracticeReviewScreen(state: PracticeViewState, onBack: () -> Unit,
         } },
         topBar = { if (header != null) header() else PracticeHeader(stringResource(R.string.practice_review_title), onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
-            .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+            .verticalScroll(scrollState).padding(horizontal = 20.dp)) {
             Spacer(Modifier.height(17.dp))
             PracticeScoreCard(state)
             Spacer(Modifier.height(18.dp))

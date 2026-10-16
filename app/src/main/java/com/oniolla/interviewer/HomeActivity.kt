@@ -74,7 +74,7 @@ class HomeActivity : ComponentActivity() {
                 }
                 val screenStateHolder = rememberSaveableStateHolder()
                 LaunchedEffect(practiceState.result?.id) {
-                    if (practiceViewModel.takeContentRefresh()) viewModel.refreshAfterPractice()
+                    if (practiceViewModel.takeContentRefresh()) viewModel.refreshAfterPractice(practiceState.question?.id)
                 }
                 LaunchedEffect(profileState.page) {
                     if (profileState.page == ProfilePage.ACCOUNT) {

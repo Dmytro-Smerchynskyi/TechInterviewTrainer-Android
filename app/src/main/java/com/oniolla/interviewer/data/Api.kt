@@ -123,6 +123,10 @@ interface Api {
         @Query("mastered") mastered: Boolean? = null
     ): QuestionsResponse
 
+    @GET("questions/{id}")
+    suspend fun question(@Path("id") questionId: Long, @Tag session: SessionSnapshot? = null):
+        com.oniolla.interviewer.data.model.QuestionResponse
+
     @POST("questions/{id}/evaluate")
     suspend fun evaluateQuestion(
         @Path("id") questionId: Long,

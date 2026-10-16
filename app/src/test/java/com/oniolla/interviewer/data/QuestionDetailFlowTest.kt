@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import com.google.gson.Gson
 import com.oniolla.interviewer.data.model.QuestionResponse
+import com.oniolla.interviewer.data.model.QuestionProgress
 import com.oniolla.interviewer.data.model.QuestionTopic
 import com.oniolla.interviewer.domain.*
 import com.oniolla.interviewer.ui.UiEvent
@@ -49,6 +50,11 @@ class QuestionDetailFlowTest {
         var reveals = 8
         var aiReviews = 12
         var answerStatus = 200
+        var questionStatus = 200
+        var evaluationStatus = 200
+        var lastScore: Double? = null
+        var beforeQuestion: (() -> Unit)? = null
+        var questionResponseId: Long? = null
         var usageStatus = 200
         var savedStatus = 204
         var refreshStatus = 200
@@ -70,8 +76,11 @@ class QuestionDetailFlowTest {
                     val path = request.url.encodedPath
                     val answer = path.matches(Regex("/questions/\\d+/answer"))
                     val saved = path.matches(Regex("/questions/\\d+/saved"))
+                    val singleQuestion = path.matches(Regex("/questions/\\d+"))
                     val status = when {
-                        answer && expireAccess && request.header("Authorization") == "Bearer access" -> 401
+                        (answer || singleQuestion) && expireAccess && request.header("Authorization") == "Bearer access" -> 401
+                        singleQuestion -> questionStatus
+                        path == "/questions/4/evaluate" -> evaluationStatus
                         answer -> answerStatus
                         saved -> savedStatus
                         path == "/me/usage" -> usageStatus
@@ -79,8 +88,10 @@ class QuestionDetailFlowTest {
                         else -> 200
                     }
                     if (answer) beforeAnswer?.invoke()
+                    if (singleQuestion) beforeQuestion?.invoke()
                     val body = if (status >= 400) {
-                        val code = if (status == 401) "UNAUTHORIZED" else "FAILED"
+                        val code = if (status == 401) "UNAUTHORIZED"
+                            else if (path.endsWith("/evaluate") && status == 400) "AI_EVALUATION_LIMIT_EXCEEDED" else "FAILED"
                         """{"error":{"code":"$code","message":"Request failed"}}"""
                     } else when {
                         answer -> {
@@ -88,6 +99,12 @@ class QuestionDetailFlowTest {
                             serverAnswerRevealed = true
                             val id = answerQuestionId ?: request.url.pathSegments[1].toLong()
                             """{"questionId":$id,"referenceAnswer":"Reference answer $id","language":"en","requestedLanguage":"en"}"""
+                        }
+                        singleQuestion -> Gson().toJson(question(questionResponseId ?: request.url.pathSegments[1].toLong()))
+                        path == "/questions/4/evaluate" -> {
+                            lastScore = 93.0
+                            """{"id":"attempt-1","questionId":4,"score":82,"overallScore":82,"context":"PRACTICE",
+                                "userAnswer":"My answer","overallFeedback":"Feedback","grade":"MIDDLE"}"""
                         }
                         saved -> { serverSaved = request.method == "PUT"; "" }
                         path == "/me/usage" -> usage()
@@ -119,11 +136,14 @@ class QuestionDetailFlowTest {
         }
         fun question(id: Long = 4) = QuestionResponse(id, "Question $id", "ANDROID",
             QuestionTopic(7, "flow", "Flow"), "MEDIUM", "JUNIOR", "SENIOR", listOf("Flow"), serverSaved,
-            answerRevealed = serverAnswerRevealed)
+            answerRevealed = serverAnswerRevealed,
+            progress = lastScore?.let { QuestionProgress(id, 2, it, 70.0, null, null, false, null) })
 
         private fun usage() = """{"plan":"FREE","answerReveals":{"used":${20 - reveals},"limit":20,"remaining":$reveals},
             "aiEvaluations":{"used":${20 - aiReviews},"reserved":0,"limit":20,"remaining":$aiReviews,
                 "periodEndsAt":null,"resetAt":null},"questions":{"unlimited":true,"limitPerTopic":null}}"""
+        fun practiceVm() = PracticeViewModel(EvaluateQuestionUseCase(repository), SavedStateHandle())
+            .also { stores += ViewModelStore().apply { put("practice", it) } }
         fun calls(path: String) = requests.count { it.url.encodedPath == path }
         fun vm() = HomeViewModel(GetDashboardUseCase(repository, auth), GetTopicsUseCase(repository),
             GetQuestionsUseCase(repository), SavedStateHandle(mapOf("homeTab" to "QUESTIONS")),
@@ -147,6 +167,124 @@ class QuestionDetailFlowTest {
     }
     private fun detail(vm: HomeViewModel) = requireNotNull(vm.stateFlow.value.questionDetail)
     private fun list(vm: HomeViewModel) = (vm.stateFlow.value.questions as ContentViewState.Ready).content
+
+    @Test fun successfulPracticeFetchesServerLastScoreAndPreservesCachedAnswerAndSavedState() = runTest(dispatcher) {
+        val f = Fixture().apply { lastScore = 35.0 }
+        val vm = f.vm()
+        ready(vm)
+        open(vm, f.question())
+        vm.revealQuestionAnswer()
+        revealed(vm)
+        val answer = detail(vm).answer
+        vm.toggleQuestionSaved(4)
+        val practice = f.practiceVm()
+        practice.open(detail(vm).question)
+        practice.continueToAnswer()
+        practice.setMode(AnswerMode.TEXT)
+        practice.updateAnswer("My answer")
+        practice.evaluateAnswer()
+        practice.state.first { it.page == PracticePage.REVIEW }
+        assertEquals(82, practice.state.value.result!!.displayedScore)
+        // Evaluation does not itself unlock a reveal; retain the local reveal/cache state.
+        f.serverAnswerRevealed = false
+        assertTrue(practice.takeContentRefresh())
+        vm.refreshAfterPractice(practice.state.value.question!!.id)
+        vm.stateFlow.first { it.questionDetail?.question?.progress?.lastScore == 93.0 }
+        assertFalse(practice.takeContentRefresh())
+        assertEquals(2, detail(vm).question.progress!!.attempts)
+        assertEquals(70.0, detail(vm).question.progress!!.masteryScore, 0.0)
+        assertTrue(detail(vm).question.saved)
+        assertTrue(detail(vm).question.answerRevealed)
+        assertSame(answer, detail(vm).answer)
+        assertTrue(detail(vm).isAnswerVisible)
+        val request = f.requests.single { it.url.encodedPath == "/questions/4" }
+        assertEquals("GET", request.method)
+        assertEquals("Bearer access", request.header("Authorization"))
+        assertNull(request.body)
+        assertNull(request.url.query)
+        assertEquals(1, f.calls("/questions/4/evaluate"))
+    }
+
+    @Test fun failedQuestionRefreshKeepsSuccessfulEvaluationAndPreviousDetail() = runTest(dispatcher) {
+        val f = Fixture().apply { lastScore = 35.0; questionStatus = 500 }
+        val vm = f.vm()
+        ready(vm)
+        open(vm, f.question())
+        val practice = f.practiceVm()
+        practice.open(detail(vm).question)
+        practice.continueToAnswer()
+        practice.setMode(AnswerMode.TEXT)
+        practice.updateAnswer("My answer")
+        practice.evaluateAnswer()
+        practice.state.first { it.page == PracticePage.REVIEW }
+        val toast = async(start = CoroutineStart.UNDISPATCHED) { vm.uiEventsFlow.first() }
+        if (practice.takeContentRefresh()) vm.refreshAfterPractice(4)
+        assertEquals(UiEvent.Toast("Request failed"), toast.await())
+        assertEquals(35.0, detail(vm).question.progress!!.lastScore, 0.0)
+        assertEquals(PracticePage.REVIEW, practice.state.value.page)
+        assertFalse(vm.stateFlow.value.sessionExpired)
+        assertEquals(1, f.calls("/questions/4/evaluate"))
+    }
+
+    @Test fun unsuccessfulPracticeAndInterviewRefreshDoNotFetchIndividualQuestion() = runTest(dispatcher) {
+        for (status in listOf(400, 500)) {
+            val f = Fixture().apply { evaluationStatus = status }
+            val vm = f.vm()
+            ready(vm)
+            open(vm, f.question())
+            val practice = f.practiceVm()
+            practice.open(detail(vm).question)
+            practice.continueToAnswer()
+            practice.setMode(AnswerMode.TEXT)
+            practice.updateAnswer("My answer")
+            practice.evaluateAnswer()
+            practice.state.first { it.page == PracticePage.LIMIT ||
+                (it.page == PracticePage.ANSWERING && it.answerError != null) }
+            assertFalse(practice.takeContentRefresh())
+            vm.refreshAfterPractice() // Interview calls the shared refresh without a practice question ID.
+            runCurrent()
+            assertEquals(0, f.calls("/questions/4"))
+        }
+    }
+
+    @Test fun practicedQuestionRefreshRenewsExpiredAccessAndIgnoresMismatchedResponseId() = runTest(dispatcher) {
+        val f = Fixture().apply { lastScore = 35.0 }
+        val vm = f.vm()
+        ready(vm)
+        open(vm, f.question())
+        f.lastScore = 75.0
+        f.expireAccess = true
+        vm.refreshAfterPractice(4)
+        vm.stateFlow.first { it.questionDetail?.question?.progress?.lastScore == 75.0 }
+        assertEquals(1, f.calls("/auth/refresh"))
+        assertEquals(listOf("Bearer access", "Bearer renewed"),
+            f.requests.filter { it.url.encodedPath == "/questions/4" }.map { it.header("Authorization") })
+        f.questionResponseId = 5
+        f.lastScore = 99.0
+        val toast = async(start = CoroutineStart.UNDISPATCHED) { vm.uiEventsFlow.first() }
+        vm.refreshAfterPractice(4)
+        assertEquals(UiEvent.Toast("Response belongs to another question"), toast.await())
+        assertEquals(4L, detail(vm).question.id)
+        assertEquals(75.0, detail(vm).question.progress!!.lastScore, 0.0)
+    }
+
+    @Test fun latePracticedQuestionResponseDoesNotReplaceAnotherOpenDetail() = runTest(dispatcher) {
+        val started = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val f = Fixture().apply { lastScore = 35.0 }
+        val vm = f.vm()
+        ready(vm)
+        open(vm, f.question())
+        f.beforeQuestion = { started.complete(Unit); check(release.await(5, TimeUnit.SECONDS)) }
+        try {
+            vm.refreshAfterPractice(4)
+            started.await()
+            open(vm, f.question(5))
+        } finally { release.countDown() }
+        runCurrent()
+        assertEquals(5L, detail(vm).question.id)
+        assertEquals(35.0, detail(vm).question.progress!!.lastScore, 0.0)
+    }
 
     @Test fun openingUsesTheLoadedQuestionAndDoesNotRequestTheAnswer() = runTest(dispatcher) {
         val f = Fixture()

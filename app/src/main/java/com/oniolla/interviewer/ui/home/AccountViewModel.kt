@@ -31,6 +31,9 @@ data class AccountViewState(
     val errors: Map<AccountField, String> = emptyMap(),
     val isSaving: Boolean = false,
     val isResending: Boolean = false,
+    val googleRequestId: Long? = null,
+    val googleError: String? = null,
+    val showResendPasswordDialog: Boolean = false,
     val sessionExpired: Boolean = false,
     val changed: Boolean = false
 ) {
@@ -52,6 +55,9 @@ class AccountViewModel @Inject constructor(
     private val _events = MutableSharedFlow<UiEvent>()
     val events = _events.asSharedFlow()
     private var profileJob: Job? = null
+    private data class PendingGoogleAction(val id: Long, val draft: AccountViewState, val resend: Boolean)
+    private var pendingGoogleAction: PendingGoogleAction? = null
+    private var googleSequence = 0L
 
     fun open(profile: MeResponse?) {
         if (profile != null) _state.update { it.copy(profile = ContentViewState.Ready(profile)) }
@@ -70,7 +76,7 @@ class AccountViewModel @Inject constructor(
 
     private fun show(page: AccountPage) {
         savedState["accountPage"] = page.name
-        _state.update { it.copy(page = page, errors = emptyMap()) }
+        _state.update { it.copy(page = page, errors = emptyMap(), googleError = null) }
     }
 
     fun edit(page: AccountPage) {
@@ -86,7 +92,7 @@ class AccountViewModel @Inject constructor(
     fun update(field: AccountField, value: String) {
         if (_state.value.isSaving) return
         _state.update {
-            val clean = it.copy(errors = it.errors - field)
+            val clean = it.copy(errors = it.errors - field, googleError = null)
             when (field) {
                 AccountField.NAME -> clean.copy(name = value)
                 AccountField.EMAIL -> clean.copy(email = value)
@@ -109,15 +115,18 @@ class AccountViewModel @Inject constructor(
 
     fun submit() {
         val state = _state.value
-        if (state.isSaving) return
+        if (state.isSaving || state.profile !is ContentViewState.Ready) return
         val errors = mutableMapOf<AccountField, String>()
         fun password(field: AccountField, text: String) {
             if (!isPasswordValid(text)) errors[field] = "Password should be between 8 and 64 characters"
         }
         when (state.page) {
             AccountPage.NAME -> if (!isNameValid(state.name)) errors[AccountField.NAME] = "Name should be between 1 and 20 characters"
-            AccountPage.EMAIL -> if (!isValidEmail(state.email)) errors[AccountField.EMAIL] =
-                if (state.email.isBlank()) "Email cannot be empty" else "Invalid email format"
+            AccountPage.EMAIL -> {
+                if (!isValidEmail(state.email)) errors[AccountField.EMAIL] =
+                    if (state.email.isBlank()) "Email cannot be empty" else "Invalid email format"
+                if (state.hasPassword) password(AccountField.CURRENT_PASSWORD, state.currentPassword)
+            }
             AccountPage.PASSWORD -> {
                 if (state.hasPassword) password(AccountField.CURRENT_PASSWORD, state.currentPassword)
                 password(AccountField.NEW_PASSWORD, state.newPassword)
@@ -129,23 +138,80 @@ class AccountViewModel @Inject constructor(
             AccountPage.OVERVIEW -> return
         }
         // Keep only the request's local snapshot; clear all visible password fields on submit.
-        _state.update { it.copy(errors = errors,
+        _state.update { it.copy(errors = errors, googleError = null,
             currentPassword = "", newPassword = "", confirmPassword = "") }
         if (errors.isNotEmpty()) return
-        _state.update { it.copy(isSaving = true) }
+        if (!state.hasPassword && state.page in listOf(AccountPage.EMAIL, AccountPage.PASSWORD)) {
+            requestGoogle(state, resend = false)
+        } else {
+            _state.update { it.copy(isSaving = true) }
+            execute(state)
+        }
+    }
+
+    private fun requestGoogle(draft: AccountViewState, resend: Boolean) {
+        val id = ++googleSequence
+        pendingGoogleAction = PendingGoogleAction(id, draft, resend)
+        _state.update { it.copy(isSaving = true, isResending = resend, googleRequestId = id, googleError = null) }
+    }
+
+    fun googleTokenReceived(requestId: Long, idToken: String) {
+        val pending = pendingGoogleAction?.takeIf { it.id == requestId } ?: return
+        if (idToken.isBlank()) {
+            googleReauthenticationFailed(requestId, "Unable to verify your Google account. Please try again.")
+            return
+        }
+        pendingGoogleAction = null
+        _state.update { it.copy(googleRequestId = null) }
+        execute(pending.draft, pending.resend, idToken)
+    }
+
+    fun googleReauthenticationCancelled(requestId: Long) {
+        if (pendingGoogleAction?.id != requestId) return
+        pendingGoogleAction = null
+        _state.update { it.copy(isSaving = false, isResending = false, googleRequestId = null,
+            currentPassword = "", newPassword = "", confirmPassword = "") }
+    }
+
+    fun googleReauthenticationFailed(requestId: Long, message: String) {
+        if (pendingGoogleAction?.id != requestId) return
+        googleReauthenticationCancelled(requestId)
+        _state.update { it.copy(googleError = message) }
+        viewModelScope.launch { _events.emit(UiEvent.Toast(message)) }
+    }
+
+    private fun passwordError(result: com.oniolla.interviewer.domain.AccountMutationResult) {
+        result.currentPasswordError?.let { message ->
+            _state.update { it.copy(errors = it.errors + (AccountField.CURRENT_PASSWORD to message)) }
+        }
+    }
+
+    private fun execute(state: AccountViewState, resend: Boolean = false, idToken: String? = null) {
         viewModelScope.launch {
-            when (state.page) {
+            if (resend) {
+                val result = manage.resendEmail(state.email,
+                    currentPassword = state.currentPassword.takeIf { state.hasPassword }, idToken = idToken)
+                passwordError(result)
+                if (result.currentPasswordError != null) _state.update { it.copy(showResendPasswordDialog = true) }
+                when (val outcome = result.result) {
+                    is ContentResult.Success -> _state.update { it.copy(isSaving = false, isResending = false, code = "") }
+                    else -> failed(outcome, showCodeError = result.currentPasswordError == null)
+                }
+            } else when (state.page) {
                 AccountPage.NAME -> handleName(manage.name(state.name.trim()))
-                AccountPage.EMAIL -> handleRequest(manage.requestEmail(state.email.trim()), state.email.trim())
+                AccountPage.EMAIL -> {
+                    val result = manage.requestEmail(state.email.trim(),
+                        currentPassword = state.currentPassword.takeIf { state.hasPassword }, idToken = idToken)
+                    passwordError(result)
+                    handleRequest(result.result, state.email.trim())
+                }
                 AccountPage.CODE -> handleCredentials(manage.confirmEmail(state.email, state.code), state)
                 AccountPage.PASSWORD -> {
                     if (state.hasPassword) {
                         val result = manage.changePassword(state.currentPassword, state.newPassword)
-                        result.currentPasswordError?.let { message ->
-                            _state.update { it.copy(errors = it.errors + (AccountField.CURRENT_PASSWORD to message)) }
-                        }
+                        passwordError(result)
                         handleCredentials(result.result, state)
-                    } else handleCredentials(manage.setPassword(state.newPassword), state)
+                    } else handleCredentials(manage.setPassword(state.newPassword, requireNotNull(idToken)), state)
                 }
                 AccountPage.OVERVIEW -> Unit
             }
@@ -201,30 +267,46 @@ class AccountViewModel @Inject constructor(
         show(AccountPage.OVERVIEW)
     }
 
-    private suspend fun failed(result: ContentResult<*>) {
+    private suspend fun failed(result: ContentResult<*>, showCodeError: Boolean = true) {
         _state.update { it.copy(isSaving = false, isResending = false,
             sessionExpired = result == ContentResult.SessionExpired,
-            errors = if (result is ContentResult.Error && it.page == AccountPage.CODE)
+            errors = if (showCodeError && result is ContentResult.Error && it.page == AccountPage.CODE)
                 it.errors + (AccountField.CODE to result.message) else it.errors) }
         if (result is ContentResult.Error) _events.emit(UiEvent.Toast(result.message))
     }
 
     fun resend() {
         val state = _state.value
-        if (state.page != AccountPage.CODE || state.isSaving) return
-        _state.update { it.copy(isSaving = true, isResending = true, errors = emptyMap()) }
-        viewModelScope.launch {
-            when (val result = manage.resendEmail(state.email)) {
-                is ContentResult.Success -> _state.update { it.copy(isSaving = false, isResending = false, code = "") }
-                else -> failed(result)
-            }
+        if (state.page != AccountPage.CODE || state.isSaving || state.profile !is ContentViewState.Ready) return
+        _state.update { it.copy(currentPassword = "", newPassword = "", confirmPassword = "", googleError = null) }
+        if (!state.hasPassword) {
+            requestGoogle(state, resend = true)
+            return
         }
+        if (!state.showResendPasswordDialog) {
+            _state.update { it.copy(showResendPasswordDialog = true, errors = it.errors - AccountField.CURRENT_PASSWORD) }
+            return
+        }
+        if (!isPasswordValid(state.currentPassword)) {
+            _state.update { it.copy(errors = it.errors + (AccountField.CURRENT_PASSWORD to
+                "Password should be between 8 and 64 characters")) }
+            return
+        }
+        _state.update { it.copy(isSaving = true, isResending = true, showResendPasswordDialog = false, errors = emptyMap()) }
+        execute(state, resend = true)
+    }
+
+    fun dismissResendPassword() {
+        if (_state.value.isSaving) return
+        _state.update { it.copy(showResendPasswordDialog = false,
+            currentPassword = "", newPassword = "", confirmPassword = "",
+            errors = it.errors - AccountField.CURRENT_PASSWORD) }
     }
 
     fun changeEmailAddress() {
         if (_state.value.page == AccountPage.CODE && !_state.value.isSaving) {
             savedState.remove<String>("pendingNewEmail")
-            _state.update { it.copy(code = "") }
+            _state.update { it.copy(code = "", currentPassword = "", showResendPasswordDialog = false) }
             show(AccountPage.EMAIL)
         }
     }

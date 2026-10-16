@@ -5,7 +5,7 @@ import com.oniolla.interviewer.data.ApiException
 import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
-data class PasswordChangeResult(
+data class AccountMutationResult(
     val result: ContentResult<Unit>,
     val currentPasswordError: String? = null
 )
@@ -14,19 +14,24 @@ class ManageAccountUseCase @Inject constructor(private val repository: AuthRepos
     suspend fun profile() = loadContent { repository.getSessionProfile() }
     suspend fun refreshProfile() = loadContent { repository.getMe() }
     suspend fun name(value: String) = loadContent { repository.changeName(value) }
-    suspend fun requestEmail(value: String) = loadContent { repository.requestEmailChange(value) }
-    suspend fun resendEmail(value: String) = loadContent { repository.resendEmailChange(value) }
+    suspend fun requestEmail(value: String, currentPassword: String? = null, idToken: String? = null) =
+        mutation { repository.requestEmailChange(value, currentPassword, idToken) }
+    suspend fun resendEmail(value: String, currentPassword: String? = null, idToken: String? = null) =
+        mutation { repository.resendEmailChange(value, currentPassword, idToken) }
     suspend fun confirmEmail(email: String, code: String) = loadContent { repository.confirmEmailChange(email, code) }
-    suspend fun changePassword(current: String, next: String): PasswordChangeResult = try {
-        repository.changePassword(current, next)
-        PasswordChangeResult(ContentResult.Success(Unit))
+    suspend fun changePassword(current: String, next: String) =
+        mutation { repository.changePassword(current, next) }
+    suspend fun setPassword(value: String, idToken: String) = loadContent { repository.setPassword(value, idToken) }
+
+    private suspend fun mutation(call: suspend () -> Unit): AccountMutationResult = try {
+        call()
+        AccountMutationResult(ContentResult.Success(Unit))
     } catch (error: ApiException.CurrentPasswordRejected) {
         val message = error.message?.takeIf { it.isNotBlank() } ?: "Current password is incorrect"
-        PasswordChangeResult(ContentResult.Error(message), currentPasswordError = message)
+        AccountMutationResult(ContentResult.Error(message), currentPasswordError = message)
     } catch (error: CancellationException) {
         throw error
     } catch (error: Exception) {
-        PasswordChangeResult(loadContent { throw error })
+        AccountMutationResult(loadContent { throw error })
     }
-    suspend fun setPassword(value: String) = loadContent { repository.setPassword(value) }
 }

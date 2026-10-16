@@ -115,21 +115,27 @@ class AuthRepository @Inject constructor(
         api.changeName(ChangeNamePayload(name), it)
     }
 
-    suspend fun requestEmailChange(email: String) = sessionRefresh.authorizedApiCall {
-        api.requestEmailChange(ChangeEmailPayload(email), it)
-    }
+    suspend fun requestEmailChange(email: String, currentPassword: String? = null, idToken: String? = null) =
+        sessionRefresh.authorizedApiCall { session ->
+            withPasswordValidation { api.requestEmailChange(ChangeEmailPayload(email, currentPassword, idToken), session) }
+        }
 
-    suspend fun resendEmailChange(email: String) = sessionRefresh.authorizedApiCall {
-        api.resendEmailChange(ChangeEmailPayload(email), it)
-    }
+    suspend fun resendEmailChange(email: String, currentPassword: String? = null, idToken: String? = null) =
+        sessionRefresh.authorizedApiCall { session ->
+            withPasswordValidation { api.resendEmailChange(ChangeEmailPayload(email, currentPassword, idToken), session) }
+        }
 
     suspend fun confirmEmailChange(email: String, code: String) = rotateAccountTokens {
         api.confirmEmailChange(ConfirmEmailChangePayload(email, code), it)
     }
 
     suspend fun changePassword(currentPassword: String, newPassword: String) = rotateAccountTokens { session ->
+        withPasswordValidation { api.changePassword(ChangePasswordPayload(currentPassword, newPassword), session) }
+    }
+
+    private suspend fun <T> withPasswordValidation(call: suspend () -> T): T =
         try {
-            apiCall { api.changePassword(ChangePasswordPayload(currentPassword, newPassword), session) }
+            apiCall { call() }
         } catch (error: ApiException) {
             val customError = when (error) {
                 is ApiException.Unauthorized -> error.customError
@@ -141,10 +147,9 @@ class AuthRepository @Inject constructor(
             if (customError?.code != "WRONG_PASSWORD") throw error
             throw ApiException.CurrentPasswordRejected(customError)
         }
-    }
 
-    suspend fun setPassword(password: String) = rotateAccountTokens {
-        api.setPassword(SetPasswordPayload(password), it)
+    suspend fun setPassword(password: String, idToken: String) = rotateAccountTokens {
+        api.setPassword(SetPasswordPayload(password, idToken), it)
     }
 
     /** Rotate credentials within the same user session so caches and in-flight calls keep their owner. */

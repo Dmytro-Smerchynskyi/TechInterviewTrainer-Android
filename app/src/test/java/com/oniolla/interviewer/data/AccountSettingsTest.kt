@@ -71,7 +71,8 @@ class AccountSettingsTest {
                     if (path != "/me" && path != "/me/usage" && path != "/auth/refresh") beforeMutation?.invoke()
                     var status = 200
                     val body = when {
-                        path == "/me/password/change" && rejectCurrentPassword &&
+                        path in setOf("/auth/password/change", "/auth/email/change/request",
+                            "/auth/email/change/resend") && rejectCurrentPassword &&
                             (path != unauthorizedPath || request.header("Authorization") == "Bearer refreshed") -> {
                             status = passwordErrorStatus
                             """{"error":{"code":"$passwordErrorCode","message":"Current password is incorrect."}}"""
@@ -94,13 +95,13 @@ class AccountSettingsTest {
                             "aiEvaluations":{"used":8,"reserved":0,"limit":20,"remaining":12,"periodEndsAt":null,"resetAt":null},
                             "questions":{"unlimited":true,"limitPerTopic":null}}"""
                         path == "/me/name" -> { name = payload(request).get("name").asString; profile() }
-                        path == "/me/email/change/request" || path == "/me/email/change/resend" -> { status = 204; "" }
-                        path == "/me/email/change/confirm" -> {
+                        path == "/auth/email/change/request" || path == "/auth/email/change/resend" -> { status = 204; "" }
+                        path == "/auth/email/change/confirm" -> {
                             email = payload(request).get("newEmail").asString
                             credentials()
                         }
-                        path == "/me/password/change" -> credentials()
-                        path == "/me/password/set" -> { providers = providers + "PASSWORD"; credentials() }
+                        path == "/auth/password/change" -> credentials()
+                        path == "/auth/password/set" -> { providers = providers + "PASSWORD"; credentials() }
                         path == "/auth/refresh" -> """{"accessToken":"refreshed","refreshToken":"refreshed-refresh","expiresIn":900}"""
                         else -> error("Unexpected request $path")
                     }
@@ -169,15 +170,16 @@ class AccountSettingsTest {
     }
 
     @Test fun emailValidationAndFailedRequestKeepEditor() = runTest(dispatcher) {
-        val f = Fixture().apply { failPath = "/me/email/change/request" }
+        val f = Fixture().apply { failPath = "/auth/email/change/request" }
         val vm = f.vm()
         open(vm)
         vm.edit(AccountPage.EMAIL)
         vm.update(AccountField.EMAIL, "invalid")
         vm.submit()
         assertNotNull(vm.state.value.errors[AccountField.EMAIL])
-        assertEquals(0, f.calls("/me/email/change/request"))
+        assertEquals(0, f.calls("/auth/email/change/request"))
         vm.update(AccountField.EMAIL, "new@example.com")
+        vm.update(AccountField.CURRENT_PASSWORD, "currentpass")
         vm.submit()
         vm.state.first { !it.isSaving }
         assertEquals(AccountPage.EMAIL, vm.state.value.page)
@@ -191,12 +193,13 @@ class AccountSettingsTest {
         open(vm)
         vm.edit(AccountPage.EMAIL)
         vm.update(AccountField.EMAIL, " new@example.com ")
+        vm.update(AccountField.CURRENT_PASSWORD, "currentpass")
         vm.submit()
         vm.state.first { it.page == AccountPage.CODE }
         assertFalse(vm.back())
         assertEquals(AccountPage.CODE, vm.state.value.page)
         assertEquals("new@example.com", vm.state.value.email)
-        assertEquals("POST", f.request("/me/email/change/request").method)
+        assertEquals("POST", f.request("/auth/email/change/request").method)
         vm.changeEmailAddress()
         assertEquals(AccountPage.EMAIL, vm.state.value.page)
         assertEquals("new@example.com", vm.state.value.email)
@@ -208,9 +211,14 @@ class AccountSettingsTest {
         open(vm)
         vm.edit(AccountPage.EMAIL)
         vm.update(AccountField.EMAIL, "new@example.com")
+        vm.update(AccountField.CURRENT_PASSWORD, "currentpass")
         vm.submit()
         vm.state.first { it.page == AccountPage.CODE }
         vm.update(AccountField.CODE, "123456")
+        vm.resend()
+        assertTrue(vm.state.value.showResendPasswordDialog)
+        assertEquals(0, f.calls("/auth/email/change/resend"))
+        vm.update(AccountField.CURRENT_PASSWORD, "currentpass")
         vm.resend()
         assertTrue(vm.state.value.isResending)
         vm.submit()
@@ -218,8 +226,8 @@ class AccountSettingsTest {
         vm.state.first { !it.isSaving }
         assertEquals(AccountPage.CODE, vm.state.value.page)
         assertEquals("", vm.state.value.code)
-        assertEquals("new@example.com", f.payload(f.request("/me/email/change/resend")).get("newEmail").asString)
-        assertEquals(0, f.calls("/me/email/change/confirm"))
+        assertEquals("new@example.com", f.payload(f.request("/auth/email/change/resend")).get("newEmail").asString)
+        assertEquals(0, f.calls("/auth/email/change/confirm"))
     }
 
     @Test fun codeValidationClipboardAndConfirmRotateBothTokensAndRefreshMe() = runTest(dispatcher) {
@@ -228,12 +236,13 @@ class AccountSettingsTest {
         open(vm)
         vm.edit(AccountPage.EMAIL)
         vm.update(AccountField.EMAIL, "new@example.com")
+        vm.update(AccountField.CURRENT_PASSWORD, "currentpass")
         vm.submit()
         vm.state.first { it.page == AccountPage.CODE }
         vm.pasteCode("not a code")
         vm.submit()
         assertNotNull(vm.state.value.errors[AccountField.CODE])
-        assertEquals(0, f.calls("/me/email/change/confirm"))
+        assertEquals(0, f.calls("/auth/email/change/confirm"))
         vm.pasteCode(" 615806 ")
         assertEquals("615806", vm.state.value.code)
         vm.submit()
@@ -242,18 +251,19 @@ class AccountSettingsTest {
         assertEquals("new-refresh", f.tokens.refreshToken)
         assertEquals(1L, f.tokens.sessionVersion)
         assertEquals("new@example.com", (vm.state.value.profile as ContentViewState.Ready).content.email)
-        val payload = f.payload(f.request("/me/email/change/confirm"))
+        val payload = f.payload(f.request("/auth/email/change/confirm"))
         assertEquals("615806", payload.get("code").asString)
         assertEquals("new@example.com", payload.get("newEmail").asString)
         assertEquals("Bearer new-access", f.request("/me").header("Authorization"))
     }
 
     @Test fun failedConfirmationKeepsCodePageAndCredentials() = runTest(dispatcher) {
-        val f = Fixture().apply { failPath = "/me/email/change/confirm" }
+        val f = Fixture().apply { failPath = "/auth/email/change/confirm" }
         val vm = f.vm()
         open(vm)
         vm.edit(AccountPage.EMAIL)
         vm.update(AccountField.EMAIL, "new@example.com")
+        vm.update(AccountField.CURRENT_PASSWORD, "currentpass")
         vm.submit()
         vm.state.first { it.page == AccountPage.CODE }
         vm.update(AccountField.CODE, "123456")
@@ -281,7 +291,7 @@ class AccountSettingsTest {
         assertEquals("", vm.state.value.currentPassword)
         assertEquals("", vm.state.value.newPassword)
         assertEquals("", vm.state.value.confirmPassword)
-        assertEquals(0, f.calls("/me/password/change"))
+        assertEquals(0, f.calls("/auth/password/change"))
     }
 
     @Test fun passwordChangeUsesCurrentAndNewAndClearsSecretsAfterSuccess() = runTest(dispatcher) {
@@ -291,7 +301,7 @@ class AccountSettingsTest {
         password(vm)
         vm.submit()
         finished(vm)
-        val body = f.payload(f.request("/me/password/change"))
+        val body = f.payload(f.request("/auth/password/change"))
         assertEquals(setOf("currentPassword", "newPassword"), body.keySet())
         assertEquals("currentpass", body.get("currentPassword").asString)
         assertEquals("newpassword", body.get("newPassword").asString)
@@ -309,17 +319,22 @@ class AccountSettingsTest {
         assertFalse(vm.state.value.hasPassword)
         password(vm, "")
         vm.submit()
+        assertTrue(vm.state.value.isSaving)
+        val requestId = requireNotNull(vm.state.value.googleRequestId)
+        assertEquals(0, f.calls("/auth/password/set"))
+        vm.googleTokenReceived(requestId, "fresh-google-token")
         finished(vm)
-        val body = f.payload(f.request("/me/password/set"))
-        assertEquals(setOf("password"), body.keySet())
+        val body = f.payload(f.request("/auth/password/set"))
+        assertEquals(setOf("password", "idToken"), body.keySet())
+        assertEquals("fresh-google-token", body.get("idToken").asString)
         assertEquals("newpassword", body.get("password").asString)
-        assertEquals(0, f.calls("/me/password/change"))
+        assertEquals(0, f.calls("/auth/password/change"))
         assertEquals("new-refresh", f.tokens.refreshToken)
         assertTrue(vm.state.value.hasPassword)
     }
 
     @Test fun failedPasswordSetupClearsSecretsAndDoesNotRestoreThem() = runTest(dispatcher) {
-        val f = Fixture().apply { providers = listOf("GOOGLE"); failPath = "/me/password/set" }
+        val f = Fixture().apply { providers = listOf("GOOGLE"); failPath = "/auth/password/set" }
         val handle = SavedStateHandle()
         val vm = f.vm(handle)
         open(vm)
@@ -327,11 +342,12 @@ class AccountSettingsTest {
         vm.submit()
         assertEquals("", vm.state.value.newPassword)
         assertEquals("", vm.state.value.confirmPassword)
+        vm.googleTokenReceived(requireNotNull(vm.state.value.googleRequestId), "fresh-google-token")
         vm.state.first { !it.isSaving }
         assertEquals(AccountPage.PASSWORD, vm.state.value.page)
         assertEquals("", vm.state.value.newPassword)
         assertEquals("", vm.state.value.currentPassword)
-        assertEquals("newpassword", f.payload(f.request("/me/password/set")).get("password").asString)
+        assertEquals("newpassword", f.payload(f.request("/auth/password/set")).get("password").asString)
         assertFalse(handle.keys().any { it.contains("password", ignoreCase = true) })
         val restored = f.vm(handle)
         open(restored)
@@ -356,7 +372,7 @@ class AccountSettingsTest {
             vm.edit(AccountPage.EMAIL)
             assertEquals(AccountPage.PASSWORD, vm.state.value.page)
             assertEquals("", vm.state.value.newPassword)
-            assertEquals(1, f.calls("/me/password/change"))
+            assertEquals(1, f.calls("/auth/password/change"))
         } finally { release.countDown() }
         finished(vm)
     }
@@ -378,22 +394,22 @@ class AccountSettingsTest {
         password(vm)
         vm.submit()
         finished(vm)
-        assertEquals(1, f.calls("/me/password/change"))
+        assertEquals(1, f.calls("/auth/password/change"))
         assertEquals("new-access", f.tokens.accessToken)
         assertFalse(vm.state.value.sessionExpired)
         assertEquals(AccountPage.OVERVIEW, vm.state.value.page)
     }
 
     @Test fun expiredCredentialsRefreshBeforePasswordMutationAndFinalTokensWin() = runTest(dispatcher) {
-        val f = Fixture().apply { unauthorizedPath = "/me/password/change" }
+        val f = Fixture().apply { unauthorizedPath = "/auth/password/change" }
         val vm = f.vm()
         open(vm)
         password(vm)
         vm.submit()
         finished(vm)
-        assertEquals(2, f.calls("/me/password/change"))
+        assertEquals(2, f.calls("/auth/password/change"))
         assertEquals(1, f.calls("/auth/refresh"))
-        assertEquals("Bearer refreshed", f.request("/me/password/change").header("Authorization"))
+        assertEquals("Bearer refreshed", f.request("/auth/password/change").header("Authorization"))
         assertEquals("new-access", f.tokens.accessToken)
         assertEquals("new-refresh", f.tokens.refreshToken)
         assertEquals(1L, f.tokens.sessionVersion)
@@ -413,7 +429,7 @@ class AccountSettingsTest {
         assertFalse(vm.state.value.changed)
         assertEquals(snapshot, f.tokens.snapshot())
         assertEquals(0, f.calls("/auth/refresh"))
-        assertEquals(1, f.calls("/me/password/change"))
+        assertEquals(1, f.calls("/auth/password/change"))
         assertEquals(1, f.calls("/me"))
         assertEquals("", vm.state.value.currentPassword)
         assertEquals("", vm.state.value.newPassword)
@@ -429,7 +445,7 @@ class AccountSettingsTest {
 
     @Test fun expiredTokenThenIncorrectPasswordKeepsTheRefreshedSessionAndShowsFieldError() = runTest(dispatcher) {
         val f = Fixture().apply {
-            unauthorizedPath = "/me/password/change"
+            unauthorizedPath = "/auth/password/change"
             rejectCurrentPassword = true
         }
         val vm = f.vm()
@@ -444,7 +460,7 @@ class AccountSettingsTest {
         assertEquals("refreshed-refresh", f.tokens.refreshToken)
         assertEquals(1L, f.tokens.sessionVersion)
         assertEquals(1, f.calls("/auth/refresh"))
-        assertEquals(2, f.calls("/me/password/change"))
+        assertEquals(2, f.calls("/auth/password/change"))
         assertEquals(1, f.calls("/me"))
     }
 
@@ -464,7 +480,7 @@ class AccountSettingsTest {
         assertFalse(vm.state.value.sessionExpired)
         assertEquals(snapshot, f.tokens.snapshot())
         assertEquals(0, f.calls("/auth/refresh"))
-        assertEquals(1, f.calls("/me/password/change"))
+        assertEquals(1, f.calls("/auth/password/change"))
         assertEquals(1, f.calls("/me"))
     }
 
@@ -483,7 +499,7 @@ class AccountSettingsTest {
         assertNull(f.tokens.accessToken)
         assertNull(f.tokens.refreshToken)
         assertEquals(0, f.calls("/auth/refresh"))
-        assertEquals(1, f.calls("/me/password/change"))
+        assertEquals(1, f.calls("/auth/password/change"))
         assertEquals(1, f.calls("/me"))
     }
 
@@ -501,13 +517,13 @@ class AccountSettingsTest {
         assertNull(f.tokens.accessToken)
         assertNull(f.tokens.refreshToken)
         assertEquals(1, f.calls("/auth/refresh"))
-        assertEquals(2, f.calls("/me/password/change"))
+        assertEquals(2, f.calls("/auth/password/change"))
         assertEquals(1, f.calls("/me"))
     }
 
     @Test fun invalidRefreshDuringPasswordChangeStillExpiresTheSession() = runTest(dispatcher) {
         val f = Fixture().apply {
-            unauthorizedPath = "/me/password/change"
+            unauthorizedPath = "/auth/password/change"
             rejectRefresh = true
         }
         val vm = f.vm()
@@ -520,11 +536,11 @@ class AccountSettingsTest {
         assertNull(f.tokens.accessToken)
         assertNull(f.tokens.refreshToken)
         assertEquals(1, f.calls("/auth/refresh"))
-        assertEquals(1, f.calls("/me/password/change"))
+        assertEquals(1, f.calls("/auth/password/change"))
     }
 
     @Test fun failedPasswordMutationClearsSecretsAndDoesNotReplaceTokens() = runTest(dispatcher) {
-        val f = Fixture().apply { failPath = "/me/password/change" }
+        val f = Fixture().apply { failPath = "/auth/password/change" }
         val vm = f.vm()
         open(vm)
         password(vm)
@@ -548,7 +564,7 @@ class AccountSettingsTest {
         } }
         var cancelled = false
         val job = launch {
-            try { f.repository.setPassword("newpassword") }
+            try { f.repository.setPassword("newpassword", "fresh-google-token") }
             catch (_: CancellationException) { cancelled = true }
         }
         try {
@@ -562,6 +578,146 @@ class AccountSettingsTest {
         assertEquals("other-refresh", f.tokens.refreshToken)
     }
 
+    @Test fun googleEmailRequestAndEachResendRequireTheirOwnCredentialAndKeepSession() = runTest(dispatcher) {
+        val f = Fixture().apply { providers = listOf("GOOGLE") }
+        val handle = SavedStateHandle()
+        val vm = f.vm(handle)
+        open(vm)
+        val session = f.tokens.snapshot()
+        vm.edit(AccountPage.EMAIL)
+        vm.update(AccountField.EMAIL, "new@example.com")
+        vm.submit()
+        val firstId = requireNotNull(vm.state.value.googleRequestId)
+        assertTrue(vm.state.value.isSaving)
+        assertFalse(vm.back())
+        vm.submit()
+        assertEquals(firstId, vm.state.value.googleRequestId)
+        assertEquals(0, f.calls("/auth/email/change/request"))
+        vm.googleTokenReceived(firstId, "fresh-request-token")
+        vm.state.first { it.page == AccountPage.CODE && !it.isSaving }
+        val request = f.request("/auth/email/change/request")
+        assertEquals("POST", request.method)
+        assertEquals("Bearer access", request.header("Authorization"))
+        val body = f.payload(request)
+        assertEquals(setOf("newEmail", "idToken"), body.keySet())
+        assertEquals("new@example.com", body.get("newEmail").asString)
+        assertEquals("fresh-request-token", body.get("idToken").asString)
+        assertEquals(session, f.tokens.snapshot())
+        vm.update(AccountField.CODE, "123456")
+        vm.resend()
+        val resendId = requireNotNull(vm.state.value.googleRequestId)
+        assertNotEquals(firstId, resendId)
+        assertTrue(vm.state.value.isResending)
+        vm.googleTokenReceived(firstId, "stale-request-token")
+        assertEquals(resendId, vm.state.value.googleRequestId)
+        assertEquals(0, f.calls("/auth/email/change/resend"))
+        vm.googleTokenReceived(resendId, "fresh-resend-token")
+        vm.state.first { !it.isSaving }
+        val resend = f.payload(f.request("/auth/email/change/resend"))
+        assertEquals(setOf("newEmail", "idToken"), resend.keySet())
+        assertEquals("fresh-resend-token", resend.get("idToken").asString)
+        assertEquals("", vm.state.value.code)
+        assertEquals(session, f.tokens.snapshot())
+        assertEquals(0, f.calls("/auth/google"))
+        assertEquals(setOf("accountPage", "pendingNewEmail"), handle.keys())
+        vm.resend()
+        val nextId = requireNotNull(vm.state.value.googleRequestId)
+        assertNotEquals(resendId, nextId)
+        vm.googleReauthenticationCancelled(nextId)
+        assertFalse(vm.state.value.isSaving)
+        assertEquals(1, f.calls("/auth/email/change/resend"))
+    }
+
+    @Test fun cancelledOrFailedGoogleSetupDoesNotCallApiAndLateResultsAreIgnored() = runTest(dispatcher) {
+        val f = Fixture().apply { providers = listOf("GOOGLE") }
+        val handle = SavedStateHandle()
+        val vm = f.vm(handle)
+        open(vm)
+        password(vm, "")
+        vm.submit()
+        val first = requireNotNull(vm.state.value.googleRequestId)
+        assertEquals("", vm.state.value.newPassword)
+        vm.googleReauthenticationCancelled(first)
+        assertFalse(vm.state.value.isSaving)
+        assertNull(vm.state.value.googleRequestId)
+        assertEquals("", vm.state.value.confirmPassword)
+        vm.googleTokenReceived(first, "late-token")
+        assertEquals(0, f.calls("/auth/password/set"))
+        password(vm, "")
+        vm.submit()
+        val second = requireNotNull(vm.state.value.googleRequestId)
+        vm.googleReauthenticationCancelled(first)
+        assertEquals(second, vm.state.value.googleRequestId)
+        vm.googleReauthenticationFailed(second, "Google unavailable")
+        assertFalse(vm.state.value.isSaving)
+        assertEquals("Google unavailable", vm.state.value.googleError)
+        vm.googleTokenReceived(second, "late-token")
+        assertEquals(0, f.calls("/auth/password/set"))
+        assertFalse(handle.keys().any { it.contains("password", true) || it.contains("token", true) })
+    }
+
+    @Test fun emailCurrentPasswordErrorsNeverRefreshOrExpireTheSessionAndResendAsksAgain() = runTest(dispatcher) {
+        val f = Fixture().apply { rejectCurrentPassword = true }
+        val vm = f.vm()
+        open(vm)
+        val session = f.tokens.snapshot()
+        vm.edit(AccountPage.EMAIL)
+        vm.update(AccountField.EMAIL, "new@example.com")
+        vm.submit()
+        assertNotNull(vm.state.value.errors[AccountField.CURRENT_PASSWORD])
+        assertEquals(0, f.calls("/auth/email/change/request"))
+        vm.update(AccountField.CURRENT_PASSWORD, "wrongpassword")
+        vm.submit()
+        vm.state.first { !it.isSaving }
+        assertEquals(AccountPage.EMAIL, vm.state.value.page)
+        assertEquals("Current password is incorrect.", vm.state.value.errors[AccountField.CURRENT_PASSWORD])
+        assertEquals("", vm.state.value.currentPassword)
+        assertFalse(vm.state.value.sessionExpired)
+        assertEquals(session, f.tokens.snapshot())
+        assertEquals(0, f.calls("/auth/refresh"))
+        f.rejectCurrentPassword = false
+        vm.update(AccountField.CURRENT_PASSWORD, "currentpass")
+        vm.submit()
+        vm.state.first { it.page == AccountPage.CODE }
+        val body = f.payload(f.request("/auth/email/change/request"))
+        assertEquals(setOf("newEmail", "currentPassword"), body.keySet())
+        assertEquals("currentpass", body.get("currentPassword").asString)
+        vm.resend()
+        assertTrue(vm.state.value.showResendPasswordDialog)
+        assertEquals("", vm.state.value.currentPassword)
+        assertEquals(0, f.calls("/auth/email/change/resend"))
+        f.rejectCurrentPassword = true
+        vm.update(AccountField.CURRENT_PASSWORD, "wrongpassword")
+        vm.resend()
+        vm.state.first { !it.isSaving }
+        assertTrue(vm.state.value.showResendPasswordDialog)
+        assertEquals("", vm.state.value.currentPassword)
+        assertEquals("Current password is incorrect.", vm.state.value.errors[AccountField.CURRENT_PASSWORD])
+        assertNull(vm.state.value.errors[AccountField.CODE])
+        assertEquals(session, f.tokens.snapshot())
+        assertEquals(0, f.calls("/auth/refresh"))
+        vm.dismissResendPassword()
+        assertFalse(vm.state.value.showResendPasswordDialog)
+        assertEquals("", vm.state.value.currentPassword)
+    }
+
+    @Test fun authenticatedEmailEndpointRefreshesExpiredBearerAndRetriesWithOriginalProof() = runTest(dispatcher) {
+        val f = Fixture().apply { unauthorizedPath = "/auth/email/change/request" }
+        val vm = f.vm()
+        open(vm)
+        vm.edit(AccountPage.EMAIL)
+        vm.update(AccountField.EMAIL, "new@example.com")
+        vm.update(AccountField.CURRENT_PASSWORD, "currentpass")
+        vm.submit()
+        vm.state.first { it.page == AccountPage.CODE }
+        assertEquals(2, f.calls("/auth/email/change/request"))
+        assertEquals(1, f.calls("/auth/refresh"))
+        val request = f.request("/auth/email/change/request")
+        assertEquals("Bearer refreshed", request.header("Authorization"))
+        assertEquals("currentpass", f.payload(request).get("currentPassword").asString)
+        assertEquals("", vm.state.value.currentPassword)
+    }
+
     @Test fun pendingEmailVerificationRestoresWithoutPersistingPasswordsOrTokens() = runTest(dispatcher) {
         val f = Fixture()
         val handle = SavedStateHandle()
@@ -569,6 +725,7 @@ class AccountSettingsTest {
         open(vm)
         vm.edit(AccountPage.EMAIL)
         vm.update(AccountField.EMAIL, "new@example.com")
+        vm.update(AccountField.CURRENT_PASSWORD, "currentpass")
         vm.submit()
         vm.state.first { it.page == AccountPage.CODE }
         val restored = f.vm(SavedStateHandle(handle.keys().associateWith { handle.get<Any>(it) }))

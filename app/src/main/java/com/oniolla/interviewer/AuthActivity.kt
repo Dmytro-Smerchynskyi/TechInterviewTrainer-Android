@@ -978,7 +978,8 @@ fun EmailConfirmation(
     onConfirmClicked: () -> Unit = {},
     onResendClicked: () -> Unit = {},
     onChangeEmailClicked: () -> Unit = {},
-    onPasteRequested: (String?) -> Unit = {}
+    onPasteRequested: (String?) -> Unit = {},
+    resendContent: (@Composable () -> Unit)? = null
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -1081,7 +1082,9 @@ fun EmailConfirmation(
                 onClick = onConfirmClicked
             )
 
-            Row(
+            if (resendContent != null) {
+                Box(Modifier.fillMaxWidth().padding(top = 26.dp)) { resendContent() }
+            } else Row(
                 modifier = Modifier.padding(top = 26.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center

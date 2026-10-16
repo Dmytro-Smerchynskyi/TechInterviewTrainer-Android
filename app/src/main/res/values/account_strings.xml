@@ -34,4 +34,6 @@
     <string name="account_password_not_set">Set a password for email sign-in</string>
     <string name="account_saving">Saving…</string>
     <string name="account_back">Back to account settings</string>
+    <string name="account_verify_identity">Verify your identity</string>
+    <string name="account_resend_password_description">Enter your current password to resend the verification code.</string>
 </resources>

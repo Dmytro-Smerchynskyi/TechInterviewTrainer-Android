@@ -1,6 +1,9 @@
 package com.oniolla.interviewer.ui.home
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -15,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,6 +46,7 @@ import com.oniolla.interviewer.AppTextField
 import com.oniolla.interviewer.EmailConfirmation
 import com.oniolla.interviewer.MainButton
 import com.oniolla.interviewer.R
+import com.oniolla.interviewer.ui.GoogleActionButton
 import com.oniolla.interviewer.ui.theme.AppTheme
 import java.util.Locale
 
@@ -55,7 +61,8 @@ fun AccountScreens(
     onResend: () -> Unit = {},
     onChangeEmailAddress: () -> Unit = {},
     onPaste: (String?) -> Unit = {},
-    onRetryProfile: () -> Unit = {}
+    onRetryProfile: () -> Unit = {},
+    onDismissResendPassword: () -> Unit = {}
 ) {
     AnimatedContent(state.page, modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
         transitionSpec = { fadeIn(tween(250)).togetherWith(fadeOut(tween(250))).using(null) },
@@ -64,9 +71,41 @@ fun AccountScreens(
             AccountPage.OVERVIEW -> AccountOverview(state, onBack, onEdit, onRetryProfile)
             AccountPage.CODE -> EmailConfirmation(state.email, state.code, state.errors[AccountField.CODE],
                 state.isSaving, state.isResending, { onUpdate(AccountField.CODE, it) },
-                { onFocused(AccountField.CODE) }, onSubmit, onResend, onChangeEmailAddress, onPaste)
+                { onFocused(AccountField.CODE) }, onSubmit, onResend, onChangeEmailAddress, onPaste,
+                resendContent = if (state.hasPassword) null else { {
+                    Column {
+                        GoogleActionButton(stringResource(R.string.resend_email_code),
+                            enabled = !state.isSaving && state.profile is ContentViewState.Ready,
+                            loading = state.isResending, onClick = onResend,
+                            loadingLabel = stringResource(if (state.googleRequestId != null)
+                                R.string.google_signing_in else R.string.sending_verification_code))
+                        AccountGoogleError(state.googleError)
+                    }
+                } })
             else -> AccountEditor(state.copy(page = page), onBack, onUpdate, onFocused, onSubmit)
         }
+    }
+    if (state.page == AccountPage.CODE && state.showResendPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = onDismissResendPassword,
+            containerColor = AppTheme.colors.container,
+            title = { Text(stringResource(R.string.account_verify_identity), color = AppTheme.colors.primaryText) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.account_resend_password_description),
+                        color = AppTheme.colors.secondaryText, fontSize = 12.sp, lineHeight = 17.sp)
+                    Spacer(Modifier.height(16.dp))
+                    AccountInput(state, AccountField.CURRENT_PASSWORD, state.currentPassword,
+                        R.string.account_current_password, R.string.password_placeholder, R.drawable.lock,
+                        KeyboardType.Password, ImeAction.Done, onUpdate, onFocused, onResend)
+                }
+            },
+            confirmButton = { MainButton(Modifier.fillMaxWidth(), onClick = onResend,
+                buttonText = stringResource(R.string.resend_email_code), enabled = !state.isSaving) },
+            dismissButton = { TextButton(onClick = onDismissResendPassword, enabled = !state.isSaving) {
+                Text(stringResource(R.string.practice_cancel), color = AppTheme.colors.link)
+            } }
+        )
     }
 }
 
@@ -216,9 +255,17 @@ private fun AccountEditor(state: AccountViewState, onBack: () -> Unit,
                 AccountPage.NAME -> AccountInput(state, AccountField.NAME, state.name, R.string.name,
                     R.string.name_placeholder, R.drawable.mail, KeyboardType.Text, ImeAction.Done,
                     onUpdate, onFocused, onSubmit)
-                AccountPage.EMAIL -> AccountInput(state, AccountField.EMAIL, state.email, R.string.account_new_email,
-                    R.string.email_placeholder, R.drawable.mail, KeyboardType.Email, ImeAction.Done,
-                    onUpdate, onFocused, onSubmit)
+                AccountPage.EMAIL -> {
+                    AccountInput(state, AccountField.EMAIL, state.email, R.string.account_new_email,
+                        R.string.email_placeholder, R.drawable.mail, KeyboardType.Email,
+                        if (state.hasPassword) ImeAction.Next else ImeAction.Done, onUpdate, onFocused, onSubmit)
+                    if (state.hasPassword) {
+                        Spacer(Modifier.height(10.dp))
+                        AccountInput(state, AccountField.CURRENT_PASSWORD, state.currentPassword, R.string.account_current_password,
+                            R.string.password_placeholder, R.drawable.lock, KeyboardType.Password, ImeAction.Done,
+                            onUpdate, onFocused, onSubmit)
+                    }
+                }
                 AccountPage.PASSWORD -> {
                     if (state.hasPassword) {
                         AccountInput(state, AccountField.CURRENT_PASSWORD, state.currentPassword, R.string.account_current_password,
@@ -236,12 +283,33 @@ private fun AccountEditor(state: AccountViewState, onBack: () -> Unit,
                 }
                 else -> Unit
             }
-            MainButton(Modifier.fillMaxWidth().padding(top = if (password) 42.dp else 16.dp),
-                onClick = onSubmit, buttonText = stringResource(button),
-                loadingButtonText = stringResource(if (state.page == AccountPage.EMAIL)
-                    R.string.sending_verification_code else R.string.account_saving), isLoading = state.isSaving)
+            val google = !state.hasPassword && state.page in listOf(AccountPage.EMAIL, AccountPage.PASSWORD)
+            val buttonModifier = Modifier.fillMaxWidth().padding(top = if (password) 42.dp else 16.dp)
+            val loadingLabel = stringResource(when {
+                state.googleRequestId != null -> R.string.google_signing_in
+                state.page == AccountPage.EMAIL -> R.string.sending_verification_code
+                else -> R.string.account_saving
+            })
+            if (google) {
+                GoogleActionButton(stringResource(button),
+                    enabled = !state.isSaving && state.profile is ContentViewState.Ready,
+                    loading = state.isSaving, onClick = onSubmit,
+                    modifier = buttonModifier, loadingLabel = loadingLabel)
+                AccountGoogleError(state.googleError)
+            } else MainButton(buttonModifier, onClick = onSubmit, buttonText = stringResource(button),
+                enabled = !state.isSaving && state.profile is ContentViewState.Ready,
+                loadingButtonText = loadingLabel, isLoading = state.isSaving)
             Spacer(Modifier.height(32.dp))
         }
+    }
+}
+
+@Composable
+private fun AccountGoogleError(message: String?) {
+    AnimatedVisibility(message != null, enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()) {
+        Text(message.orEmpty(), Modifier.fillMaxWidth().padding(top = 10.dp),
+            color = AppTheme.colors.red, fontSize = 10.sp, lineHeight = 14.sp)
     }
 }
 

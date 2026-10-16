@@ -27,11 +27,35 @@ import com.oniolla.interviewer.R
 import com.oniolla.interviewer.ui.theme.AppTheme
 
 @Composable
-internal fun GoogleAuthButton(enabled: Boolean, loading: Boolean, error: String?, onClick: () -> Unit,
-    compact: Boolean = false) {
+internal fun GoogleActionButton(
+    label: String,
+    enabled: Boolean,
+    loading: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    loadingLabel: String = label
+) {
     val colors = AppTheme.colors
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
+    Surface(onClick = { focus.clearFocus(); keyboard?.hide(); onClick() },
+        enabled = enabled && !loading, modifier = modifier.fillMaxWidth().height(50.dp),
+        color = colors.container, shape = RoundedCornerShape(25.dp),
+        border = BorderStroke(1.dp, colors.stroke)) {
+        Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            if (loading) CircularProgressIndicator(Modifier.size(20.dp), color = colors.link, strokeWidth = 2.dp)
+            else Image(painterResource(R.drawable.auth_google_logo), null, Modifier.size(24.dp))
+            Spacer(Modifier.width(16.dp))
+            Text(if (loading) loadingLabel else label, color = colors.primaryText,
+                fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+internal fun GoogleAuthButton(enabled: Boolean, loading: Boolean, error: String?, onClick: () -> Unit,
+    compact: Boolean = false) {
+    val colors = AppTheme.colors
     Column {
         Row(Modifier.fillMaxWidth().padding(top = if (compact) 12.dp else 18.dp,
             bottom = if (compact) 6.dp else 14.dp), verticalAlignment = Alignment.CenterVertically,
@@ -40,18 +64,10 @@ internal fun GoogleAuthButton(enabled: Boolean, loading: Boolean, error: String?
             Text(stringResource(R.string.auth_or), color = colors.secondaryText, fontSize = 10.sp, lineHeight = 13.sp)
             Box(Modifier.weight(1f).height(1.dp).background(colors.stroke))
         }
-        Surface(onClick = { focus.clearFocus(); keyboard?.hide(); onClick() },
-            enabled = enabled && !loading, modifier = Modifier.fillMaxWidth().height(50.dp),
-            color = colors.container, shape = RoundedCornerShape(25.dp),
-            border = BorderStroke(1.dp, colors.stroke)) {
-            Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                if (loading) CircularProgressIndicator(Modifier.size(20.dp), color = colors.link, strokeWidth = 2.dp)
-                else Image(painterResource(R.drawable.auth_google_logo), null, Modifier.size(24.dp))
-                Spacer(Modifier.width(16.dp))
-                Text(stringResource(if (loading) R.string.google_signing_in else R.string.google_continue),
-                    color = colors.primaryText, fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
+        GoogleActionButton(
+            label = stringResource(R.string.google_continue), enabled = enabled, loading = loading,
+            loadingLabel = stringResource(R.string.google_signing_in), onClick = onClick
+        )
         AnimatedVisibility(error != null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             Text(error.orEmpty(), Modifier.fillMaxWidth().padding(top = 10.dp), color = colors.red,
                 fontSize = 10.sp, lineHeight = 14.sp)

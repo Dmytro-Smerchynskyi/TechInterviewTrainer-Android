@@ -37,8 +37,11 @@ object NetworkModule {
                         redactHeader("Authorization")
                     }
                     addInterceptor { chain ->
-                        // Google ID tokens must not be written into debug request/response logs.
-                        if (chain.request().url.encodedPath.endsWith("/auth/google")) chain.proceed(chain.request())
+                        // Reauthentication proofs and rotated credentials must never appear in body logs.
+                        val path = chain.request().url.encodedPath
+                        val sensitive = listOf("/auth/google", "/auth/password/set", "/auth/password/change",
+                            "/auth/email/change/request", "/auth/email/change/resend", "/auth/email/change/confirm")
+                        if (sensitive.any(path::endsWith)) chain.proceed(chain.request())
                         else httpLogger.intercept(chain)
                     }
                 }

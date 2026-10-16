@@ -85,19 +85,19 @@ interface Api {
     @PUT("me/name")
     suspend fun changeName(@Body payload: ChangeNamePayload, @Tag session: SessionSnapshot? = null): MeResponse
 
-    @POST("me/email/change/request")
+    @POST("auth/email/change/request")
     suspend fun requestEmailChange(@Body payload: ChangeEmailPayload, @Tag session: SessionSnapshot? = null)
 
-    @POST("me/email/change/confirm")
+    @POST("auth/email/change/confirm")
     suspend fun confirmEmailChange(@Body payload: ConfirmEmailChangePayload, @Tag session: SessionSnapshot? = null): LoginResponse
 
-    @POST("me/email/change/resend")
+    @POST("auth/email/change/resend")
     suspend fun resendEmailChange(@Body payload: ChangeEmailPayload, @Tag session: SessionSnapshot? = null)
 
-    @POST("me/password/change")
+    @POST("auth/password/change")
     suspend fun changePassword(@Body payload: ChangePasswordPayload, @Tag session: SessionSnapshot? = null): LoginResponse
 
-    @POST("me/password/set")
+    @POST("auth/password/set")
     suspend fun setPassword(@Body payload: SetPasswordPayload, @Tag session: SessionSnapshot? = null): LoginResponse
 
     @GET("stats")

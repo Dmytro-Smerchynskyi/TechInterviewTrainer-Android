@@ -24,6 +24,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.oniolla.interviewer.data.AppPreferences
 import com.oniolla.interviewer.ui.UiEvent
+import com.oniolla.interviewer.ui.GoogleTokenResult
+import com.oniolla.interviewer.ui.rememberGoogleTokenRequest
 import com.oniolla.interviewer.ui.home.*
 import com.oniolla.interviewer.ui.theme.InterviewTrainerTheme
 import com.oniolla.interviewer.ui.theme.StatusBarTheme
@@ -52,6 +54,19 @@ class HomeActivity : ComponentActivity() {
                 val state by viewModel.stateFlow.collectAsStateWithLifecycle()
                 val profileState by profileViewModel.state.collectAsStateWithLifecycle()
                 val accountState by accountViewModel.state.collectAsStateWithLifecycle()
+                val requestGoogleToken = rememberGoogleTokenRequest()
+                LaunchedEffect(accountState.googleRequestId) {
+                    val requestId = accountState.googleRequestId ?: return@LaunchedEffect
+                    try {
+                        when (val result = requestGoogleToken()) {
+                            is GoogleTokenResult.Success -> accountViewModel.googleTokenReceived(requestId, result.idToken)
+                            is GoogleTokenResult.Failure -> accountViewModel.googleReauthenticationFailed(requestId, result.message)
+                            GoogleTokenResult.Cancelled -> accountViewModel.googleReauthenticationCancelled(requestId)
+                        }
+                    } finally {
+                        accountViewModel.googleReauthenticationCancelled(requestId)
+                    }
+                }
                 val practiceState by practiceViewModel.state.collectAsStateWithLifecycle()
                 val interviewState by interviewViewModel.state.collectAsStateWithLifecycle()
                 LaunchedEffect(interviewState.page) {
@@ -181,6 +196,7 @@ class HomeActivity : ComponentActivity() {
                             onFocused = accountViewModel::clearError,
                             onSubmit = accountViewModel::submit,
                             onResend = accountViewModel::resend,
+                            onDismissResendPassword = accountViewModel::dismissResendPassword,
                             onChangeEmailAddress = accountViewModel::changeEmailAddress,
                             onPaste = accountViewModel::pasteCode,
                             onRetryProfile = accountViewModel::loadProfile

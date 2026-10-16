@@ -81,6 +81,11 @@ class SessionRefreshCoordinator internal constructor(
             apiCall { call(tokens) }.also { ensureSession(tokens) }
         } catch (error: ApiException) {
             ensureSession(tokens)
+            // Rejected proof of identity belongs to this action, not to the bearer session.
+            // Apply before both the initial-call and post-refresh Unauthorized handlers.
+            if (error is ApiException.Unauthorized && error.customError.code == "REAUTHENTICATION_REQUIRED") {
+                throw ApiException.ReauthenticationRequired(error.customError)
+            }
             throw error
         }
     }

@@ -80,6 +80,7 @@ sealed class ApiException(message: String?) : Exception(message) {
     class BadRequest(val customError: CustomError) : ApiException(customError.message)
     class CurrentPasswordRejected(val customError: CustomError) : ApiException(customError.message)
     class Unauthorized(val customError: CustomError) : ApiException(customError.message)
+    class ReauthenticationRequired(val customError: CustomError) : ApiException(customError.message)
     class Forbidden(val customError: CustomError) : ApiException(customError.message)
     class NotFound(val customError: CustomError) : ApiException(customError.message)
     class ServerError(val customError: CustomError) : ApiException(customError.message)

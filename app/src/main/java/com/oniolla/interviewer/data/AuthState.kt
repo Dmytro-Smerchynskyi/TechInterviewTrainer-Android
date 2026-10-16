@@ -26,6 +26,7 @@ fun ApiException.toAuthState(): AuthState {
         is ApiException.BadRequest -> AuthState.Error(customError.message)
         is QuestionEvaluationLimitException -> AuthState.Error(error.message)
         is ApiException.CurrentPasswordRejected -> AuthState.Error(customError.message)
+        is ApiException.ReauthenticationRequired -> AuthState.Error(customError.message)
         is ApiException.Unauthorized -> AuthState.Error(customError.message)
         is ApiException.Forbidden -> {
             if (customError.code == "EMAIL_NOT_VERIFIED")

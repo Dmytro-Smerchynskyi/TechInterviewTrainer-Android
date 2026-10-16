@@ -270,6 +270,9 @@ class AccountViewModel @Inject constructor(
     private suspend fun failed(result: ContentResult<*>, showCodeError: Boolean = true) {
         _state.update { it.copy(isSaving = false, isResending = false,
             sessionExpired = result == ContentResult.SessionExpired,
+            googleError = (result as? ContentResult.Error)?.message.takeIf { _ ->
+                !it.hasPassword && it.page in listOf(AccountPage.EMAIL, AccountPage.PASSWORD, AccountPage.CODE)
+            },
             errors = if (showCodeError && result is ContentResult.Error && it.page == AccountPage.CODE)
                 it.errors + (AccountField.CODE to result.message) else it.errors) }
         if (result is ContentResult.Error) _events.emit(UiEvent.Toast(result.message))

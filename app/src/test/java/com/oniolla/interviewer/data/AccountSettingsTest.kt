@@ -52,6 +52,9 @@ class AccountSettingsTest {
         var email = "developer@example.com"
         var providers = listOf("PASSWORD")
         var failPath: String? = null
+        var failStatus = 400
+        var failCode = "INVALID"
+        var failMessage = "Server validation failed"
         var unauthorizedPath: String? = null
         var rejectCurrentPassword = false
         var rejectRefresh = false
@@ -87,8 +90,8 @@ class AccountSettingsTest {
                             """{"error":{"code":"UNAUTHORIZED","message":"Expired"}}"""
                         }
                         path == failPath -> {
-                            status = 400
-                            """{"error":{"code":"INVALID","message":"Server validation failed"}}"""
+                            status = failStatus
+                            """{"error":{"code":"$failCode","message":"$failMessage"}}"""
                         }
                         path == "/me" -> profile()
                         path == "/me/usage" -> """{"plan":"FREE","answerReveals":{"used":12,"limit":20,"remaining":8},
@@ -137,6 +140,63 @@ class AccountSettingsTest {
         vm.update(AccountField.CURRENT_PASSWORD, current)
         vm.update(AccountField.NEW_PASSWORD, next)
         vm.update(AccountField.CONFIRM_PASSWORD, next)
+    }
+
+    @Test fun rejectedGoogleProofKeepsSessionAndAllowsFreshRetryForRequestResendAndSetup() = runTest(dispatcher) {
+        for (path in listOf("/auth/email/change/request", "/auth/email/change/resend", "/auth/password/set")) {
+            for (expiredBearer in listOf(false, true)) {
+                val f = Fixture().apply { providers = listOf("GOOGLE") }
+                val vm = f.vm()
+                open(vm)
+                if (path == "/auth/password/set") password(vm, "")
+                else {
+                    vm.edit(AccountPage.EMAIL)
+                    vm.update(AccountField.EMAIL, "new@example.com")
+                    if (path.endsWith("/resend")) {
+                        vm.submit()
+                        vm.googleTokenReceived(requireNotNull(vm.state.value.googleRequestId), "initial-proof")
+                        vm.state.first { it.page == AccountPage.CODE && !it.isSaving }
+                    }
+                }
+                val session = f.tokens.snapshot()
+                f.failPath = path
+                f.failStatus = 401
+                f.failCode = "REAUTHENTICATION_REQUIRED"
+                f.failMessage = "Sign in with your linked provider again to confirm this action."
+                if (expiredBearer) f.unauthorizedPath = path
+                if (path.endsWith("/resend")) vm.resend() else vm.submit()
+                val requestId = requireNotNull(vm.state.value.googleRequestId)
+                vm.googleTokenReceived(requestId, "rejected-proof")
+                vm.state.first { !it.isSaving }
+                assertFalse(vm.state.value.sessionExpired)
+                assertFalse(vm.state.value.changed)
+                assertEquals(f.failMessage, vm.state.value.googleError)
+                assertNull(vm.state.value.googleRequestId)
+                assertEquals("", vm.state.value.currentPassword)
+                assertEquals("", vm.state.value.newPassword)
+                assertEquals("", vm.state.value.confirmPassword)
+                assertEquals(if (expiredBearer) 1 else 0, f.calls("/auth/refresh"))
+                if (expiredBearer) {
+                    assertEquals("refreshed", f.tokens.accessToken)
+                    assertEquals("refreshed-refresh", f.tokens.refreshToken)
+                    assertEquals(session.version, f.tokens.sessionVersion)
+                } else assertEquals(session, f.tokens.snapshot())
+                val callsBeforeRetry = f.calls(path)
+                f.failPath = null
+                if (path == "/auth/password/set") password(vm, "")
+                if (path.endsWith("/resend")) vm.resend() else vm.submit()
+                val retryId = requireNotNull(vm.state.value.googleRequestId)
+                assertNotEquals(requestId, retryId)
+                assertEquals(callsBeforeRetry, f.calls(path))
+                vm.googleTokenReceived(retryId, "fresh-retry-proof")
+                vm.state.first { !it.isSaving }
+                assertNull(vm.state.value.googleError)
+                assertFalse(vm.state.value.sessionExpired)
+                assertEquals(callsBeforeRetry + 1, f.calls(path))
+                assertEquals("fresh-retry-proof", f.payload(f.request(path)).get("idToken").asString)
+                assertEquals(0, f.calls("/auth/google"))
+            }
+        }
     }
 
     @Test fun providersComeFromMeAndAccountDoesNotRequestUsage() = runTest(dispatcher) {

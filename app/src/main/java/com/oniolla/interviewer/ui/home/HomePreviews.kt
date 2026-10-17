@@ -268,6 +268,12 @@ fun FavoritesMasteredEmptyPreview() { InterviewTrainerTheme(darkTheme = false) {
 
 @Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
 @Composable
+fun FavoritesTrainedEmptyPreview() { InterviewTrainerTheme(darkTheme = true) {
+    PreviewContent(HomeTab.FAVORITES, empty = true, favoritesFilter = FavoritesFilter.TRAINED)
+} }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
 fun StatisticsDarkPreview() { InterviewTrainerTheme(darkTheme = true) { PreviewContent(HomeTab.STATS) } }
 
 @Preview(widthDp = 390, heightDp = 844, showSystemUi = true)

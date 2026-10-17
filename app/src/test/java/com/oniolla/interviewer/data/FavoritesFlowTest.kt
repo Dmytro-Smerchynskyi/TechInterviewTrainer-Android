@@ -182,6 +182,54 @@ class FavoritesFlowTest {
         assertEquals("false", fixture.listRequests().last().url.queryParameter("mastered"))
     }
 
+    @Test fun trainedUsesEvaluatedTrueAndLibraryRequestsOmitIt() = runBlocking {
+        val fixture = Fixture()
+        for (cursor in listOf(null, "opaque+/= cursor")) {
+            val result = fixture.favorites(FavoriteQuestionsRequest(FavoritesFilter.TRAINED, cursor))
+            assertTrue(result is ContentResult.Success)
+            val request = fixture.listRequests().last()
+            assertEquals("/questions", request.url.encodedPath)
+            assertEquals("GET", request.method)
+            assertNull(request.body)
+            assertEquals("Bearer access", request.header("Authorization"))
+            assertEquals(if (cursor == null) setOf("limit", "evaluated")
+                else setOf("limit", "evaluated", "cursor"), request.url.queryParameterNames)
+            assertEquals("20", request.url.queryParameter("limit"))
+            assertEquals("true", request.url.queryParameter("evaluated"))
+            assertEquals(cursor, request.url.queryParameter("cursor"))
+        }
+        fixture.repository.getQuestions(null, null, null)
+        assertEquals(setOf("limit"), fixture.listRequests().last().url.queryParameterNames)
+    }
+
+    @Test fun restoredTrainedSelectionPaginatesAndSwitchingFiltersDropsEvaluatedAndCursor() = runTest(dispatcher) {
+        val fixture = Fixture()
+        val vm = viewModel(fixture, SavedStateHandle(mapOf(
+            "homeTab" to "FAVORITES", "favoritesFilter" to "TRAINED"
+        )))
+        ready(vm)
+        assertEquals(FavoritesFilter.TRAINED, vm.stateFlow.value.favoritesFilter)
+        assertEquals("true", fixture.listRequests().single().url.queryParameter("evaluated"))
+        val revision = content(vm).resultRevision
+        vm.loadMoreFavorites()
+        vm.stateFlow.first { (it.favorites as? ContentViewState.Ready)?.content?.items?.size == 3 }
+        assertEquals(listOf(1L, 2L, 3L), content(vm).items.map { it.id })
+        assertEquals(revision, content(vm).resultRevision)
+        assertEquals("true", fixture.listRequests().last().url.queryParameter("evaluated"))
+        assertEquals("opaque+/= cursor", fixture.listRequests().last().url.queryParameter("cursor"))
+        for (filter in listOf(FavoritesFilter.MASTERED, FavoritesFilter.DUE, FavoritesFilter.SAVED)) {
+            vm.selectFavoritesFilter(filter)
+            ready(vm)
+            val request = fixture.listRequests().last()
+            assertNull(request.url.queryParameter("evaluated"))
+            assertNull(request.url.queryParameter("cursor"))
+            assertEquals(listOf(1L, 2L), content(vm).items.map { it.id })
+        }
+        vm.selectTab(HomeTab.QUESTIONS)
+        vm.stateFlow.first { it.questions is ContentViewState.Ready }
+        assertNull(fixture.listRequests().last().url.queryParameter("evaluated"))
+    }
+
     @Test fun favoritesLoadLazilyAndKeepThePageAcrossUnchangedTabVisits() = runTest(dispatcher) {
         val fixture = Fixture()
         val vm = viewModel(fixture, SavedStateHandle())
@@ -208,6 +256,10 @@ class FavoritesFlowTest {
         assertTrue(content(vm).resultRevision > initialRevision)
         assertEquals("/reviews/due", fixture.listRequests().last().url.encodedPath)
         assertNull(fixture.listRequests().last().url.queryParameter("cursor"))
+        vm.selectFavoritesFilter(FavoritesFilter.TRAINED)
+        ready(vm)
+        assertEquals("TRAINED", handle.get<String>("favoritesFilter"))
+        assertEquals("true", fixture.listRequests().last().url.queryParameter("evaluated"))
         vm.selectFavoritesFilter(FavoritesFilter.MASTERED)
         ready(vm)
         assertEquals("MASTERED", handle.get<String>("favoritesFilter"))
@@ -270,12 +322,12 @@ class FavoritesFlowTest {
         assertEquals(2, fixture.listRequests().size)
     }
 
-    @Test fun emptySavedDueAndMasteredRemainReadyForTheirEmptyMessages() = runTest(dispatcher) {
+    @Test fun emptyFavoriteFiltersRemainReadyForTheirEmptyMessages() = runTest(dispatcher) {
         val fixture = Fixture().apply { firstBody = Fixture.page(emptyList(), null) }
         val vm = viewModel(fixture)
         ready(vm)
         assertTrue(content(vm).items.isEmpty())
-        listOf(FavoritesFilter.DUE, FavoritesFilter.MASTERED).forEach {
+        listOf(FavoritesFilter.DUE, FavoritesFilter.TRAINED, FavoritesFilter.MASTERED).forEach {
             vm.selectFavoritesFilter(it)
             ready(vm)
             assertTrue(content(vm).items.isEmpty())
@@ -375,8 +427,8 @@ class FavoritesFlowTest {
         assertEquals(2, fixture.requests.count { it.url.encodedPath == "/questions/saved" })
     }
 
-    @Test fun dueAndMasteredRowsStayVisibleAfterSuccessfulUnsave() = runTest(dispatcher) {
-        listOf(FavoritesFilter.DUE, FavoritesFilter.MASTERED).forEach { filter ->
+    @Test fun progressFilterRowsStayVisibleAfterSuccessfulUnsave() = runTest(dispatcher) {
+        listOf(FavoritesFilter.DUE, FavoritesFilter.TRAINED, FavoritesFilter.MASTERED).forEach { filter ->
             val firstStarted = CompletableDeferred<Unit>()
             val secondStarted = CompletableDeferred<Unit>()
             var mutations = 0

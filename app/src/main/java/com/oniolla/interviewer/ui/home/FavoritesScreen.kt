@@ -49,11 +49,13 @@ internal fun FavoritesScreen(
                 HomeFilterChip(stringResource(when (filter) {
                     FavoritesFilter.SAVED -> R.string.favorites_filter_saved
                     FavoritesFilter.DUE -> R.string.favorites_filter_due
+                    FavoritesFilter.TRAINED -> R.string.favorites_filter_trained
                     FavoritesFilter.MASTERED -> R.string.favorites_filter_mastered
                 }), selected = filter == state.favoritesFilter,
                     minWidth = when (filter) {
                         FavoritesFilter.SAVED -> 60.dp
                         FavoritesFilter.DUE -> 48.dp
+                        FavoritesFilter.TRAINED -> 66.dp
                         FavoritesFilter.MASTERED -> 76.dp
                     }) { onFilterSelected(filter) }
             }
@@ -80,6 +82,7 @@ internal fun FavoritesScreen(
         val emptyMessage = stringResource(when (state.favoritesFilter) {
             FavoritesFilter.SAVED -> R.string.favorites_empty
             FavoritesFilter.DUE -> R.string.favorites_due_empty
+            FavoritesFilter.TRAINED -> R.string.favorites_trained_empty
             FavoritesFilter.MASTERED -> R.string.favorites_mastered_empty
         })
         key(state.favoritesFilter) {

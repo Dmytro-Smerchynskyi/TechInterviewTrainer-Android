@@ -121,7 +121,8 @@ interface Api {
         @Query("limit") limit: Int = 20,
         @Query("cursor") cursor: String? = null,
         @Tag session: SessionSnapshot? = null,
-        @Query("mastered") mastered: Boolean? = null
+        @Query("mastered") mastered: Boolean? = null,
+        @Query("evaluated") evaluated: Boolean? = null
     ): QuestionsResponse
 
     @GET("questions/{id}")

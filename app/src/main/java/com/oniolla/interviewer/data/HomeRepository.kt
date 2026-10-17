@@ -93,9 +93,10 @@ class HomeRepository @Inject constructor(
         search: String?,
         cursor: String?,
         mastered: Boolean? = null,
-        difficulty: String? = null
+        difficulty: String? = null,
+        evaluated: Boolean? = null
     ): QuestionsResponse = sessionRefresh.authorizedApiCall {
         api.questions(topicId = topicId, search = search, limit = 20, cursor = cursor, session = it,
-            mastered = mastered, difficulty = difficulty)
+            mastered = mastered, difficulty = difficulty, evaluated = evaluated)
     }
 }

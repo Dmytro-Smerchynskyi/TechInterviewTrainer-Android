@@ -269,10 +269,9 @@ class AuthViewModel @Inject constructor(
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe(
                         {
-                            passwordText.value = ""
                             setLoading(false)
                             viewModelScope.launch {
-                                _stateFlow.value = AuthState.VerificationEmailSent(email.trim()).toUi()
+                                showAuthState(AuthState.VerificationEmailSent(email.trim()), verificationPassword = password)
                                 _uiEventsFlow.emit(UiEvent.Toast(it.message))
                             }
                         },
@@ -340,7 +339,7 @@ class AuthViewModel @Inject constructor(
                                 )
                             )
 
-                        else -> showAuthState(authState)
+                        else -> showAuthState(authState, verificationPassword = password)
                     }
                 }
             }
@@ -385,10 +384,16 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    private fun showAuthState(result: AuthState) {
-        passwordText.value = ""
+    private fun showAuthState(result: AuthState, verificationPassword: String? = null) {
         preparationLanguagesJob?.cancel()
-        _stateFlow.value = result.toUi()
+        val next = result.toUi()
+        if (next is AuthViewState.Unauthorized.EmailConfirmation) {
+            passwordText.value = verificationPassword.orEmpty()
+            _stateFlow.value = next.copy(requiresPassword = verificationPassword.isNullOrEmpty())
+        } else {
+            passwordText.value = ""
+            _stateFlow.value = next
+        }
         if (result is AuthState.PreparationLanguageSelectionRequired) loadPreparationLanguages()
     }
 
@@ -494,9 +499,15 @@ class AuthViewModel @Inject constructor(
             _stateFlow.value = state.copy(codeError = "Enter the 6-digit code")
             return
         }
-        _stateFlow.value = state.copy(isLoading = true, isResending = false, codeError = null)
+        val password = passwordText.value
+        if (!isPasswordValid(password)) {
+            _stateFlow.value = state.copy(requiresPassword = true,
+                passwordError = "Password should be between 8 and 64 characters")
+            return
+        }
+        _stateFlow.value = state.copy(isLoading = true, isResending = false, codeError = null, passwordError = null)
         viewModelScope.launch {
-            when (val result = verifyEmailUseCase(VerifyEmailPayload(state.email, state.code))) {
+            when (val result = verifyEmailUseCase(VerifyEmailPayload(state.email, state.code, password))) {
                 is AuthState.EmailVerificationFailed -> {
                     val message = result.message ?: "Unknown error"
                     _stateFlow.value = state.copy(codeError = message)
@@ -514,7 +525,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = resendVerificationCodeUseCase(state.email)) {
                 is AuthState.VerificationEmailSent -> {
-                    _stateFlow.value = result.toUi()
+                    _stateFlow.value = state.copy(code = "", codeError = null, isLoading = false, isResending = false)
                     result.message?.let { _uiEventsFlow.emit(UiEvent.Toast(it)) }
                 }
                 is AuthState.Error -> {
@@ -559,6 +570,9 @@ class AuthViewModel @Inject constructor(
             if (state is AuthViewState.Unauthorized.SignUp) {
                 _stateFlow.value = state.copy(passwordError = null)
             }
+            if (state is AuthViewState.Unauthorized.EmailConfirmation) {
+                _stateFlow.value = state.copy(passwordError = null)
+            }
         }
     }
 
@@ -590,7 +604,9 @@ class AuthViewModel @Inject constructor(
                 val code: String = "",
                 val codeError: String? = null,
                 val isLoading: Boolean = false,
-                val isResending: Boolean = false
+                val isResending: Boolean = false,
+                val requiresPassword: Boolean = false,
+                val passwordError: String? = null
             ) : Unauthorized()
 
             data class ForgotPassword(

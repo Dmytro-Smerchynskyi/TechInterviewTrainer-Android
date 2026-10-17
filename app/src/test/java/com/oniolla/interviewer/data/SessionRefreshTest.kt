@@ -298,7 +298,7 @@ class SessionRefreshTest {
         val fixture = Fixture(backgroundScope).apply { publicStatus = 401 }
         val snapshot = fixture.tokens.snapshot()
         assertTrue(failure { fixture.auth.login(LoginPayload("developer@example.com", "password")) } is ApiException.Unauthorized)
-        assertTrue(failure { fixture.auth.verifyEmail(VerifyEmailPayload("developer@example.com", "123456")) } is ApiException.Unauthorized)
+        assertTrue(failure { fixture.auth.verifyEmail(VerifyEmailPayload("developer@example.com", "123456", "password123")) } is ApiException.Unauthorized)
         assertTrue(failure { fixture.auth.forgotPassword("developer@example.com") } is ApiException.Unauthorized)
         assertTrue(failure { fixture.auth.sendVerificationEmail("developer@example.com") } is ApiException.Unauthorized)
         assertEquals(snapshot, fixture.tokens.snapshot())

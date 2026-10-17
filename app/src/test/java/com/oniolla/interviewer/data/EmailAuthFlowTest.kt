@@ -209,13 +209,14 @@ class EmailAuthFlowTest {
     }
 
     @Test
-    fun verifyPostsEmailAndCodeSavesTokensAndChecksProfile() = runBlocking {
+    fun verifyPostsEmailCodeAndPasswordSavesTokensAndChecksProfile() = runBlocking {
         val fixture = Fixture()
         val useCase = VerifyEmailUseCase(fixture.repository, fixture.resolve)
-        assertSame(AuthState.Authorized, useCase(VerifyEmailPayload("developer@example.com", "012345")))
+        assertSame(AuthState.Authorized, useCase(VerifyEmailPayload("developer@example.com", "012345", "password123")))
         assertEquals(listOf("/auth/email/verify", "/me"), fixture.paths())
         val payload = JsonParser.parseString(fixture.requests.first().second).asJsonObject
-        assertEquals(setOf("email", "code"), payload.keySet())
+        assertEquals(setOf("email", "code", "password"), payload.keySet())
+        assertEquals("password123", payload["password"].asString)
         assertEquals("developer@example.com", payload["email"].asString)
         assertEquals("012345", payload["code"].asString)
         assertEquals("new-access", fixture.tokens.accessToken)
@@ -226,14 +227,14 @@ class EmailAuthFlowTest {
     fun verificationRoutesToOnboardingWhenNeeded() = runBlocking {
         val fixture = Fixture().apply { onboardingCompleted = false }
         assertSame(AuthState.OnboardingRequired,
-            VerifyEmailUseCase(fixture.repository, fixture.resolve)(VerifyEmailPayload("developer@example.com", "123456")))
+            VerifyEmailUseCase(fixture.repository, fixture.resolve)(VerifyEmailPayload("developer@example.com", "123456", "password123")))
     }
 
     @Test
     fun invalidCodeDoesNotSaveTokensOrFetchProfile() = runBlocking {
         val fixture = Fixture().apply { verifyStatus = 400 }
         val state = VerifyEmailUseCase(fixture.repository, fixture.resolve)(
-            VerifyEmailPayload("developer@example.com", "123456")
+            VerifyEmailPayload("developer@example.com", "123456", "password123")
         ) as AuthState.EmailVerificationFailed
         assertEquals("Request failed", state.message)
         assertEquals(listOf("/auth/email/verify"), fixture.paths())
@@ -245,7 +246,7 @@ class EmailAuthFlowTest {
     fun networkFailureIsHandledWithoutLeavingLoadingState() = runBlocking {
         val fixture = Fixture().apply { networkFailurePath = "/auth/email/verify" }
         val state = VerifyEmailUseCase(fixture.repository, fixture.resolve)(
-            VerifyEmailPayload("developer@example.com", "123456")
+            VerifyEmailPayload("developer@example.com", "123456", "password123")
         ) as AuthState.EmailVerificationFailed
         assertEquals("Something unexpected happened", state.message)
     }
@@ -637,7 +638,7 @@ class EmailAuthFlowTest {
         val fixture = Fixture().apply { onboardingCompleted = false; preparationLanguage = null }
         assertEquals(AuthState.PreparationLanguageSelectionRequired(Specialization.ANDROID),
             VerifyEmailUseCase(fixture.repository, fixture.resolve)(
-                VerifyEmailPayload("developer@example.com", "123456")))
+                VerifyEmailPayload("developer@example.com", "123456", "password123")))
         assertEquals(listOf("/auth/email/verify", "/me"), fixture.paths())
     }
 

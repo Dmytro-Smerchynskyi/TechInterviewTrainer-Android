@@ -316,7 +316,22 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
                         onConfirmClicked = viewModel::confirmEmail,
                         onResendClicked = viewModel::resendEmailCode,
                         onChangeEmailClicked = viewModel::changeEmailAddress,
-                        onPasteRequested = viewModel::pasteEmailCode
+                        onPasteRequested = viewModel::pasteEmailCode,
+                        passwordContent = if (state.requiresPassword) { {
+                            AppTextField(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = passwordText,
+                                header = stringResource(R.string.password),
+                                icon = ImageVector.vectorResource(R.drawable.lock),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                                passwordVisible = false,
+                                error = state.passwordError,
+                                onFocused = viewModel::clearPasswordError,
+                                onDone = viewModel::confirmEmail,
+                                enabled = !state.isLoading,
+                                placeholder = stringResource(R.string.password_placeholder)
+                            )
+                        } } else null
                     )
 
                 is AuthViewModel.AuthViewState.SpecializationSelection ->
@@ -973,7 +988,8 @@ fun EmailConfirmation(
     onResendClicked: () -> Unit = {},
     onChangeEmailClicked: () -> Unit = {},
     onPasteRequested: (String?) -> Unit = {},
-    resendContent: (@Composable () -> Unit)? = null
+    resendContent: (@Composable () -> Unit)? = null,
+    passwordContent: (@Composable () -> Unit)? = null
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -1064,6 +1080,10 @@ fun EmailConfirmation(
                 fontSize = 10.sp,
                 lineHeight = 13.sp
             )
+
+            if (passwordContent != null) {
+                Box(Modifier.fillMaxWidth().padding(top = 24.dp)) { passwordContent() }
+            }
 
             MainButton(
                 modifier = Modifier.fillMaxWidth().padding(top = 27.dp),
@@ -1303,6 +1323,25 @@ fun EmailConfirmationErrorPreview() {
 fun EmailConfirmationLoadingPreview() {
     InterviewTrainerTheme(darkTheme = true) {
         EmailConfirmation(email = "developer@example.com", code = "123456", isLoading = true)
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun EmailConfirmationPasswordPreview() {
+    val password = remember { mutableStateOf("") }
+    InterviewTrainerTheme(darkTheme = false) {
+        EmailConfirmation(email = "developer@example.com", code = "123456", passwordContent = {
+            AppTextField(
+                modifier = Modifier.fillMaxWidth(),
+                text = password,
+                header = stringResource(R.string.password),
+                icon = ImageVector.vectorResource(R.drawable.lock),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                passwordVisible = false,
+                placeholder = stringResource(R.string.password_placeholder)
+            )
+        })
     }
 }
 

@@ -53,6 +53,9 @@ class AccountSettingsTest {
         var name = "Developer"
         var email = "developer@example.com"
         var providers = listOf("PASSWORD")
+        var emailVerified = true
+        var registrationPassword = "signup-password"
+        var verificationAttempts = 0
         var failPath: String? = null
         var failStatus = 400
         var failCode = "INVALID"
@@ -95,6 +98,27 @@ class AccountSettingsTest {
                             status = failStatus
                             """{"error":{"code":"$failCode","message":"$failMessage"}}"""
                         }
+                        path == "/auth/email/verify" -> {
+                            val input = payload(request)
+                            val password = input.get("password")?.asString
+                            when {
+                                password.isNullOrEmpty() -> {
+                                    status = 400
+                                    """{"error":{"code":"VALIDATION_ERROR","message":"Password is required"}}"""
+                                }
+                                else -> {
+                                    verificationAttempts++
+                                    if (password != registrationPassword || input.get("code").asString != "123456") {
+                                        status = 400
+                                        """{"error":{"code":"INVALID_VERIFICATION_CODE","message":"Invalid verification code or password"}}"""
+                                    } else {
+                                        emailVerified = true
+                                        credentials()
+                                    }
+                                }
+                            }
+                        }
+                        path == "/auth/email/resend-code" -> """{"message":"Sent"}"""
                         path == "/me" -> profile()
                         path == "/me/usage" -> """{"plan":"FREE","answerReveals":{"used":12,"limit":20,"remaining":8},
                             "aiEvaluations":{"used":8,"reserved":0,"limit":20,"remaining":12,"periodEndsAt":null,"resetAt":null},
@@ -106,7 +130,11 @@ class AccountSettingsTest {
                             credentials()
                         }
                         path == "/auth/login" -> credentials()
-                        path == "/auth/register" -> """{"message":"Sent"}"""
+                        path == "/auth/register" -> {
+                            registrationPassword = payload(request).get("password").asString
+                            emailVerified = false
+                            """{"message":"Sent"}"""
+                        }
                         path == "/auth/password/change" -> credentials()
                         path == "/auth/password/set" -> { providers = providers + "PASSWORD"; credentials() }
                         path == "/auth/refresh" -> """{"accessToken":"refreshed","refreshToken":"refreshed-refresh","expiresIn":900}"""
@@ -122,7 +150,7 @@ class AccountSettingsTest {
             repository = AuthRepository(tokens, api, SessionRefreshCoordinator(tokens, api))
             manage = ManageAccountUseCase(repository)
         }
-        private fun profile() = """{"id":"user","email":"$email","displayName":"$name","emailVerified":true,
+        private fun profile() = """{"id":"user","email":"$email","displayName":"$name","emailVerified":$emailVerified,
             "specialization":"ANDROID","createdAt":"","updatedAt":"","onboardingCompleted":true,
             "linkedProviders":${Gson().toJson(providers)},"preparationLanguage":"en"}"""
         private fun credentials() = """{"accessToken":"new-access","refreshToken":"new-refresh","expiresIn":900}"""
@@ -218,7 +246,7 @@ class AccountSettingsTest {
         assertEquals("", vm.passwordText.value)
     }
 
-    @Test fun signupKeepsPasswordAfterValidationAndServerErrorsAndClearsOnSuccess() = runTest(dispatcher) {
+    @Test fun signupKeepsPasswordUntilVerificationSucceeds() = runTest(dispatcher) {
         io.reactivex.rxjava3.android.plugins.RxAndroidPlugins.setMainThreadSchedulerHandler {
             io.reactivex.rxjava3.schedulers.Schedulers.trampoline()
         }
@@ -244,6 +272,10 @@ class AccountSettingsTest {
             f.failPath = null
             vm.signup("Developer", "developer@example.com", vm.passwordText.value)
             vm.stateFlow.first { it is AuthViewState.Unauthorized.EmailConfirmation }
+            assertEquals("signup-password", vm.passwordText.value)
+            vm.updateEmailCode("123456")
+            vm.confirmEmail()
+            vm.stateFlow.first { it is AuthViewState.Authorized }
             assertEquals("", vm.passwordText.value)
         } finally {
             io.reactivex.rxjava3.android.plugins.RxAndroidPlugins.reset()
@@ -283,12 +315,125 @@ class AccountSettingsTest {
                 f.failPath = null
                 vm.signup("Developer", "available@example.com", vm.passwordText.value)
                 vm.stateFlow.first { it is AuthViewState.Unauthorized.EmailConfirmation }
+                assertEquals("signup-password", vm.passwordText.value)
+                vm.updateEmailCode("123456")
+                vm.confirmEmail()
+                vm.stateFlow.first { it is AuthViewState.Authorized }
                 assertEquals("", vm.passwordText.value)
                 assertEquals(2, f.calls("/auth/register"))
             }
         } finally {
             io.reactivex.rxjava3.android.plugins.RxAndroidPlugins.reset()
         }
+    }
+
+    @Test fun registrationPasswordSurvivesVerificationErrorsResendAndRotationUntilSuccess() = runTest(dispatcher) {
+        io.reactivex.rxjava3.android.plugins.RxAndroidPlugins.setMainThreadSchedulerHandler {
+            io.reactivex.rxjava3.schedulers.Schedulers.trampoline()
+        }
+        val f = Fixture()
+        f.tokens.clear()
+        val controller = org.robolectric.Robolectric.buildActivity(androidx.activity.ComponentActivity::class.java).setup()
+        val factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T = f.authVm() as T
+        }
+        try {
+            val vm = androidx.lifecycle.ViewModelProvider(controller.get(), factory)[AuthViewModel::class.java]
+            vm.stateFlow.first { it is AuthViewState.Unauthorized.Login }
+            vm.showSignup()
+            vm.passwordText.value = "registration-password"
+            vm.signup("Developer", "developer@example.com", vm.passwordText.value)
+            val confirmation = vm.stateFlow.first { it is AuthViewState.Unauthorized.EmailConfirmation } as AuthViewState.Unauthorized.EmailConfirmation
+            assertFalse(confirmation.requiresPassword)
+            assertEquals("registration-password", vm.passwordText.value)
+            val configuration = android.content.res.Configuration(controller.get().resources.configuration)
+            configuration.orientation = android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            controller.configurationChange(configuration)
+            val recreated = androidx.lifecycle.ViewModelProvider(controller.get(), factory)[AuthViewModel::class.java]
+            assertSame(vm, recreated)
+            assertEquals("registration-password", recreated.passwordText.value)
+            assertEquals("", f.authVm().passwordText.value)
+            vm.updateEmailCode("123")
+            vm.confirmEmail()
+            assertEquals(0, f.calls("/auth/email/verify"))
+            assertEquals("registration-password", vm.passwordText.value)
+            vm.updateEmailCode("000000")
+            vm.confirmEmail()
+            val rejected = vm.stateFlow.first {
+                it is AuthViewState.Unauthorized.EmailConfirmation && !it.isLoading && it.codeError != null
+            } as AuthViewState.Unauthorized.EmailConfirmation
+            assertEquals("Invalid verification code or password", rejected.codeError)
+            assertEquals(1, f.verificationAttempts)
+            assertEquals("registration-password", vm.passwordText.value)
+            vm.resendEmailCode()
+            vm.stateFlow.first { it is AuthViewState.Unauthorized.EmailConfirmation && !it.isLoading }
+            assertEquals("registration-password", vm.passwordText.value)
+            vm.updateEmailCode("123456")
+            vm.confirmEmail()
+            vm.stateFlow.first { it is AuthViewState.Authorized }
+            assertEquals("", vm.passwordText.value)
+            val request = f.request("/auth/email/verify")
+            val body = f.payload(request)
+            assertEquals(setOf("email", "code", "password"), body.keySet())
+            assertEquals("registration-password", body.get("password").asString)
+            assertEquals("developer@example.com", body.get("email").asString)
+            assertEquals("123456", body.get("code").asString)
+            assertNull(request.header("Authorization"))
+            assertEquals(2, f.verificationAttempts)
+            assertEquals("new-refresh", f.tokens.refreshToken)
+        } finally {
+            controller.pause().stop().destroy()
+            io.reactivex.rxjava3.android.plugins.RxAndroidPlugins.reset()
+        }
+    }
+
+    @Test fun loginVerificationCarriesTheEnteredPasswordAndLeavingConfirmationClearsIt() = runTest(dispatcher) {
+        val f = Fixture().apply {
+            failPath = "/auth/login"
+            failStatus = 403
+            failCode = "EMAIL_NOT_VERIFIED"
+        }
+        f.tokens.clear()
+        val vm = f.authVm()
+        vm.stateFlow.first { it is AuthViewState.Unauthorized.Login }
+        vm.login("developer@example.com", "signup-password")
+        val state = vm.stateFlow.first { it is AuthViewState.Unauthorized.EmailConfirmation } as AuthViewState.Unauthorized.EmailConfirmation
+        assertFalse(state.requiresPassword)
+        assertEquals("signup-password", vm.passwordText.value)
+        vm.changeEmailAddress()
+        vm.stateFlow.first { it is AuthViewState.Unauthorized.Login }
+        assertEquals("", vm.passwordText.value)
+    }
+
+    @Test fun startupVerificationRequestsPasswordLocallyAndNeverSendsAnEmptyPassword() = runTest(dispatcher) {
+        val f = Fixture().apply { emailVerified = false }
+        val vm = f.authVm()
+        val state = vm.stateFlow.first { it is AuthViewState.Unauthorized.EmailConfirmation } as AuthViewState.Unauthorized.EmailConfirmation
+        assertTrue(state.requiresPassword)
+        assertEquals("", vm.passwordText.value)
+        vm.updateEmailCode("123456")
+        vm.confirmEmail()
+        assertNotNull((vm.stateFlow.value as AuthViewState.Unauthorized.EmailConfirmation).passwordError)
+        assertEquals(0, f.calls("/auth/email/verify"))
+        assertEquals(0, f.verificationAttempts)
+        vm.resendEmailCode()
+        val resent = vm.stateFlow.first { it is AuthViewState.Unauthorized.EmailConfirmation && !it.isLoading } as AuthViewState.Unauthorized.EmailConfirmation
+        assertTrue(resent.requiresPassword)
+        vm.passwordText.value = "wrong-password"
+        vm.clearPasswordError()
+        vm.updateEmailCode("123456")
+        vm.confirmEmail()
+        vm.stateFlow.first { it is AuthViewState.Unauthorized.EmailConfirmation && !it.isLoading && it.codeError != null }
+        assertEquals("wrong-password", vm.passwordText.value)
+        assertEquals(1, f.verificationAttempts)
+        assertEquals(1, f.calls("/auth/email/verify"))
+        vm.passwordText.value = "signup-password"
+        vm.clearPasswordError()
+        vm.updateEmailCode("123456")
+        vm.confirmEmail()
+        vm.stateFlow.first { it is AuthViewState.Authorized }
+        assertEquals("", vm.passwordText.value)
     }
 
     @Test fun rejectedGoogleProofKeepsSessionAndAllowsFreshRetryForRequestResendAndSetup() = runTest(dispatcher) {

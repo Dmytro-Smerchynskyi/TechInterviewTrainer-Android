@@ -362,6 +362,7 @@ class PreparationLanguageFlowTest {
         val vm = fixture.viewModel()
         vm.stateFlow.first { it is AuthViewState.Unauthorized.EmailConfirmation }
         vm.updateEmailCode("123456")
+        vm.passwordText.value = "password123"
         vm.confirmEmail()
         awaitOptions(vm)
         assertEquals(Specialization.ANDROID, state(vm).specialization)

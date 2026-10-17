@@ -119,7 +119,7 @@ class SessionProfileTest {
     @Test fun emailConfirmationAndHomeUseOneMeRequest() = runTest {
         val fixture = Fixture()
         assertSame(AuthState.Authorized, VerifyEmailUseCase(fixture.auth, fixture.resolve)(
-            VerifyEmailPayload("developer@example.com", "123456")))
+            VerifyEmailPayload("developer@example.com", "123456", "password123")))
         fixture.homeProfile()
         assertEquals(listOf("/auth/email/verify", "/me", "/dashboard"), fixture.paths())
     }

@@ -3,6 +3,7 @@ package com.oniolla.interviewer.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.oniolla.interviewer.data.AuthState
+import com.oniolla.interviewer.data.ApiException
 import com.oniolla.interviewer.data.model.Specialization
 import com.oniolla.interviewer.data.model.PreparationLanguage
 import com.oniolla.interviewer.domain.ContentResult
@@ -277,14 +278,18 @@ class AuthViewModel @Inject constructor(
                         },
                         {
                             setLoading(false)
-                            it.toApiException().toAuthState().let { authState ->
+                            val error = it.toApiException()
+                            if (error is ApiException.BadRequest && error.customError.code == "EMAIL_ALREADY_IN_USE") {
+                                val current = _stateFlow.value as? AuthViewState.Unauthorized.SignUp
+                                if (current != null) _stateFlow.value = current.copy(
+                                    emailError = error.message?.takeIf { message -> message.isNotBlank() }
+                                        ?: "This email is already in use."
+                                )
+                            } else {
+                                val authState = error.toAuthState()
                                 if (authState is AuthState.Error) {
                                     viewModelScope.launch {
-                                        _uiEventsFlow.emit(
-                                            UiEvent.Toast(
-                                                authState.message ?: "Unknown error"
-                                            )
-                                        )
+                                        _uiEventsFlow.emit(UiEvent.Toast(authState.message ?: "Unknown error"))
                                     }
                                 }
                             }

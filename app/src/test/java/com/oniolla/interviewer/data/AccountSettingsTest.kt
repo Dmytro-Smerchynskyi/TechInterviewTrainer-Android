@@ -250,6 +250,47 @@ class AccountSettingsTest {
         }
     }
 
+    @Test fun signupConflictUsesCustomErrorCodeAndShowsEmailFieldErrorWithoutClearingPassword() = runTest(dispatcher) {
+        io.reactivex.rxjava3.android.plugins.RxAndroidPlugins.setMainThreadSchedulerHandler {
+            io.reactivex.rxjava3.schedulers.Schedulers.trampoline()
+        }
+        try {
+            for (message in listOf("Email is already in use.", "")) {
+                val f = Fixture().apply {
+                    failPath = "/auth/register"
+                    failStatus = 409
+                    failCode = "EMAIL_ALREADY_IN_USE"
+                    failMessage = message
+                }
+                f.tokens.clear()
+                val vm = f.authVm()
+                vm.stateFlow.first { it is AuthViewState.Unauthorized.Login }
+                vm.showSignup()
+                vm.passwordText.value = "signup-password"
+                vm.signup("Developer", "used@example.com", vm.passwordText.value)
+                val state = vm.stateFlow.first {
+                    it is AuthViewState.Unauthorized.SignUp && !it.isLoading && it.emailError != null
+                } as AuthViewState.Unauthorized.SignUp
+                assertEquals(message.ifBlank { "This email is already in use." }, state.emailError)
+                assertNull(state.passwordError)
+                assertNull(state.nameError)
+                assertEquals("signup-password", vm.passwordText.value)
+                assertEquals(1, f.calls("/auth/register"))
+                assertEquals(0, f.calls("/auth/email/resend-code"))
+                assertEquals(0, f.calls("/auth/refresh"))
+                vm.clearEmailError()
+                assertNull((vm.stateFlow.value as AuthViewState.Unauthorized.SignUp).emailError)
+                f.failPath = null
+                vm.signup("Developer", "available@example.com", vm.passwordText.value)
+                vm.stateFlow.first { it is AuthViewState.Unauthorized.EmailConfirmation }
+                assertEquals("", vm.passwordText.value)
+                assertEquals(2, f.calls("/auth/register"))
+            }
+        } finally {
+            io.reactivex.rxjava3.android.plugins.RxAndroidPlugins.reset()
+        }
+    }
+
     @Test fun rejectedGoogleProofKeepsSessionAndAllowsFreshRetryForRequestResendAndSetup() = runTest(dispatcher) {
         for (path in listOf("/auth/email/change/request", "/auth/email/change/resend", "/auth/password/set")) {
             for (expiredBearer in listOf(false, true)) {

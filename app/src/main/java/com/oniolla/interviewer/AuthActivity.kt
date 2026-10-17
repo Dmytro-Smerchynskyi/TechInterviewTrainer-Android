@@ -101,6 +101,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oniolla.interviewer.data.model.Specialization
 import com.oniolla.interviewer.ui.AuthViewModel
+import com.oniolla.interviewer.ui.PasswordResetScreen
+import com.oniolla.interviewer.ui.passwordResetToken
 import com.oniolla.interviewer.ui.GoogleAuthButton
 import com.oniolla.interviewer.ui.rememberGoogleSignIn
 import com.oniolla.interviewer.ui.UiEvent
@@ -121,6 +123,7 @@ class AuthActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        consumePasswordResetLink(intent)
         applyStatusBarTheme(preferences.theme.value)
         setContent {
             val theme by preferences.theme.collectAsStateWithLifecycle()
@@ -131,9 +134,25 @@ class AuthActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        consumePasswordResetLink(intent)
+    }
+
+    private fun consumePasswordResetLink(intent: Intent) {
+        if (intent.action != Intent.ACTION_VIEW) return
+        val token = passwordResetToken(intent)
+        // Do not keep the reset token in the Activity's Intent across recreation.
+        intent.data = null
+        intent.action = Intent.ACTION_MAIN
+        viewModel.openPasswordReset(token)
+    }
+
     private fun openHome() {
         if (!isFinishing) {
-            startActivity(Intent(this, HomeActivity::class.java))
+            startActivity(Intent(this, HomeActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
             finish()
         }
     }
@@ -164,7 +183,21 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
     }) { }
 
     LaunchedEffect(state.value) {
-        if (state.value is AuthViewModel.AuthViewState.Authorized) onAuthorized()
+        when (val current = state.value) {
+            is AuthViewModel.AuthViewState.Authorized -> onAuthorized()
+            is AuthViewModel.AuthViewState.PasswordResetFinished -> {
+                current.invalidToken?.let { invalid ->
+                    Toast.makeText(context, if (invalid) R.string.password_reset_invalid
+                        else R.string.password_reset_success, Toast.LENGTH_LONG).show()
+                }
+                viewModel.leavePasswordReset()
+            }
+            else -> Unit
+        }
+    }
+
+    BackHandler(enabled = state.value is AuthViewModel.AuthViewState.PasswordReset) {
+        viewModel.closePasswordReset()
     }
 
     BackHandler(enabled = state.value is AuthViewModel.AuthViewState.SpecializationSelection) { }
@@ -250,6 +283,10 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
     ) { state ->
         state.let { state ->
             when (state) {
+                is AuthViewModel.AuthViewState.PasswordReset ->
+                    PasswordResetScreen(state, viewModel.passwordText, viewModel.resetConfirmationText,
+                        viewModel::submitPasswordReset, viewModel::closePasswordReset, viewModel::clearResetPasswordErrors)
+                is AuthViewModel.AuthViewState.PasswordResetFinished -> Unit
                 is AuthViewModel.AuthViewState.Loading ->
                     Loading(
                         state.progress

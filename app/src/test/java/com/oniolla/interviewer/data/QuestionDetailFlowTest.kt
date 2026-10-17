@@ -611,7 +611,9 @@ class QuestionDetailFlowTest {
         ready(vm)
         open(vm, f.question())
         vm.revealQuestionAnswer()
-        vm.stateFlow.first { it.questionDetail?.answer is ContentViewState.Failed }
+        vm.stateFlow.first { it.questionDetail?.let { detail ->
+            detail.answer is ContentViewState.Failed && !detail.isUsageLoading
+        } == true }
         assertEquals(4L, detail(vm).question.id)
         assertEquals("Answer belongs to another question", (detail(vm).answer as ContentViewState.Failed).message)
     }

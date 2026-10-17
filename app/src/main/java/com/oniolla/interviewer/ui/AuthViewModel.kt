@@ -36,6 +36,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelChildren
+import com.oniolla.interviewer.domain.ResetPasswordUseCase
+import com.oniolla.interviewer.domain.PasswordResetResult
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import javax.inject.Inject
@@ -52,7 +55,8 @@ class AuthViewModel @Inject constructor(
     private val selectSpecializationUseCase: SelectSpecializationUseCase,
     private val getPreparationLanguagesUseCase: GetPreparationLanguagesUseCase,
     private val selectPreparationLanguageUseCase: SelectPreparationLanguageUseCase,
-    private val googleSignInUseCase: com.oniolla.interviewer.domain.GoogleSignInUseCase
+    private val googleSignInUseCase: com.oniolla.interviewer.domain.GoogleSignInUseCase,
+    private val resetPasswordUseCase: ResetPasswordUseCase
 ) : ViewModel() {
 
     private val _stateFlow: MutableStateFlow<AuthViewState> = MutableStateFlow(
@@ -64,6 +68,8 @@ class AuthViewModel @Inject constructor(
 
     // Memory only: survives Activity recreation, never enters saved instance state.
     val passwordText = androidx.compose.runtime.mutableStateOf("")
+    val resetConfirmationText = androidx.compose.runtime.mutableStateOf("")
+    private var resetToken: String? = null
 
     private val _uiEventsFlow: MutableSharedFlow<UiEvent> = MutableSharedFlow()
     val uiEventsFlow = _uiEventsFlow.asSharedFlow()
@@ -77,11 +83,71 @@ class AuthViewModel @Inject constructor(
     override fun onCleared() {
         signupDisposable?.dispose()
         passwordText.value = ""
+        resetConfirmationText.value = ""
+        resetToken = null
         super.onCleared()
     }
 
     init {
         load()
+    }
+
+    fun openPasswordReset(token: String?) {
+        // A new link supersedes startup restoration and any previous authentication operation.
+        viewModelScope.coroutineContext.cancelChildren()
+        signupDisposable?.dispose()
+        googleOrigin = null
+        passwordText.value = ""
+        resetConfirmationText.value = ""
+        resetToken = token
+        _stateFlow.value = if (token == null) AuthViewState.PasswordResetFinished(invalidToken = true)
+            else AuthViewState.PasswordReset()
+    }
+
+    fun clearResetPasswordErrors() {
+        val state = _stateFlow.value as? AuthViewState.PasswordReset ?: return
+        if (!state.isLoading) _stateFlow.value = state.copy(passwordError = null, confirmationError = null, error = null)
+    }
+
+    fun submitPasswordReset() {
+        val state = _stateFlow.value as? AuthViewState.PasswordReset ?: return
+        if (state.isLoading) return
+        val token = resetToken ?: return
+        val password = passwordText.value
+        val passwordError = if (isPasswordValid(password)) null else "Password should be between 8 and 64 characters"
+        val confirmationError = if (password == resetConfirmationText.value) null else "Passwords do not match"
+        if (passwordError != null || confirmationError != null) {
+            _stateFlow.value = state.copy(passwordError = passwordError, confirmationError = confirmationError, error = null)
+            return
+        }
+        _stateFlow.value = state.copy(isLoading = true, passwordError = null, confirmationError = null, error = null)
+        viewModelScope.launch {
+            val result = resetPasswordUseCase(token, password)
+            currentCoroutineContext().ensureActive()
+            when (result) {
+                PasswordResetResult.Success -> finishPasswordReset(invalidToken = false)
+                PasswordResetResult.InvalidToken -> finishPasswordReset(invalidToken = true)
+                is PasswordResetResult.Error -> _stateFlow.value = state.copy(error = result.message)
+            }
+        }
+    }
+
+    fun closePasswordReset() {
+        val state = _stateFlow.value as? AuthViewState.PasswordReset ?: return
+        if (!state.isLoading) finishPasswordReset(invalidToken = null)
+    }
+
+    private fun finishPasswordReset(invalidToken: Boolean?) {
+        resetToken = null
+        passwordText.value = ""
+        resetConfirmationText.value = ""
+        _stateFlow.value = AuthViewState.PasswordResetFinished(invalidToken)
+    }
+
+    fun leavePasswordReset() {
+        if (_stateFlow.value !is AuthViewState.PasswordResetFinished) return
+        _stateFlow.value = if (resetPasswordUseCase.hasSession()) AuthViewState.Authorized
+            else AuthViewState.Unauthorized.Login()
     }
 
     fun load() {
@@ -347,6 +413,7 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun isBusy(): Boolean = when (val state = _stateFlow.value) {
+        is AuthViewState.PasswordReset -> state.isLoading
         is AuthViewState.Unauthorized.Login -> state.isLoading
         is AuthViewState.Unauthorized.SignUp -> state.isLoading
         is AuthViewState.Unauthorized.ForgotPassword -> state.isLoading
@@ -588,6 +655,13 @@ class AuthViewModel @Inject constructor(
     }
 
     sealed interface AuthViewState {
+        data class PasswordReset(
+            val passwordError: String? = null,
+            val confirmationError: String? = null,
+            val error: String? = null,
+            val isLoading: Boolean = false
+        ) : AuthViewState
+        data class PasswordResetFinished(val invalidToken: Boolean?) : AuthViewState
         data class Loading(val progress: Float) : AuthViewState
         object Authorized : AuthViewState
         sealed class Unauthorized : AuthViewState {

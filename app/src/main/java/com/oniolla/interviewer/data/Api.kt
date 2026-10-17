@@ -20,6 +20,7 @@ import com.oniolla.interviewer.data.model.PreparationLanguagesResponse
 import com.oniolla.interviewer.data.model.ResendCodeResponse
 import com.oniolla.interviewer.data.model.SignupResponse
 import com.oniolla.interviewer.data.payload.ForgotPasswordPayload
+import com.oniolla.interviewer.data.payload.ResetPasswordPayload
 import com.oniolla.interviewer.data.payload.LoginPayload
 import com.oniolla.interviewer.data.payload.PreparationLanguagePayload
 import com.oniolla.interviewer.data.payload.RefreshPayload
@@ -183,6 +184,9 @@ interface Api {
 
     @POST("auth/email/verify")
     suspend fun verifyEmail(@Body verifyEmailPayload: VerifyEmailPayload): LoginResponse
+
+    @POST("auth/password/reset")
+    suspend fun resetPassword(@Body payload: ResetPasswordPayload)
 
     @POST("auth/password/forgot")
     suspend fun forgotPassword(@Body forgotPasswordPayload: ForgotPasswordPayload): ForgotPasswordResponse

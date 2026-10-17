@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.oniolla.interviewer",
+      "sha256_cert_fingerprints": [
+        "2B:EE:E6:0B:6D:DF:32:B2:88:F8:AB:76:8E:4A:17:53:9C:65:FC:F9:85:03:A7:BA:BC:77:A0:48:24:81:0C:67"
+      ]
+    }
+  }
+]

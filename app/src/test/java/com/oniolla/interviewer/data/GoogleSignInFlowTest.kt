@@ -88,7 +88,7 @@ class GoogleSignInFlowTest {
             ForgotPasswordUseCase(repository), VerifyEmailUseCase(repository, resolve),
             resend, ClearSessionUseCase(repository), SelectSpecializationUseCase(repository, resolve),
             GetPreparationLanguagesUseCase(repository), SelectPreparationLanguageUseCase(repository, resolve),
-            google).also { stores += ViewModelStore().apply { put("auth", it) } }
+            google, ResetPasswordUseCase(repository)).also { stores += ViewModelStore().apply { put("auth", it) } }
         suspend fun ready(vm: AuthViewModel) { vm.stateFlow.first { it is AuthViewState.Unauthorized.Login } }
         fun calls(path: String) = requests.count { it.url.encodedPath == path }
     }

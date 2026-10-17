@@ -135,6 +135,7 @@ class AccountSettingsTest {
                             emailVerified = false
                             """{"message":"Sent"}"""
                         }
+                        path == "/auth/password/reset" -> { status = 204; "" }
                         path == "/auth/password/change" -> credentials()
                         path == "/auth/password/set" -> { providers = providers + "PASSWORD"; credentials() }
                         path == "/auth/refresh" -> """{"accessToken":"refreshed","refreshToken":"refreshed-refresh","expiresIn":900}"""
@@ -166,12 +167,220 @@ class AccountSettingsTest {
                 ForgotPasswordUseCase(repository), VerifyEmailUseCase(repository, resolve),
                 resend, ClearSessionUseCase(repository), SelectSpecializationUseCase(repository, resolve),
                 GetPreparationLanguagesUseCase(repository), SelectPreparationLanguageUseCase(repository, resolve),
-                GoogleSignInUseCase(repository, resolve))
+                GoogleSignInUseCase(repository, resolve), ResetPasswordUseCase(repository))
                 .also { stores += ViewModelStore().apply { put("auth", it) } }
         }
 
         fun vm(handle: SavedStateHandle = SavedStateHandle()) =
             AccountViewModel(manage, handle).also { stores += ViewModelStore().apply { put("account", it) } }
+    }
+
+    private fun resetPassword(vm: AuthViewModel, password: String = "new-password") {
+        vm.passwordText.value = password
+        vm.resetConfirmationText.value = password
+    }
+
+    @Test fun passwordResetPostsExactPayloadWithoutBearerAndReturnsToLogin() = runTest(dispatcher) {
+        val f = Fixture()
+        f.tokens.clear()
+        val vm = f.authVm()
+        vm.openPasswordReset("opaque-reset-token")
+        resetPassword(vm)
+        vm.submitPasswordReset()
+        assertTrue((vm.stateFlow.value as AuthViewState.PasswordReset).isLoading)
+        vm.stateFlow.first { it is AuthViewState.PasswordResetFinished }
+        assertEquals(AuthViewState.PasswordResetFinished(false), vm.stateFlow.value)
+        val request = f.request("/auth/password/reset")
+        assertEquals("POST", request.method)
+        assertNull(request.header("Authorization"))
+        val body = f.payload(request)
+        assertEquals(setOf("token", "password"), body.keySet())
+        assertEquals("opaque-reset-token", body["token"].asString)
+        assertEquals("new-password", body["password"].asString)
+        assertEquals("", vm.passwordText.value)
+        assertEquals("", vm.resetConfirmationText.value)
+        assertNull(f.tokens.refreshToken)
+        assertEquals(0, f.calls("/auth/refresh"))
+        vm.leavePasswordReset()
+        assertTrue(vm.stateFlow.value is AuthViewState.Unauthorized.Login)
+    }
+
+    @Test fun passwordResetKeepsExistingSessionAndReturnsToApp() = runTest(dispatcher) {
+        val f = Fixture()
+        val session = f.tokens.snapshot()
+        val vm = f.authVm()
+        vm.openPasswordReset("reset-token")
+        resetPassword(vm)
+        vm.submitPasswordReset()
+        vm.stateFlow.first { it is AuthViewState.PasswordResetFinished }
+        assertNull(f.request("/auth/password/reset").header("Authorization"))
+        assertEquals(session, f.tokens.snapshot())
+        assertEquals(0, f.calls("/auth/refresh"))
+        vm.leavePasswordReset()
+        assertEquals(AuthViewState.Authorized, vm.stateFlow.value)
+    }
+
+    @Test fun passwordResetInvalidExpiredOrUsedTokenLeavesFormAndPreservesSession() = runTest(dispatcher) {
+        for (signedIn in listOf(false, true)) {
+            val f = Fixture().apply {
+                failPath = "/auth/password/reset"
+                failCode = "VALIDATION_ERROR"
+                failMessage = "Reset token is invalid or expired."
+                if (!signedIn) tokens.clear()
+            }
+            val session = f.tokens.snapshot()
+            val vm = f.authVm()
+            vm.openPasswordReset("invalid-or-expired")
+            resetPassword(vm)
+            vm.submitPasswordReset()
+            vm.stateFlow.first { it is AuthViewState.PasswordResetFinished }
+            assertEquals(AuthViewState.PasswordResetFinished(true), vm.stateFlow.value)
+            assertEquals("", vm.passwordText.value)
+            assertEquals("", vm.resetConfirmationText.value)
+            assertEquals(session, f.tokens.snapshot())
+            assertEquals(1, f.calls("/auth/password/reset"))
+            vm.leavePasswordReset()
+            assertEquals(signedIn, vm.stateFlow.value is AuthViewState.Authorized)
+        }
+    }
+
+    @Test fun passwordResetValidationAndServerErrorsKeepInputsAndAllowRetry() = runTest(dispatcher) {
+        val f = Fixture().apply { tokens.clear() }
+        val vm = f.authVm()
+        vm.openPasswordReset("reset-token")
+        resetPassword(vm, "short")
+        vm.submitPasswordReset()
+        assertNotNull((vm.stateFlow.value as AuthViewState.PasswordReset).passwordError)
+        assertEquals("short", vm.passwordText.value)
+        assertEquals(0, f.calls("/auth/password/reset"))
+        resetPassword(vm)
+        vm.resetConfirmationText.value = "different-password"
+        vm.submitPasswordReset()
+        assertNotNull((vm.stateFlow.value as AuthViewState.PasswordReset).confirmationError)
+        assertEquals(0, f.calls("/auth/password/reset"))
+        resetPassword(vm)
+        f.failPath = "/auth/password/reset"
+        f.failCode = "VALIDATION_ERROR"
+        f.failMessage = "Some other validation error"
+        vm.submitPasswordReset()
+        vm.stateFlow.first { it is AuthViewState.PasswordReset && !it.isLoading }
+        assertEquals("Some other validation error", (vm.stateFlow.value as AuthViewState.PasswordReset).error)
+        assertEquals("new-password", vm.passwordText.value)
+        assertEquals("new-password", vm.resetConfirmationText.value)
+        f.failPath = null
+        vm.submitPasswordReset()
+        vm.stateFlow.first { it is AuthViewState.PasswordResetFinished }
+        assertEquals(2, f.calls("/auth/password/reset"))
+    }
+
+    @Test fun passwordResetUnauthorizedDoesNotRefreshOrLogOutAnExistingSession() = runTest(dispatcher) {
+        val f = Fixture().apply {
+            failPath = "/auth/password/reset"
+            failStatus = 401
+            failCode = "UNAUTHORIZED"
+        }
+        val session = f.tokens.snapshot()
+        val vm = f.authVm()
+        vm.openPasswordReset("reset-token")
+        resetPassword(vm)
+        vm.submitPasswordReset()
+        vm.stateFlow.first { it is AuthViewState.PasswordReset && !it.isLoading }
+        assertNotNull((vm.stateFlow.value as AuthViewState.PasswordReset).error)
+        assertEquals("new-password", vm.passwordText.value)
+        assertEquals(session, f.tokens.snapshot())
+        assertEquals(0, f.calls("/auth/refresh"))
+        assertEquals(1, f.calls("/auth/password/reset"))
+    }
+
+    @Test fun passwordResetBlocksDuplicateSubmissionsAndBackDuringRequest() = runTest(dispatcher) {
+        val started = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val f = Fixture().apply {
+            tokens.clear()
+            beforeMutation = { started.complete(Unit); check(release.await(5, TimeUnit.SECONDS)) }
+        }
+        val vm = f.authVm()
+        vm.openPasswordReset("reset-token")
+        resetPassword(vm)
+        vm.submitPasswordReset()
+        try {
+            started.await()
+            vm.submitPasswordReset()
+            vm.closePasswordReset()
+            assertTrue((vm.stateFlow.value as AuthViewState.PasswordReset).isLoading)
+            assertEquals(1, f.calls("/auth/password/reset"))
+        } finally { release.countDown() }
+        vm.stateFlow.first { it is AuthViewState.PasswordResetFinished }
+    }
+
+    @Test fun newResetLinkCancelsOldResponseAndDoesNotCloseNewForm() = runTest(dispatcher) {
+        val started = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val f = Fixture().apply {
+            tokens.clear()
+            beforeMutation = { started.complete(Unit); check(release.await(5, TimeUnit.SECONDS)) }
+        }
+        val vm = f.authVm()
+        vm.openPasswordReset("old-token")
+        resetPassword(vm)
+        vm.submitPasswordReset()
+        try {
+            started.await()
+            vm.openPasswordReset("new-token")
+            assertEquals("", vm.passwordText.value)
+            assertEquals("", vm.resetConfirmationText.value)
+            resetPassword(vm, "replacement-password")
+        } finally { release.countDown() }
+        // Complete a new request too: it must use the replacement token and password.
+        f.beforeMutation = null
+        vm.submitPasswordReset()
+        vm.stateFlow.first { it is AuthViewState.PasswordResetFinished }
+        val body = f.payload(f.request("/auth/password/reset"))
+        assertEquals("new-token", body["token"].asString)
+        assertEquals("replacement-password", body["password"].asString)
+    }
+
+    @Test fun passwordResetMissingTokenAndBackRouteUsingCurrentSessionAndClearSecrets() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.authVm()
+        vm.openPasswordReset(null)
+        assertEquals(AuthViewState.PasswordResetFinished(true), vm.stateFlow.value)
+        vm.leavePasswordReset()
+        assertEquals(AuthViewState.Authorized, vm.stateFlow.value)
+        vm.openPasswordReset("token")
+        resetPassword(vm)
+        f.tokens.clear()
+        vm.closePasswordReset()
+        assertEquals("", vm.passwordText.value)
+        assertEquals("", vm.resetConfirmationText.value)
+        vm.leavePasswordReset()
+        assertTrue(vm.stateFlow.value is AuthViewState.Unauthorized.Login)
+        assertEquals(0, f.calls("/auth/password/reset"))
+    }
+
+    @Test fun passwordResetSurvivesRotationOnlyInViewModelMemory() = runTest(dispatcher) {
+        val f = Fixture().apply { tokens.clear() }
+        val controller = org.robolectric.Robolectric.buildActivity(androidx.activity.ComponentActivity::class.java).setup()
+        val factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T = f.authVm() as T
+        }
+        try {
+            val vm = androidx.lifecycle.ViewModelProvider(controller.get(), factory)[AuthViewModel::class.java]
+            vm.openPasswordReset("rotation-token")
+            resetPassword(vm)
+            val configuration = android.content.res.Configuration(controller.get().resources.configuration)
+            configuration.orientation = android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            controller.configurationChange(configuration)
+            val recreated = androidx.lifecycle.ViewModelProvider(controller.get(), factory)[AuthViewModel::class.java]
+            assertSame(vm, recreated)
+            assertEquals("new-password", recreated.passwordText.value)
+            assertEquals("new-password", recreated.resetConfirmationText.value)
+            assertEquals("", f.authVm().passwordText.value)
+            recreated.submitPasswordReset()
+            recreated.stateFlow.first { it is AuthViewState.PasswordResetFinished }
+            assertEquals("rotation-token", f.payload(f.request("/auth/password/reset"))["token"].asString)
+        } finally { controller.pause().stop().destroy() }
     }
 
     private suspend fun open(vm: AccountViewModel) {

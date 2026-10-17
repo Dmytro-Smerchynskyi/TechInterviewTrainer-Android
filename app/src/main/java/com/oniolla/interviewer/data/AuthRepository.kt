@@ -199,6 +199,13 @@ class AuthRepository @Inject constructor(
         }
     }
 
+    fun hasSession(): Boolean = !tokenStorage.snapshot().refreshToken.isNullOrBlank()
+
+    // Public, one-time operation: do not refresh, retry, or replace the current session.
+    suspend fun resetPassword(payload: com.oniolla.interviewer.data.payload.ResetPasswordPayload) {
+        apiCall { api.resetPassword(payload) }
+    }
+
     suspend fun forgotPassword(email: String): ForgotPasswordResponse = apiCall {
         api.forgotPassword(ForgotPasswordPayload(email))
     }

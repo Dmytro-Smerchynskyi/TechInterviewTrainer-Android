@@ -29,6 +29,7 @@
             android:theme="@style/Theme.InterviewTrainer" />
         <activity
             android:name=".AuthActivity"
+            android:launchMode="singleTop"
             android:exported="true"
             android:theme="@style/Theme.InterviewTrainer"
             android:windowSoftInputMode="adjustResize">
@@ -36,6 +37,13 @@
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="interviewtrainer.app"
+                    android:path="/resetpassword" />
             </intent-filter>
         </activity>
     </application>

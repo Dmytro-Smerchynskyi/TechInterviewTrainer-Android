@@ -10,7 +10,7 @@ internal class SessionAuthorizationInterceptor(
 ) : Interceptor {
     private val apiUrl = baseUrl.toHttpUrl()
     private val publicPaths = setOf("auth/refresh", "auth/logout", "auth/login", "auth/register",
-        "auth/email/verify", "auth/email/resend-code", "auth/password/forgot")
+        "auth/email/verify", "auth/email/resend-code", "auth/password/forgot", "auth/password/reset")
         .mapNotNull { apiUrl.resolve(it)?.encodedPath }.toSet()
 
     override fun intercept(chain: Interceptor.Chain): Response {

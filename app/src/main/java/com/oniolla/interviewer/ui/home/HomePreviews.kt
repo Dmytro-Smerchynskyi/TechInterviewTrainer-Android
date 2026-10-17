@@ -111,7 +111,11 @@ private fun PreviewContent(tab: HomeTab = HomeTab.HOME, loading: Boolean = false
                 topicsFilter = topicsFilter,
                 favoritesFilter = favoritesFilter,
                 favorites = if (loading) ContentViewState.Loading else ContentViewState.Ready(QuestionsContent(
-                    items = if (empty) emptyList() else previewQuestions.map { it.copy(saved = true) },
+                    items = if (empty) emptyList() else previewQuestions.mapIndexed { index, question ->
+                        question.copy(saved = true, progress = if (favoritesFilter == FavoritesFilter.TRAINED)
+                            QuestionProgress(question.id, 1, listOf(92.0, 65.0, 28.0, 0.0, 100.0)[index],
+                                50.0, null, null, false, null) else question.progress)
+                    },
                     nextCursor = if (appending || appendError != null) "preview_cursor" else null,
                     isAppending = appending, appendError = appendError
                 )),
@@ -270,6 +274,30 @@ fun FavoritesMasteredEmptyPreview() { InterviewTrainerTheme(darkTheme = false) {
 @Composable
 fun FavoritesTrainedEmptyPreview() { InterviewTrainerTheme(darkTheme = true) {
     PreviewContent(HomeTab.FAVORITES, empty = true, favoritesFilter = FavoritesFilter.TRAINED)
+} }
+
+@Preview(widthDp = 390, heightDp = 844, showSystemUi = true)
+@Composable
+fun FavoritesTrainedScoresPreview() { InterviewTrainerTheme(darkTheme = true) {
+    PreviewContent(HomeTab.FAVORITES, favoritesFilter = FavoritesFilter.TRAINED)
+} }
+
+@Preview(widthDp = 320, heightDp = 760, showSystemUi = true)
+@Composable
+fun FavoritesTrainedScoresNarrowPreview() { InterviewTrainerTheme(darkTheme = false) {
+    PreviewContent(HomeTab.FAVORITES, favoritesFilter = FavoritesFilter.TRAINED)
+} }
+
+@Preview(widthDp = 320, heightDp = 160)
+@Composable
+fun FavoriteTrainedLongTopicPreview() { InterviewTrainerTheme(darkTheme = false) {
+    Box(Modifier.background(AppTheme.colors.background).padding(20.dp)) {
+        val question = previewQuestions.first()
+        FavoriteQuestionCard(question.copy(
+            topic = question.topic.copy(name = "Coroutines and concurrency"),
+            progress = QuestionProgress(question.id, 1, 92.0, 50.0, null, null, false, null)
+        ), onToggleSaved = {}, showLastScore = true)
+    }
 } }
 
 @Preview(widthDp = 390, heightDp = 844, showSystemUi = true)

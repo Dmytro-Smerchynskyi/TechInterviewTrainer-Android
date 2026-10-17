@@ -13,6 +13,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.layout.Layout
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
@@ -25,11 +27,13 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.sp
 import com.oniolla.interviewer.R
 import com.oniolla.interviewer.data.model.QuestionResponse
 import com.oniolla.interviewer.domain.FavoritesFilter
 import com.oniolla.interviewer.ui.theme.AppTheme
+import kotlin.math.roundToInt
 
 @Composable
 internal fun FavoritesScreen(
@@ -97,7 +101,8 @@ internal fun FavoritesScreen(
                     ContentViewState.NotLoaded, ContentViewState.Loading -> FavoritesSkeleton()
                     is ContentViewState.Failed -> ContentError(current.message, onRetry)
                     is ContentViewState.Ready -> QuestionsList(current.content, onLoadMore, onRetryPage,
-                        onToggleSaved, compact = true, emptyMessage = emptyMessage, onOpenQuestion = onOpenQuestion, onPro = onPro)
+                        onToggleSaved, compact = true, emptyMessage = emptyMessage, onOpenQuestion = onOpenQuestion, onPro = onPro,
+                        showLastScore = state.favoritesFilter == FavoritesFilter.TRAINED)
                 }
             }
         }
@@ -129,7 +134,7 @@ private fun DueReviewBanner(dueCount: Int, onClick: () -> Unit) {
 
 @Composable
 internal fun FavoriteQuestionCard(question: QuestionResponse, onToggleSaved: (Long) -> Unit,
-    onOpenQuestion: (QuestionResponse) -> Unit = {}) {
+    onOpenQuestion: (QuestionResponse) -> Unit = {}, showLastScore: Boolean = false) {
     Surface(onClick = { onOpenQuestion(question) }, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
         shape = RoundedCornerShape(13.dp), color = AppTheme.colors.container,
         border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
@@ -141,13 +146,45 @@ internal fun FavoriteQuestionCard(question: QuestionResponse, onToggleSaved: (Lo
                 Text(question.question, color = AppTheme.colors.primaryText, fontSize = 12.sp,
                     lineHeight = 15.sp, fontWeight = FontWeight.SemiBold,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text("${question.topic.name} • ${difficultyLabel(question.difficulty)}",
-                    color = AppTheme.colors.secondaryText, fontSize = 9.sp, lineHeight = 12.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val score = question.progress?.takeIf {
+                    showLastScore && it.attempts > 0 && it.lastScore.isFinite()
+                }?.lastScore?.coerceIn(0.0, 100.0)?.roundToInt()
+                FavoriteQuestionMetadata(
+                    metadata = "${question.topic.name} • ${difficultyLabel(question.difficulty)}",
+                    lastScore = score?.let { stringResource(R.string.favorites_last_score, it) }
+                )
             }
             Spacer(Modifier.width(4.dp))
             QuestionSaveButton(question, onToggleSaved)
             FigmaIcon("chevron", Modifier.size(16.dp), AppTheme.colors.homeIcon)
+        }
+    }
+}
+
+@Composable
+private fun FavoriteQuestionMetadata(metadata: String, lastScore: String?) {
+    val style = LocalTextStyle.current.copy(color = AppTheme.colors.secondaryText,
+        fontSize = 9.sp, lineHeight = 12.sp)
+    if (lastScore == null) {
+        Text(metadata, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        return
+    }
+    // Measure whole labels together, so the score never wraps between its words.
+    Layout(modifier = Modifier.fillMaxWidth(), content = {
+        Text(metadata, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(" • ", style = style, maxLines = 1, softWrap = false)
+        Text(lastScore, style = style, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+    }) { measurables, constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val topic = measurables[0].measure(loose)
+        val separator = measurables[1].measure(loose)
+        val score = measurables[2].measure(loose)
+        val fits = topic.width + separator.width + score.width <= constraints.maxWidth
+        val height = if (fits) maxOf(topic.height, separator.height, score.height) else topic.height + score.height
+        layout(constraints.maxWidth, constraints.constrainHeight(height)) {
+            topic.placeRelative(0, 0)
+            if (fits) separator.placeRelative(topic.width, 0)
+            score.placeRelative(if (fits) topic.width + separator.width else 0, if (fits) 0 else topic.height)
         }
     }
 }

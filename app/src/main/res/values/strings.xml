@@ -163,6 +163,7 @@
     <string name="favorites_filter_saved">Saved</string>
     <string name="favorites_filter_due">Due</string>
     <string name="favorites_filter_trained">Trained</string>
+    <string name="favorites_last_score">Last score: %1$d%%</string>
     <string name="favorites_filter_mastered">Mastered</string>
     <string name="favorites_due_empty">You’re all caught up. No questions are due for review right now.</string>
     <string name="favorites_trained_empty">No trained questions yet. Submit an answer for AI evaluation to see it here.</string>

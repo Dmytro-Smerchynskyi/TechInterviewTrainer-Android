@@ -149,7 +149,8 @@ private fun QuestionsSearch(query: String, onSearch: (String) -> Unit) {
 @Composable
 internal fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, onRetryPage: () -> Unit,
     onToggleSaved: (Long) -> Unit, compact: Boolean = false, emptyMessage: String? = null,
-    onOpenQuestion: (QuestionResponse) -> Unit = {}, onPro: () -> Unit = {}) {
+    onOpenQuestion: (QuestionResponse) -> Unit = {}, onPro: () -> Unit = {},
+    showLastScore: Boolean = false) {
     val listState = key(content.resultRevision) { rememberLazyListState() }
     val lockedCount = content.access?.takeIf { it.limitedByPlan }?.lockedCount
         ?: content.topics.filter { it.limitedByPlan }.sumOf { it.lockedCount }
@@ -172,7 +173,7 @@ internal fun QuestionsList(content: QuestionsContent, onLoadMore: () -> Unit, on
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(content.items, key = { it.id }) { question ->
-            if (compact) FavoriteQuestionCard(question, onToggleSaved, onOpenQuestion)
+            if (compact) FavoriteQuestionCard(question, onToggleSaved, onOpenQuestion, showLastScore = showLastScore)
             else LibraryQuestionCard(question, onToggleSaved, onOpenQuestion)
         }
         if (content.isAppending || (content.items.isEmpty() && content.nextCursor != null && content.appendError == null)) {

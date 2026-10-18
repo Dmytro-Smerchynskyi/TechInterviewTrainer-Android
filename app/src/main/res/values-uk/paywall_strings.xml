@@ -1,0 +1,25 @@
+<resources>
+    <string name="paywall_title">Interview Trainer Pro</string>
+    <string name="paywall_close">Закрити тарифи Pro</string>
+    <string name="paywall_hero">Відкрийте повну базу запитань</string>
+    <string name="paywall_free">Безкоштовно: 5 запитань на тему • 20 оцінювань ШІ • 20 відкриттів відповідей.</string>
+    <string name="paywall_choose">Виберіть тариф Pro</string>
+    <string name="paywall_unlocks">Можливості Pro</string>
+    <string name="paywall_all_questions">Усі запитання з кожної теми</string>
+    <string name="paywall_all_questions_description">Безкоштовний тариф відкриває перші 5 запитань із кожної теми</string>
+    <string name="paywall_reveals">Відкриття відповідей включено</string>
+    <string name="paywall_reveals_description">250 на тиждень або 1 000 на місяць із тарифом Pro</string>
+    <string name="paywall_coach">ШІ-тренер для співбесід</string>
+    <string name="paywall_coach_description">Детальна оцінка, охоплення ключових аспектів і відгук</string>
+    <string name="paywall_weekly">Тижневий</string>
+    <string name="paywall_monthly">Місячний</string>
+    <string name="paywall_weekly_allowance">250 оцінювань ШІ + 250 відкриттів відповідей / 7 днів</string>
+    <string name="paywall_monthly_allowance">1 000 оцінювань ШІ + 1 000 відкриттів відповідей / місяць</string>
+    <string name="paywall_per_week">/ тиждень</string>
+    <string name="paywall_per_month">/ місяць</string>
+    <string name="paywall_weekly_note">Для короткої підготовки до співбесіди</string>
+    <string name="paywall_monthly_note">Вигідніше • У 4 рази більше оцінювань ШІ й відкриттів відповідей</string>
+    <string name="paywall_best_value">НАЙВИГІДНІШЕ</string>
+    <string name="paywall_restore">Відновити покупки</string>
+    <string name="paywall_terms">Підписка поновлюється автоматично, доки її не скасовано. Умови • Конфіденційність</string>
+</resources>

@@ -1,0 +1,34 @@
+<resources>
+    <string name="billing_retry">Спробувати ще раз</string>
+    <string name="billing_error_network">Не вдалося підключитися. Спробуйте ще раз.</string>
+    <string name="billing_error_generic">Не вдалося оновити підписку. Спробуйте ще раз.</string>
+    <string name="billing_error_already_owned">У вас уже є ця підписка. Спробуйте відновити покупки.</string>
+    <string name="billing_error_verification">Не вдалося перевірити покупку. Спробуйте відновити покупки.</string>
+    <string name="billing_error_verification_pending">Поки не вдалося підтвердити покупку. Ми автоматично спробуємо ще раз.</string>
+    <string name="billing_current_plan">Поточний тариф</string>
+    <string name="billing_unavailable">Тариф недоступний</string>
+    <string name="billing_price_unavailable">—</string>
+    <string name="billing_start_weekly">На тиждень • %1$s/тиждень</string>
+    <string name="billing_start_monthly">На місяць • %1$s/місяць</string>
+    <string name="billing_switch_weekly">Перейти на тижневий • %1$s/тиждень</string>
+    <string name="billing_switch_monthly">Перейти на місячний • %1$s/місяць</string>
+    <string name="billing_restoring">Відновлення покупок…</string>
+    <string name="billing_verifying">Перевірка покупки…</string>
+    <string name="billing_checkout">Завершіть покупку в Google Play…</string>
+    <string name="billing_loading">Завантаження…</string>
+    <string name="billing_manage">Керувати тарифом</string>
+    <string name="billing_pro_status">Ваш тариф: Pro</string>
+    <string name="billing_free_status">Ваш тариф: безкоштовний</string>
+    <string name="billing_ai_remaining">Оцінювання ШІ: залишилося %1$d із %2$d</string>
+    <string name="billing_reveals_remaining">Відкриття відповідей: залишилося %1$d із %2$d</string>
+    <string name="billing_active">Активна</string>
+    <string name="billing_cancelled">Поновлення скасовано</string>
+    <string name="billing_grace">Потрібно перевірити оплату</string>
+    <string name="billing_on_hold">Підписку призупинено через оплату</string>
+    <string name="billing_expired">Термін дії минув</string>
+    <string name="billing_paused">Призупинена</string>
+    <string name="billing_pending">Очікується оплата</string>
+    <string name="billing_verification_pending">Очікується перевірка покупки</string>
+    <string name="billing_renews">Поновлення: %1$s</string>
+    <string name="billing_access_until">Доступ до %1$s</string>
+</resources>

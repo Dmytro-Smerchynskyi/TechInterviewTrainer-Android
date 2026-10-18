@@ -1,0 +1,9 @@
+<resources>
+    <string name="google_continue">Продовжити з Google</string>
+    <string name="google_signing_in">Вхід через Google…</string>
+    <string name="auth_or">або</string>
+    <string name="google_sign_in_failed">Не вдалося ввійти через Google. Спробуйте ще раз.</string>
+    <string name="google_no_credentials">Немає доступного облікового запису Google. Додайте його на пристрій і спробуйте ще раз.</string>
+    <string name="google_unavailable">Вхід через Google недоступний на цьому пристрої. Перевірте сервіси Google Play і спробуйте ще раз.</string>
+    <string name="google_not_configured">Вхід через Google ще не налаштовано.</string>
+</resources>

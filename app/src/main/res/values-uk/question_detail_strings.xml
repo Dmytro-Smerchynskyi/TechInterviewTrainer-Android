@@ -1,0 +1,17 @@
+<resources>
+    <string name="question_detail_title">Запитання</string>
+    <string name="question_detail_back">Назад до запитань</string>
+    <string name="question_reveal_answer">Відкрити відповідь</string>
+    <string name="question_show_answer">Показати відповідь</string>
+    <string name="question_hide_answer">Сховати відповідь</string>
+    <string name="question_already_revealed">Уже відкрито</string>
+    <string name="question_revealing_answer">Завантаження…</string>
+    <string name="question_ai_practice">Практика з ШІ</string>
+    <string name="question_reveals_remaining">Залишилося відкриттів: %1$d</string>
+    <string name="question_ai_reviews_remaining">Залишилося оцінювань ШІ: %1$d</string>
+    <string name="question_answer_title">Відповідь</string>
+    <string name="question_answer_failed">Не вдалося завантажити відповідь</string>
+    <string name="question_related_tags">Пов’язані теги</string>
+    <string name="question_last_score">Остання оцінка</string>
+    <string name="question_last_score_value">%1$d%%</string>
+</resources>

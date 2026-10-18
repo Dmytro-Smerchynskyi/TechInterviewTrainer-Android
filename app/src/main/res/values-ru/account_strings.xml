@@ -1,0 +1,40 @@
+<resources>
+    <string name="account_settings">Настройки аккаунта</string>
+    <string name="account_subtitle">Управляйте профилем и данными для входа.</string>
+    <string name="account_section">Аккаунт</string>
+    <string name="account_plan_usage">Тариф и использование</string>
+    <string name="account_plan">Тариф %1$s</string>
+    <string name="account_unlimited_questions">Неограниченное количество вопросов</string>
+    <string name="account_questions_per_topic">Вопросов на тему: %1$d</string>
+    <string name="account_remaining">Осталось %1$d из %2$d</string>
+    <string name="account_ai_evaluations">Оценки ИИ</string>
+    <string name="account_reference_answers">Открытия ответов</string>
+    <string name="account_upgrade">Перейти на Pro</string>
+    <string name="account_sign_in_methods">Способы входа</string>
+    <string name="account_google">Google</string>
+    <string name="account_apple">Apple ID</string>
+    <string name="account_connected">Подключён</string>
+    <string name="account_not_connected">Не подключён</string>
+    <string name="account_change_name">Измените имя</string>
+    <string name="account_name_description">Это имя отображается в профиле и приветствии в приложении.</string>
+    <string name="account_save_name">Сохранить имя</string>
+    <string name="account_change_email">Измените электронную почту</string>
+    <string name="account_email_description">Мы отправим 6-значный код подтверждения на вашу новую почту.</string>
+    <string name="account_new_email">Новая электронная почта</string>
+    <string name="account_send_code">Отправить код подтверждения</string>
+    <string name="account_change_password">Измените пароль</string>
+    <string name="account_set_password">Создайте пароль</string>
+    <string name="account_password_description">Используйте пароль длиной от 8 до 64 символов.</string>
+    <string name="account_current_password">Текущий пароль</string>
+    <string name="account_new_password">Новый пароль</string>
+    <string name="account_confirm_password">Подтвердите новый пароль</string>
+    <string name="account_repeat_password">Повторите новый пароль</string>
+    <string name="account_change_password_button">Изменить пароль</string>
+    <string name="account_set_password_button">Создать пароль</string>
+    <string name="account_password_not_set">Создайте пароль для входа через почту</string>
+    <string name="account_saving">Сохранение…</string>
+    <string name="account_back">Назад к настройкам аккаунта</string>
+    <string name="account_verify_identity">Подтвердите личность</string>
+    <string name="account_resend_password_description">Введите текущий пароль, чтобы повторно отправить код подтверждения.</string>
+</resources>
+

@@ -1,0 +1,26 @@
+<resources>
+    <string name="paywall_title">Interview Trainer Pro</string>
+    <string name="paywall_close">Zavřít tarify Pro</string>
+    <string name="paywall_hero">Odemkněte celou databázi otázek</string>
+    <string name="paywall_free">Zdarma: 5 otázek na téma • 20 hodnocení AI • 20 odkrytí odpovědí.</string>
+    <string name="paywall_choose">Vyberte si tarif Pro</string>
+    <string name="paywall_unlocks">Výhody Pro</string>
+    <string name="paywall_all_questions">Všechny otázky v každém tématu</string>
+    <string name="paywall_all_questions_description">Bezplatný tarif zpřístupňuje prvních 5 otázek v každém tématu</string>
+    <string name="paywall_reveals">Odkrytí odpovědí v ceně</string>
+    <string name="paywall_reveals_description">250 týdně nebo 1 000 měsíčně s tarifem Pro</string>
+    <string name="paywall_coach">AI trenér na pohovory</string>
+    <string name="paywall_coach_description">Podrobné hodnocení, pokrytí klíčových bodů a zpětná vazba</string>
+    <string name="paywall_weekly">Týdenní</string>
+    <string name="paywall_monthly">Měsíční</string>
+    <string name="paywall_weekly_allowance">250 hodnocení AI + 250 odkrytí odpovědí / 7 dní</string>
+    <string name="paywall_monthly_allowance">1 000 hodnocení AI + 1 000 odkrytí odpovědí / měsíc</string>
+    <string name="paywall_per_week">/ týden</string>
+    <string name="paywall_per_month">/ měsíc</string>
+    <string name="paywall_weekly_note">Pro krátkodobou přípravu na pohovor</string>
+    <string name="paywall_monthly_note">Výhodnější • 4× více hodnocení AI a odkrytí odpovědí</string>
+    <string name="paywall_best_value">NEJVÝHODNĚJŠÍ</string>
+    <string name="paywall_restore">Obnovit nákupy</string>
+    <string name="paywall_terms">Předplatné se automaticky obnovuje až do zrušení. Podmínky • Soukromí</string>
+</resources>
+

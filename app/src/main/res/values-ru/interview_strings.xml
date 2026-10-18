@@ -1,0 +1,35 @@
+<resources>
+    <string name="interview_setup">Настройка интервью</string>
+    <string name="interview_choose_level">Выберите уровень интервью</string>
+    <string name="interview_grade_description">Вопросы и глубина оценки ИИ зависят от выбранного уровня разработчика.</string>
+    <string name="interview_setup_info">Вопросы для вашего уровня • Оценка ИИ</string>
+    <string name="interview_session">Интервью</string>
+    <string name="interview_review">Разбор ответа</string>
+    <string name="interview_question_label">ВОПРОС ИНТЕРВЬЮ</string>
+    <string name="interview_position">Вопрос %1$d из %2$d</string>
+    <string name="interview_finish_answer">Завершить ответ</string>
+    <string name="interview_next">Следующий вопрос</string>
+    <string name="interview_results">Посмотреть результаты</string>
+    <string name="interview_continue">Продолжить интервью</string>
+    <string name="interview_history_retry">Повторить попытку</string>
+    <string name="interview_all_answered">Интервью можно завершить</string>
+    <string name="interview_all_answered_description">Посмотрите результаты, чтобы завершить интервью и оценить свой прогресс.</string>
+    <string name="interview_summary">Итоги интервью</string>
+    <string name="interview_summary_subtitle">Ваши результаты интервью</string>
+    <string name="interview_summary_score">%1$d / 100</string>
+    <string name="interview_progress_good">Отличный прогресс</string>
+    <string name="interview_progress_keep">Продолжайте тренироваться</string>
+    <string name="interview_summary_answered">Ответов: %1$d из %2$d</string>
+    <string name="interview_knew">Хорошо знаете</string>
+    <string name="interview_partly">Частично</string>
+    <string name="interview_missed">Пропущено</string>
+    <string name="interview_weakest">Самые слабые темы</string>
+    <string name="interview_recommended">Рекомендуемые следующие шаги</string>
+    <string name="interview_review_weak">Повторить слабые темы</string>
+    <string name="interview_weak_count">Тем, требующих внимания: %1$d</string>
+    <string name="interview_spaced">Начать интервальное повторение</string>
+    <string name="interview_due_count">Запланировано повторений: %1$d</string>
+    <string name="interview_finish">Завершить</string>
+    <string name="interview_summary_retry">Не удалось загрузить рекомендации. Нажмите, чтобы попробовать ещё раз.</string>
+</resources>
+

@@ -1,0 +1,10 @@
+<resources>
+    <string name="google_continue">Continua con Google</string>
+    <string name="google_signing_in">Accesso con Google…</string>
+    <string name="auth_or">oppure</string>
+    <string name="google_sign_in_failed">Impossibile accedere con Google. Riprova.</string>
+    <string name="google_no_credentials">Nessun account Google disponibile. Aggiungi un account al dispositivo e riprova.</string>
+    <string name="google_unavailable">L’accesso con Google non è disponibile su questo dispositivo. Controlla Google Play Services e riprova.</string>
+    <string name="google_not_configured">L’accesso con Google non è ancora configurato.</string>
+</resources>
+

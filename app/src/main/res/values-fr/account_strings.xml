@@ -1,0 +1,40 @@
+<resources>
+    <string name="account_settings">Paramètres du compte</string>
+    <string name="account_subtitle">Gérez votre profil et vos informations de connexion.</string>
+    <string name="account_section">Compte</string>
+    <string name="account_plan_usage">Offre et utilisation</string>
+    <string name="account_plan">Offre %1$s</string>
+    <string name="account_unlimited_questions">Questions illimitées</string>
+    <string name="account_questions_per_topic">Questions par thème : %1$d</string>
+    <string name="account_remaining">%1$d sur %2$d restants</string>
+    <string name="account_ai_evaluations">Évaluations IA</string>
+    <string name="account_reference_answers">Réponses dévoilées</string>
+    <string name="account_upgrade">Passer à Pro</string>
+    <string name="account_sign_in_methods">Méthodes de connexion</string>
+    <string name="account_google">Google</string>
+    <string name="account_apple">Apple ID</string>
+    <string name="account_connected">Connecté</string>
+    <string name="account_not_connected">Non connecté</string>
+    <string name="account_change_name">Modifiez votre nom</string>
+    <string name="account_name_description">Ce nom apparaît dans votre profil et le message d’accueil.</string>
+    <string name="account_save_name">Enregistrer le nom</string>
+    <string name="account_change_email">Modifiez votre adresse e-mail</string>
+    <string name="account_email_description">Nous enverrons un code de confirmation à 6 chiffres à votre nouvelle adresse e-mail.</string>
+    <string name="account_new_email">Nouvelle adresse e-mail</string>
+    <string name="account_send_code">Envoyer le code de confirmation</string>
+    <string name="account_change_password">Modifiez votre mot de passe</string>
+    <string name="account_set_password">Créez votre mot de passe</string>
+    <string name="account_password_description">Utilisez un mot de passe de 8 à 64 caractères.</string>
+    <string name="account_current_password">Mot de passe actuel</string>
+    <string name="account_new_password">Nouveau mot de passe</string>
+    <string name="account_confirm_password">Confirmez le nouveau mot de passe</string>
+    <string name="account_repeat_password">Répétez le nouveau mot de passe</string>
+    <string name="account_change_password_button">Modifier le mot de passe</string>
+    <string name="account_set_password_button">Créer un mot de passe</string>
+    <string name="account_password_not_set">Créez un mot de passe pour vous connecter par e-mail</string>
+    <string name="account_saving">Enregistrement…</string>
+    <string name="account_back">Retour aux paramètres du compte</string>
+    <string name="account_verify_identity">Confirmez votre identité</string>
+    <string name="account_resend_password_description">Saisissez votre mot de passe actuel pour renvoyer le code de confirmation.</string>
+</resources>
+

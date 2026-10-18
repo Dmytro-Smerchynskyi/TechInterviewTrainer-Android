@@ -1,0 +1,35 @@
+<resources>
+    <string name="billing_retry">Zkusit znovu</string>
+    <string name="billing_error_network">Připojení se nezdařilo. Zkuste to znovu.</string>
+    <string name="billing_error_generic">Předplatné se nepodařilo aktualizovat. Zkuste to znovu.</string>
+    <string name="billing_error_already_owned">Toto předplatné již máte. Zkuste obnovit nákupy.</string>
+    <string name="billing_error_verification">Nákup se nepodařilo ověřit. Zkuste obnovit nákupy.</string>
+    <string name="billing_error_verification_pending">Nákup se zatím nepodařilo potvrdit. Automaticky to zkusíme znovu.</string>
+    <string name="billing_current_plan">Aktuální tarif</string>
+    <string name="billing_unavailable">Tarif není dostupný</string>
+    <string name="billing_price_unavailable">—</string>
+    <string name="billing_start_weekly">Na týden • %1$s/týden</string>
+    <string name="billing_start_monthly">Na měsíc • %1$s/měsíc</string>
+    <string name="billing_switch_weekly">Přejít na týdenní • %1$s/týden</string>
+    <string name="billing_switch_monthly">Přejít na měsíční • %1$s/měsíc</string>
+    <string name="billing_restoring">Obnovování nákupů…</string>
+    <string name="billing_verifying">Ověřování nákupu…</string>
+    <string name="billing_checkout">Dokončete nákup na Google Play…</string>
+    <string name="billing_loading">Načítání…</string>
+    <string name="billing_manage">Spravovat tarif</string>
+    <string name="billing_pro_status">Váš tarif: Pro</string>
+    <string name="billing_free_status">Váš tarif: zdarma</string>
+    <string name="billing_ai_remaining">Hodnocení AI: zbývá %1$d z %2$d</string>
+    <string name="billing_reveals_remaining">Odkrytí odpovědí: zbývá %1$d z %2$d</string>
+    <string name="billing_active">Aktivní</string>
+    <string name="billing_cancelled">Obnovení zrušeno</string>
+    <string name="billing_grace">Je potřeba zkontrolovat platbu</string>
+    <string name="billing_on_hold">Předplatné pozastaveno kvůli platbě</string>
+    <string name="billing_expired">Platnost vypršela</string>
+    <string name="billing_paused">Pozastaveno</string>
+    <string name="billing_pending">Čeká se na platbu</string>
+    <string name="billing_verification_pending">Čeká se na ověření nákupu</string>
+    <string name="billing_renews">Obnoví se %1$s</string>
+    <string name="billing_access_until">Přístup do %1$s</string>
+</resources>
+

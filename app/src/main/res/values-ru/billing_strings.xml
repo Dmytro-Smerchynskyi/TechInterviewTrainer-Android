@@ -1,0 +1,35 @@
+<resources>
+    <string name="billing_retry">Повторить</string>
+    <string name="billing_error_network">Не удалось подключиться. Попробуйте ещё раз.</string>
+    <string name="billing_error_generic">Не удалось обновить подписку. Попробуйте ещё раз.</string>
+    <string name="billing_error_already_owned">У вас уже есть эта подписка. Попробуйте восстановить покупки.</string>
+    <string name="billing_error_verification">Не удалось проверить покупку. Попробуйте восстановить покупки.</string>
+    <string name="billing_error_verification_pending">Пока не удалось подтвердить покупку. Мы автоматически попробуем ещё раз.</string>
+    <string name="billing_current_plan">Текущий тариф</string>
+    <string name="billing_unavailable">Тариф недоступен</string>
+    <string name="billing_price_unavailable">—</string>
+    <string name="billing_start_weekly">На неделю • %1$s/неделю</string>
+    <string name="billing_start_monthly">На месяц • %1$s/месяц</string>
+    <string name="billing_switch_weekly">Перейти на недельный • %1$s/неделю</string>
+    <string name="billing_switch_monthly">Перейти на месячный • %1$s/месяц</string>
+    <string name="billing_restoring">Восстановление покупок…</string>
+    <string name="billing_verifying">Проверка покупки…</string>
+    <string name="billing_checkout">Завершите покупку в Google Play…</string>
+    <string name="billing_loading">Загрузка…</string>
+    <string name="billing_manage">Управлять тарифом</string>
+    <string name="billing_pro_status">Ваш тариф: Pro</string>
+    <string name="billing_free_status">Ваш тариф: бесплатный</string>
+    <string name="billing_ai_remaining">Оценки ИИ: осталось %1$d из %2$d</string>
+    <string name="billing_reveals_remaining">Открытия ответов: осталось %1$d из %2$d</string>
+    <string name="billing_active">Активна</string>
+    <string name="billing_cancelled">Продление отменено</string>
+    <string name="billing_grace">Необходимо проверить оплату</string>
+    <string name="billing_on_hold">Подписка приостановлена из-за оплаты</string>
+    <string name="billing_expired">Срок действия истёк</string>
+    <string name="billing_paused">Приостановлена</string>
+    <string name="billing_pending">Ожидается оплата</string>
+    <string name="billing_verification_pending">Ожидается проверка покупки</string>
+    <string name="billing_renews">Продление: %1$s</string>
+    <string name="billing_access_until">Доступ до %1$s</string>
+</resources>
+

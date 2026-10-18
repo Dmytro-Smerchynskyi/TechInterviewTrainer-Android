@@ -1,0 +1,35 @@
+<resources>
+    <string name="billing_retry">Riprova</string>
+    <string name="billing_error_network">Impossibile connettersi. Riprova.</string>
+    <string name="billing_error_generic">Impossibile aggiornare l’abbonamento. Riprova.</string>
+    <string name="billing_error_already_owned">Hai già questo abbonamento. Prova a ripristinare gli acquisti.</string>
+    <string name="billing_error_verification">Impossibile verificare l’acquisto. Prova a ripristinare gli acquisti.</string>
+    <string name="billing_error_verification_pending">Non siamo ancora riusciti a confermare l’acquisto. Riproveremo automaticamente.</string>
+    <string name="billing_current_plan">Piano attuale</string>
+    <string name="billing_unavailable">Piano non disponibile</string>
+    <string name="billing_price_unavailable">—</string>
+    <string name="billing_start_weekly">Attiva settimanale • %1$s/settimana</string>
+    <string name="billing_start_monthly">Attiva mensile • %1$s/mese</string>
+    <string name="billing_switch_weekly">Passa al settimanale • %1$s/settimana</string>
+    <string name="billing_switch_monthly">Passa al mensile • %1$s/mese</string>
+    <string name="billing_restoring">Ripristino degli acquisti…</string>
+    <string name="billing_verifying">Verifica dell’acquisto…</string>
+    <string name="billing_checkout">Completa l’acquisto su Google Play…</string>
+    <string name="billing_loading">Caricamento…</string>
+    <string name="billing_manage">Gestisci piano</string>
+    <string name="billing_pro_status">Il tuo piano: Pro</string>
+    <string name="billing_free_status">Il tuo piano: gratuito</string>
+    <string name="billing_ai_remaining">Valutazioni IA: %1$d di %2$d rimanenti</string>
+    <string name="billing_reveals_remaining">Risposte da svelare: %1$d di %2$d rimanenti</string>
+    <string name="billing_active">Attivo</string>
+    <string name="billing_cancelled">Rinnovo annullato</string>
+    <string name="billing_grace">Pagamento da verificare</string>
+    <string name="billing_on_hold">Abbonamento sospeso per problemi di pagamento</string>
+    <string name="billing_expired">Scaduto</string>
+    <string name="billing_paused">In pausa</string>
+    <string name="billing_pending">Pagamento in sospeso</string>
+    <string name="billing_verification_pending">Verifica dell’acquisto in sospeso</string>
+    <string name="billing_renews">Rinnovo il %1$s</string>
+    <string name="billing_access_until">Accesso fino al %1$s</string>
+</resources>
+

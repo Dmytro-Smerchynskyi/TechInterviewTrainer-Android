@@ -1,0 +1,18 @@
+<resources>
+    <string name="question_detail_title">Question</string>
+    <string name="question_detail_back">Retour aux questions</string>
+    <string name="question_reveal_answer">Dévoiler la réponse</string>
+    <string name="question_show_answer">Afficher la réponse</string>
+    <string name="question_hide_answer">Masquer la réponse</string>
+    <string name="question_already_revealed">Déjà dévoilée</string>
+    <string name="question_revealing_answer">Chargement…</string>
+    <string name="question_ai_practice">Pratique avec l’IA</string>
+    <string name="question_reveals_remaining">Réponses à dévoiler : %1$d</string>
+    <string name="question_ai_reviews_remaining">Évaluations IA restantes : %1$d</string>
+    <string name="question_answer_title">Réponse</string>
+    <string name="question_answer_failed">Impossible de charger la réponse</string>
+    <string name="question_related_tags">Tags associés</string>
+    <string name="question_last_score">Dernière note</string>
+    <string name="question_last_score_value">%1$d%%</string>
+</resources>
+

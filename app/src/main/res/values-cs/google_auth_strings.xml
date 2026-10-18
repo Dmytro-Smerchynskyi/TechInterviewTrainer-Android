@@ -1,0 +1,10 @@
+<resources>
+    <string name="google_continue">Pokračovat s Google</string>
+    <string name="google_signing_in">Přihlašování přes Google…</string>
+    <string name="auth_or">nebo</string>
+    <string name="google_sign_in_failed">Přihlášení přes Google se nezdařilo. Zkuste to znovu.</string>
+    <string name="google_no_credentials">Není dostupný žádný účet Google. Přidejte účet do zařízení a zkuste to znovu.</string>
+    <string name="google_unavailable">Přihlášení přes Google není na tomto zařízení dostupné. Zkontrolujte služby Google Play a zkuste to znovu.</string>
+    <string name="google_not_configured">Přihlášení přes Google ještě není nastavené.</string>
+</resources>
+

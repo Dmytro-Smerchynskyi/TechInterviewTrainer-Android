@@ -1,0 +1,26 @@
+<resources>
+    <string name="paywall_title">Interview Trainer Pro</string>
+    <string name="paywall_close">Закрыть тарифы Pro</string>
+    <string name="paywall_hero">Откройте полную базу вопросов</string>
+    <string name="paywall_free">Бесплатно: 5 вопросов на тему • 20 оценок ИИ • 20 открытий ответов.</string>
+    <string name="paywall_choose">Выберите тариф Pro</string>
+    <string name="paywall_unlocks">Возможности Pro</string>
+    <string name="paywall_all_questions">Все вопросы по каждой теме</string>
+    <string name="paywall_all_questions_description">Бесплатный тариф открывает первые 5 вопросов по каждой теме</string>
+    <string name="paywall_reveals">Открытия ответов включены</string>
+    <string name="paywall_reveals_description">250 в неделю или 1 000 в месяц с тарифом Pro</string>
+    <string name="paywall_coach">ИИ-тренер для интервью</string>
+    <string name="paywall_coach_description">Подробная оценка, охват ключевых аспектов и обратная связь</string>
+    <string name="paywall_weekly">Недельный</string>
+    <string name="paywall_monthly">Месячный</string>
+    <string name="paywall_weekly_allowance">250 оценок ИИ + 250 открытий ответов / 7 дней</string>
+    <string name="paywall_monthly_allowance">1 000 оценок ИИ + 1 000 открытий ответов / месяц</string>
+    <string name="paywall_per_week">/ неделю</string>
+    <string name="paywall_per_month">/ месяц</string>
+    <string name="paywall_weekly_note">Для короткой подготовки к интервью</string>
+    <string name="paywall_monthly_note">Выгоднее • В 4 раза больше оценок ИИ и открытий ответов</string>
+    <string name="paywall_best_value">ВЫГОДНЕЕ</string>
+    <string name="paywall_restore">Восстановить покупки</string>
+    <string name="paywall_terms">Подписка продлевается автоматически до отмены. Условия • Конфиденциальность</string>
+</resources>
+

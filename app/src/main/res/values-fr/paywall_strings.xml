@@ -1,0 +1,26 @@
+<resources>
+    <string name="paywall_title">Interview Trainer Pro</string>
+    <string name="paywall_close">Fermer les offres Pro</string>
+    <string name="paywall_hero">Débloquez toute la banque de questions</string>
+    <string name="paywall_free">Gratuit : 5 questions par thème • 20 évaluations IA • 20 réponses dévoilées.</string>
+    <string name="paywall_choose">Choisissez votre offre Pro</string>
+    <string name="paywall_unlocks">Les avantages Pro</string>
+    <string name="paywall_all_questions">Toutes les questions de chaque thème</string>
+    <string name="paywall_all_questions_description">L’offre gratuite donne accès aux 5 premières questions de chaque thème</string>
+    <string name="paywall_reveals">Réponses dévoilées incluses</string>
+    <string name="paywall_reveals_description">250 par semaine ou 1 000 par mois avec votre offre Pro</string>
+    <string name="paywall_coach">Coach d’entretien IA</string>
+    <string name="paywall_coach_description">Notes détaillées, couverture des points clés et commentaires</string>
+    <string name="paywall_weekly">Hebdomadaire</string>
+    <string name="paywall_monthly">Mensuelle</string>
+    <string name="paywall_weekly_allowance">250 évaluations IA + 250 réponses dévoilées / 7 jours</string>
+    <string name="paywall_monthly_allowance">1 000 évaluations IA + 1 000 réponses dévoilées / mois</string>
+    <string name="paywall_per_week">/ semaine</string>
+    <string name="paywall_per_month">/ mois</string>
+    <string name="paywall_weekly_note">Pour une préparation de courte durée</string>
+    <string name="paywall_monthly_note">Plus avantageux • 4× plus d’évaluations IA et de réponses dévoilées</string>
+    <string name="paywall_best_value">MEILLEURE OFFRE</string>
+    <string name="paywall_restore">Restaurer les achats</string>
+    <string name="paywall_terms">L’abonnement se renouvelle automatiquement jusqu’à son annulation. Conditions • Confidentialité</string>
+</resources>
+

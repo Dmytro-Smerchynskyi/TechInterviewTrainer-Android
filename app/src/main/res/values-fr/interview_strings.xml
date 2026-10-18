@@ -1,0 +1,35 @@
+<resources>
+    <string name="interview_setup">Configurer l’entretien</string>
+    <string name="interview_choose_level">Choisissez le niveau de l’entretien</string>
+    <string name="interview_grade_description">Les questions et la profondeur de l’évaluation IA s’adaptent au niveau de développeur choisi.</string>
+    <string name="interview_setup_info">Questions adaptées à votre niveau • Évaluation IA</string>
+    <string name="interview_session">Entretien</string>
+    <string name="interview_review">Analyse de la réponse</string>
+    <string name="interview_question_label">QUESTION D’ENTRETIEN</string>
+    <string name="interview_position">Question %1$d sur %2$d</string>
+    <string name="interview_finish_answer">Terminer la réponse</string>
+    <string name="interview_next">Question suivante</string>
+    <string name="interview_results">Voir les résultats</string>
+    <string name="interview_continue">Reprendre l’entretien</string>
+    <string name="interview_history_retry">Réessayer l’entretien</string>
+    <string name="interview_all_answered">Votre entretien peut être terminé</string>
+    <string name="interview_all_answered_description">Consultez vos résultats pour terminer cet entretien et mesurer vos progrès.</string>
+    <string name="interview_summary">Bilan de l’entretien</string>
+    <string name="interview_summary_subtitle">Vos résultats d’entretien</string>
+    <string name="interview_summary_score">%1$d / 100</string>
+    <string name="interview_progress_good">Beaux progrès</string>
+    <string name="interview_progress_keep">Continuez à vous entraîner</string>
+    <string name="interview_summary_answered">Réponses : %1$d sur %2$d</string>
+    <string name="interview_knew">Bien maîtrisé</string>
+    <string name="interview_partly">Partiellement</string>
+    <string name="interview_missed">Non traité</string>
+    <string name="interview_weakest">Points les plus faibles</string>
+    <string name="interview_recommended">Prochaines étapes recommandées</string>
+    <string name="interview_review_weak">Revoir les thèmes difficiles</string>
+    <string name="interview_weak_count">Thèmes à travailler : %1$d</string>
+    <string name="interview_spaced">Commencer la répétition espacée</string>
+    <string name="interview_due_count">Révisions prévues : %1$d</string>
+    <string name="interview_finish">Terminer</string>
+    <string name="interview_summary_retry">Impossible de charger les recommandations. Appuyez pour réessayer.</string>
+</resources>
+

@@ -1,0 +1,18 @@
+<resources>
+    <string name="question_detail_title">Otázka</string>
+    <string name="question_detail_back">Zpět na otázky</string>
+    <string name="question_reveal_answer">Odkrýt odpověď</string>
+    <string name="question_show_answer">Zobrazit odpověď</string>
+    <string name="question_hide_answer">Skrýt odpověď</string>
+    <string name="question_already_revealed">Již odkryto</string>
+    <string name="question_revealing_answer">Načítání…</string>
+    <string name="question_ai_practice">Procvičování s AI</string>
+    <string name="question_reveals_remaining">Zbývající odkrytí: %1$d</string>
+    <string name="question_ai_reviews_remaining">Zbývající hodnocení AI: %1$d</string>
+    <string name="question_answer_title">Odpověď</string>
+    <string name="question_answer_failed">Odpověď se nepodařilo načíst</string>
+    <string name="question_related_tags">Související štítky</string>
+    <string name="question_last_score">Poslední skóre</string>
+    <string name="question_last_score_value">%1$d%%</string>
+</resources>
+

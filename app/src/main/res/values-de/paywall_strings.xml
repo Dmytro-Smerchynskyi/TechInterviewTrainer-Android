@@ -1,0 +1,26 @@
+<resources>
+    <string name="paywall_title">Interview Trainer Pro</string>
+    <string name="paywall_close">Pro-Tarife schließen</string>
+    <string name="paywall_hero">Schalte die gesamte Fragensammlung frei</string>
+    <string name="paywall_free">Kostenlos: 5 Fragen pro Thema • 20 KI-Bewertungen • 20 Antwortfreigaben.</string>
+    <string name="paywall_choose">Wähle deinen Pro-Tarif</string>
+    <string name="paywall_unlocks">Das bietet Pro</string>
+    <string name="paywall_all_questions">Alle Fragen zu jedem Thema</string>
+    <string name="paywall_all_questions_description">Der kostenlose Tarif zeigt die ersten 5 Fragen pro Thema</string>
+    <string name="paywall_reveals">Antwortfreigaben inklusive</string>
+    <string name="paywall_reveals_description">250 pro Woche oder 1.000 pro Monat mit deinem Pro-Tarif</string>
+    <string name="paywall_coach">KI-Interviewcoach</string>
+    <string name="paywall_coach_description">Detaillierte Bewertung, Abdeckung und Feedback</string>
+    <string name="paywall_weekly">Wöchentlich</string>
+    <string name="paywall_monthly">Monatlich</string>
+    <string name="paywall_weekly_allowance">250 KI-Bewertungen + 250 Antwortfreigaben / 7 Tage</string>
+    <string name="paywall_monthly_allowance">1.000 KI-Bewertungen + 1.000 Antwortfreigaben / Monat</string>
+    <string name="paywall_per_week">/ Woche</string>
+    <string name="paywall_per_month">/ Monat</string>
+    <string name="paywall_weekly_note">Flexibel für eine kurze Interviewvorbereitung</string>
+    <string name="paywall_monthly_note">Mehr fürs Geld • 4× so viele KI-Bewertungen und Antwortfreigaben</string>
+    <string name="paywall_best_value">BESTER PREIS</string>
+    <string name="paywall_restore">Käufe wiederherstellen</string>
+    <string name="paywall_terms">Das Abo verlängert sich automatisch bis zur Kündigung. Bedingungen • Datenschutz</string>
+</resources>
+

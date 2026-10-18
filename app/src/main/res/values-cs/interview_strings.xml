@@ -1,0 +1,35 @@
+<resources>
+    <string name="interview_setup">Nastavení pohovoru</string>
+    <string name="interview_choose_level">Vyberte úroveň pohovoru</string>
+    <string name="interview_grade_description">Otázky a hloubka hodnocení AI se přizpůsobí vybrané úrovni vývojáře.</string>
+    <string name="interview_setup_info">Otázky pro vaši úroveň • Hodnocení AI</string>
+    <string name="interview_session">Pohovor</string>
+    <string name="interview_review">Rozbor odpovědi</string>
+    <string name="interview_question_label">OTÁZKA POHOVORU</string>
+    <string name="interview_position">Otázka %1$d z %2$d</string>
+    <string name="interview_finish_answer">Dokončit odpověď</string>
+    <string name="interview_next">Další otázka</string>
+    <string name="interview_results">Zobrazit výsledky</string>
+    <string name="interview_continue">Pokračovat v pohovoru</string>
+    <string name="interview_history_retry">Zkusit pohovor znovu</string>
+    <string name="interview_all_answered">Pohovor je připraven k dokončení</string>
+    <string name="interview_all_answered_description">Zobrazte výsledky, dokončete pohovor a zhodnoťte svůj pokrok.</string>
+    <string name="interview_summary">Shrnutí pohovoru</string>
+    <string name="interview_summary_subtitle">Vaše výsledky pohovoru</string>
+    <string name="interview_summary_score">%1$d / 100</string>
+    <string name="interview_progress_good">Skvělý pokrok</string>
+    <string name="interview_progress_keep">Pokračujte v procvičování</string>
+    <string name="interview_summary_answered">Zodpovězeno: %1$d z %2$d otázek</string>
+    <string name="interview_knew">Dobře zvládnuto</string>
+    <string name="interview_partly">Částečně</string>
+    <string name="interview_missed">Chybělo</string>
+    <string name="interview_weakest">Nejslabší oblasti</string>
+    <string name="interview_recommended">Doporučené další kroky</string>
+    <string name="interview_review_weak">Zopakovat slabá témata</string>
+    <string name="interview_weak_count">Témat k procvičení: %1$d</string>
+    <string name="interview_spaced">Začít intervalové opakování</string>
+    <string name="interview_due_count">Naplánovaných opakování: %1$d</string>
+    <string name="interview_finish">Dokončit</string>
+    <string name="interview_summary_retry">Doporučení se nepodařilo načíst. Klepněte pro nový pokus.</string>
+</resources>
+

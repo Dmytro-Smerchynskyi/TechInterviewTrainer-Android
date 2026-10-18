@@ -1,0 +1,35 @@
+<resources>
+    <string name="interview_setup">Configura il colloquio</string>
+    <string name="interview_choose_level">Scegli il livello del colloquio</string>
+    <string name="interview_grade_description">Le domande e la profondità della valutazione IA si adattano al livello di sviluppatore selezionato.</string>
+    <string name="interview_setup_info">Domande adatte al tuo livello • Valutazione IA</string>
+    <string name="interview_session">Colloquio</string>
+    <string name="interview_review">Analisi della risposta</string>
+    <string name="interview_question_label">DOMANDA DEL COLLOQUIO</string>
+    <string name="interview_position">Domanda %1$d di %2$d</string>
+    <string name="interview_finish_answer">Termina la risposta</string>
+    <string name="interview_next">Prossima domanda</string>
+    <string name="interview_results">Vedi risultati</string>
+    <string name="interview_continue">Continua il colloquio</string>
+    <string name="interview_history_retry">Riprova il colloquio</string>
+    <string name="interview_all_answered">Il colloquio è pronto per essere concluso</string>
+    <string name="interview_all_answered_description">Visualizza i risultati per concludere il colloquio e verificare i tuoi progressi.</string>
+    <string name="interview_summary">Riepilogo del colloquio</string>
+    <string name="interview_summary_subtitle">I risultati del tuo colloquio</string>
+    <string name="interview_summary_score">%1$d / 100</string>
+    <string name="interview_progress_good">Ottimi progressi</string>
+    <string name="interview_progress_keep">Continua a esercitarti</string>
+    <string name="interview_summary_answered">Risposte: %1$d di %2$d domande</string>
+    <string name="interview_knew">Ben compreso</string>
+    <string name="interview_partly">Parzialmente</string>
+    <string name="interview_missed">Non trattato</string>
+    <string name="interview_weakest">Aree più deboli</string>
+    <string name="interview_recommended">Prossimi passi consigliati</string>
+    <string name="interview_review_weak">Ripassa gli argomenti deboli</string>
+    <string name="interview_weak_count">Argomenti da migliorare: %1$d</string>
+    <string name="interview_spaced">Inizia la ripetizione dilazionata</string>
+    <string name="interview_due_count">Ripassi programmati: %1$d</string>
+    <string name="interview_finish">Termina</string>
+    <string name="interview_summary_retry">Impossibile caricare i consigli. Tocca per riprovare.</string>
+</resources>
+

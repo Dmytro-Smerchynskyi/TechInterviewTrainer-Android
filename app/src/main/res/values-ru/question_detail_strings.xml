@@ -1,0 +1,18 @@
+<resources>
+    <string name="question_detail_title">Вопрос</string>
+    <string name="question_detail_back">Назад к вопросам</string>
+    <string name="question_reveal_answer">Открыть ответ</string>
+    <string name="question_show_answer">Показать ответ</string>
+    <string name="question_hide_answer">Скрыть ответ</string>
+    <string name="question_already_revealed">Уже открыт</string>
+    <string name="question_revealing_answer">Загрузка…</string>
+    <string name="question_ai_practice">Практика с ИИ</string>
+    <string name="question_reveals_remaining">Осталось открытий: %1$d</string>
+    <string name="question_ai_reviews_remaining">Осталось оценок ИИ: %1$d</string>
+    <string name="question_answer_title">Ответ</string>
+    <string name="question_answer_failed">Не удалось загрузить ответ</string>
+    <string name="question_related_tags">Связанные теги</string>
+    <string name="question_last_score">Последняя оценка</string>
+    <string name="question_last_score_value">%1$d%%</string>
+</resources>
+

@@ -1,0 +1,40 @@
+<resources>
+    <string name="account_settings">Nastavení účtu</string>
+    <string name="account_subtitle">Spravujte svůj profil a přihlašovací údaje.</string>
+    <string name="account_section">Účet</string>
+    <string name="account_plan_usage">Tarif a využití</string>
+    <string name="account_plan">Tarif %1$s</string>
+    <string name="account_unlimited_questions">Neomezený počet otázek</string>
+    <string name="account_questions_per_topic">Otázek na téma: %1$d</string>
+    <string name="account_remaining">Zbývá %1$d z %2$d</string>
+    <string name="account_ai_evaluations">Hodnocení AI</string>
+    <string name="account_reference_answers">Odkrytí odpovědí</string>
+    <string name="account_upgrade">Přejít na Pro</string>
+    <string name="account_sign_in_methods">Způsoby přihlášení</string>
+    <string name="account_google">Google</string>
+    <string name="account_apple">Apple ID</string>
+    <string name="account_connected">Propojeno</string>
+    <string name="account_not_connected">Nepropojeno</string>
+    <string name="account_change_name">Změňte své jméno</string>
+    <string name="account_name_description">Toto jméno se zobrazuje ve vašem profilu a v uvítání aplikace.</string>
+    <string name="account_save_name">Uložit jméno</string>
+    <string name="account_change_email">Změňte svůj e-mail</string>
+    <string name="account_email_description">Na vaši novou e-mailovou adresu pošleme šestimístný ověřovací kód.</string>
+    <string name="account_new_email">Nový e-mail</string>
+    <string name="account_send_code">Odeslat ověřovací kód</string>
+    <string name="account_change_password">Změňte své heslo</string>
+    <string name="account_set_password">Nastavte si heslo</string>
+    <string name="account_password_description">Použijte heslo o délce 8 až 64 znaků.</string>
+    <string name="account_current_password">Aktuální heslo</string>
+    <string name="account_new_password">Nové heslo</string>
+    <string name="account_confirm_password">Potvrďte nové heslo</string>
+    <string name="account_repeat_password">Zopakujte nové heslo</string>
+    <string name="account_change_password_button">Změnit heslo</string>
+    <string name="account_set_password_button">Nastavit heslo</string>
+    <string name="account_password_not_set">Nastavte si heslo pro přihlášení e-mailem</string>
+    <string name="account_saving">Ukládání…</string>
+    <string name="account_back">Zpět do nastavení účtu</string>
+    <string name="account_verify_identity">Ověřte svou totožnost</string>
+    <string name="account_resend_password_description">Zadejte aktuální heslo pro opětovné odeslání ověřovacího kódu.</string>
+</resources>
+

@@ -1,0 +1,18 @@
+<resources>
+    <string name="question_detail_title">Frage</string>
+    <string name="question_detail_back">Zurück zu den Fragen</string>
+    <string name="question_reveal_answer">Antwort aufdecken</string>
+    <string name="question_show_answer">Antwort anzeigen</string>
+    <string name="question_hide_answer">Antwort ausblenden</string>
+    <string name="question_already_revealed">Bereits aufgedeckt</string>
+    <string name="question_revealing_answer">Wird geladen…</string>
+    <string name="question_ai_practice">KI-Training</string>
+    <string name="question_reveals_remaining">Verbleibende Antwortfreigaben: %1$d</string>
+    <string name="question_ai_reviews_remaining">Verbleibende KI-Bewertungen: %1$d</string>
+    <string name="question_answer_title">Antwort</string>
+    <string name="question_answer_failed">Antwort konnte nicht geladen werden</string>
+    <string name="question_related_tags">Zugehörige Tags</string>
+    <string name="question_last_score">Letzte Bewertung</string>
+    <string name="question_last_score_value">%1$d%%</string>
+</resources>
+

@@ -1,0 +1,40 @@
+<resources>
+    <string name="account_settings">Ajustes de la cuenta</string>
+    <string name="account_subtitle">Gestiona tu perfil y tus datos de acceso.</string>
+    <string name="account_section">Cuenta</string>
+    <string name="account_plan_usage">Plan y uso</string>
+    <string name="account_plan">Plan %1$s</string>
+    <string name="account_unlimited_questions">Preguntas ilimitadas</string>
+    <string name="account_questions_per_topic">Preguntas por tema: %1$d</string>
+    <string name="account_remaining">Quedan %1$d de %2$d</string>
+    <string name="account_ai_evaluations">Evaluaciones de IA</string>
+    <string name="account_reference_answers">Respuestas reveladas</string>
+    <string name="account_upgrade">Mejorar a Pro</string>
+    <string name="account_sign_in_methods">Métodos de acceso</string>
+    <string name="account_google">Google</string>
+    <string name="account_apple">Apple ID</string>
+    <string name="account_connected">Vinculado</string>
+    <string name="account_not_connected">No vinculado</string>
+    <string name="account_change_name">Cambia tu nombre</string>
+    <string name="account_name_description">Este nombre aparece en tu perfil y en el saludo de la aplicación.</string>
+    <string name="account_save_name">Guardar nombre</string>
+    <string name="account_change_email">Cambia tu correo electrónico</string>
+    <string name="account_email_description">Enviaremos un código de verificación de 6 dígitos a tu nuevo correo.</string>
+    <string name="account_new_email">Nuevo correo electrónico</string>
+    <string name="account_send_code">Enviar código de verificación</string>
+    <string name="account_change_password">Cambia tu contraseña</string>
+    <string name="account_set_password">Crea tu contraseña</string>
+    <string name="account_password_description">Usa una contraseña de entre 8 y 64 caracteres.</string>
+    <string name="account_current_password">Contraseña actual</string>
+    <string name="account_new_password">Nueva contraseña</string>
+    <string name="account_confirm_password">Confirma la nueva contraseña</string>
+    <string name="account_repeat_password">Repite la nueva contraseña</string>
+    <string name="account_change_password_button">Cambiar contraseña</string>
+    <string name="account_set_password_button">Crear contraseña</string>
+    <string name="account_password_not_set">Crea una contraseña para acceder con tu correo</string>
+    <string name="account_saving">Guardando…</string>
+    <string name="account_back">Volver a los ajustes de la cuenta</string>
+    <string name="account_verify_identity">Verifica tu identidad</string>
+    <string name="account_resend_password_description">Introduce tu contraseña actual para reenviar el código de verificación.</string>
+</resources>
+

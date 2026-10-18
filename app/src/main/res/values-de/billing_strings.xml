@@ -1,0 +1,35 @@
+<resources>
+    <string name="billing_retry">Erneut versuchen</string>
+    <string name="billing_error_network">Keine Verbindung möglich. Bitte versuche es erneut.</string>
+    <string name="billing_error_generic">Dein Abo konnte nicht aktualisiert werden. Bitte versuche es erneut.</string>
+    <string name="billing_error_already_owned">Du hast dieses Abo bereits. Versuche, deine Käufe wiederherzustellen.</string>
+    <string name="billing_error_verification">Dein Kauf konnte nicht überprüft werden. Versuche, deine Käufe wiederherzustellen.</string>
+    <string name="billing_error_verification_pending">Dein Kauf konnte noch nicht bestätigt werden. Wir versuchen es automatisch erneut.</string>
+    <string name="billing_current_plan">Aktueller Tarif</string>
+    <string name="billing_unavailable">Tarif nicht verfügbar</string>
+    <string name="billing_price_unavailable">—</string>
+    <string name="billing_start_weekly">Wöchentlich starten • %1$s/Woche</string>
+    <string name="billing_start_monthly">Monatlich starten • %1$s/Monat</string>
+    <string name="billing_switch_weekly">Zum Wochentarif • %1$s/Woche</string>
+    <string name="billing_switch_monthly">Zum Monatstarif • %1$s/Monat</string>
+    <string name="billing_restoring">Käufe werden wiederhergestellt…</string>
+    <string name="billing_verifying">Kauf wird überprüft…</string>
+    <string name="billing_checkout">Schließe den Kauf in Google Play ab…</string>
+    <string name="billing_loading">Wird geladen…</string>
+    <string name="billing_manage">Tarif verwalten</string>
+    <string name="billing_pro_status">Dein Tarif: Pro</string>
+    <string name="billing_free_status">Dein Tarif: Kostenlos</string>
+    <string name="billing_ai_remaining">KI-Bewertungen: %1$d von %2$d verbleibend</string>
+    <string name="billing_reveals_remaining">Antwortfreigaben: %1$d von %2$d verbleibend</string>
+    <string name="billing_active">Aktiv</string>
+    <string name="billing_cancelled">Verlängerung gekündigt</string>
+    <string name="billing_grace">Zahlung prüfen</string>
+    <string name="billing_on_hold">Abo wegen Zahlungsproblemen ausgesetzt</string>
+    <string name="billing_expired">Abgelaufen</string>
+    <string name="billing_paused">Pausiert</string>
+    <string name="billing_pending">Zahlung ausstehend</string>
+    <string name="billing_verification_pending">Kaufprüfung ausstehend</string>
+    <string name="billing_renews">Verlängerung am %1$s</string>
+    <string name="billing_access_until">Zugriff bis %1$s</string>
+</resources>
+

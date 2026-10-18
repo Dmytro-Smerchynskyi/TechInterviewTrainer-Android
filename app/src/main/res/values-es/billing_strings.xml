@@ -1,0 +1,35 @@
+<resources>
+    <string name="billing_retry">Reintentar</string>
+    <string name="billing_error_network">No se pudo conectar. Inténtalo de nuevo.</string>
+    <string name="billing_error_generic">No se pudo actualizar tu suscripción. Inténtalo de nuevo.</string>
+    <string name="billing_error_already_owned">Ya tienes esta suscripción. Prueba a restaurar las compras.</string>
+    <string name="billing_error_verification">No se pudo verificar tu compra. Prueba a restaurar las compras.</string>
+    <string name="billing_error_verification_pending">Aún no pudimos confirmar tu compra. Lo intentaremos de nuevo automáticamente.</string>
+    <string name="billing_current_plan">Plan actual</string>
+    <string name="billing_unavailable">Plan no disponible</string>
+    <string name="billing_price_unavailable">—</string>
+    <string name="billing_start_weekly">Activar semanal • %1$s/semana</string>
+    <string name="billing_start_monthly">Activar mensual • %1$s/mes</string>
+    <string name="billing_switch_weekly">Cambiar a semanal • %1$s/semana</string>
+    <string name="billing_switch_monthly">Cambiar a mensual • %1$s/mes</string>
+    <string name="billing_restoring">Restaurando compras…</string>
+    <string name="billing_verifying">Verificando compra…</string>
+    <string name="billing_checkout">Completa la compra en Google Play…</string>
+    <string name="billing_loading">Cargando…</string>
+    <string name="billing_manage">Gestionar plan</string>
+    <string name="billing_pro_status">Tu plan: Pro</string>
+    <string name="billing_free_status">Tu plan: gratuito</string>
+    <string name="billing_ai_remaining">Evaluaciones de IA: quedan %1$d de %2$d</string>
+    <string name="billing_reveals_remaining">Respuestas por revelar: quedan %1$d de %2$d</string>
+    <string name="billing_active">Activa</string>
+    <string name="billing_cancelled">Renovación cancelada</string>
+    <string name="billing_grace">Revisa el pago</string>
+    <string name="billing_on_hold">Suscripción suspendida por problemas de pago</string>
+    <string name="billing_expired">Caducada</string>
+    <string name="billing_paused">En pausa</string>
+    <string name="billing_pending">Pago pendiente</string>
+    <string name="billing_verification_pending">Verificación de compra pendiente</string>
+    <string name="billing_renews">Se renueva el %1$s</string>
+    <string name="billing_access_until">Acceso hasta el %1$s</string>
+</resources>
+

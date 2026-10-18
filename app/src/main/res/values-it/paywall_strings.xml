@@ -1,0 +1,26 @@
+<resources>
+    <string name="paywall_title">Interview Trainer Pro</string>
+    <string name="paywall_close">Chiudi i piani Pro</string>
+    <string name="paywall_hero">Sblocca l’intera raccolta di domande</string>
+    <string name="paywall_free">Gratis: 5 domande per argomento • 20 valutazioni IA • 20 risposte svelate.</string>
+    <string name="paywall_choose">Scegli il tuo piano Pro</string>
+    <string name="paywall_unlocks">I vantaggi di Pro</string>
+    <string name="paywall_all_questions">Tutte le domande di ogni argomento</string>
+    <string name="paywall_all_questions_description">Il piano gratuito mostra le prime 5 domande per argomento</string>
+    <string name="paywall_reveals">Risposte svelate incluse</string>
+    <string name="paywall_reveals_description">250 a settimana o 1.000 al mese con il piano Pro</string>
+    <string name="paywall_coach">Coach IA per i colloqui</string>
+    <string name="paywall_coach_description">Punteggi dettagliati, copertura dei punti chiave e feedback</string>
+    <string name="paywall_weekly">Settimanale</string>
+    <string name="paywall_monthly">Mensile</string>
+    <string name="paywall_weekly_allowance">250 valutazioni IA + 250 risposte svelate / 7 giorni</string>
+    <string name="paywall_monthly_allowance">1.000 valutazioni IA + 1.000 risposte svelate / mese</string>
+    <string name="paywall_per_week">/ settimana</string>
+    <string name="paywall_per_month">/ mese</string>
+    <string name="paywall_weekly_note">Per una preparazione di breve durata</string>
+    <string name="paywall_monthly_note">Più conveniente • 4× valutazioni IA e risposte svelate</string>
+    <string name="paywall_best_value">PIÙ CONVENIENTE</string>
+    <string name="paywall_restore">Ripristina acquisti</string>
+    <string name="paywall_terms">L’abbonamento si rinnova automaticamente fino alla disdetta. Termini • Privacy</string>
+</resources>
+

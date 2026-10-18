@@ -1,0 +1,26 @@
+<resources>
+    <string name="paywall_title">Interview Trainer Pro</string>
+    <string name="paywall_close">Cerrar planes Pro</string>
+    <string name="paywall_hero">Desbloquea todo el banco de preguntas</string>
+    <string name="paywall_free">Gratis: 5 preguntas por tema • 20 evaluaciones de IA • 20 respuestas reveladas.</string>
+    <string name="paywall_choose">Elige tu plan Pro</string>
+    <string name="paywall_unlocks">Ventajas de Pro</string>
+    <string name="paywall_all_questions">Todas las preguntas de cada tema</string>
+    <string name="paywall_all_questions_description">El plan gratuito muestra las primeras 5 preguntas de cada tema</string>
+    <string name="paywall_reveals">Respuestas reveladas incluidas</string>
+    <string name="paywall_reveals_description">250 por semana o 1.000 al mes con tu plan Pro</string>
+    <string name="paywall_coach">Entrenador de entrevistas con IA</string>
+    <string name="paywall_coach_description">Puntuación detallada, cobertura de puntos clave y comentarios</string>
+    <string name="paywall_weekly">Semanal</string>
+    <string name="paywall_monthly">Mensual</string>
+    <string name="paywall_weekly_allowance">250 evaluaciones de IA + 250 respuestas reveladas / 7 días</string>
+    <string name="paywall_monthly_allowance">1.000 evaluaciones de IA + 1.000 respuestas reveladas / mes</string>
+    <string name="paywall_per_week">/ semana</string>
+    <string name="paywall_per_month">/ mes</string>
+    <string name="paywall_weekly_note">Flexible para una preparación breve</string>
+    <string name="paywall_monthly_note">Más por menos • 4× evaluaciones de IA y respuestas reveladas</string>
+    <string name="paywall_best_value">MEJOR OPCIÓN</string>
+    <string name="paywall_restore">Restaurar compras</string>
+    <string name="paywall_terms">La suscripción se renueva automáticamente hasta que se cancele. Condiciones • Privacidad</string>
+</resources>
+

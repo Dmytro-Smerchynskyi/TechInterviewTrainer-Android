@@ -1,0 +1,10 @@
+<resources>
+    <string name="google_continue">Mit Google fortfahren</string>
+    <string name="google_signing_in">Anmeldung mit Google…</string>
+    <string name="auth_or">oder</string>
+    <string name="google_sign_in_failed">Anmeldung mit Google fehlgeschlagen. Bitte versuche es erneut.</string>
+    <string name="google_no_credentials">Kein Google-Konto verfügbar. Füge deinem Gerät ein Konto hinzu und versuche es erneut.</string>
+    <string name="google_unavailable">Die Google-Anmeldung ist auf diesem Gerät nicht verfügbar. Prüfe die Google Play-Dienste und versuche es erneut.</string>
+    <string name="google_not_configured">Die Google-Anmeldung ist noch nicht eingerichtet.</string>
+</resources>
+

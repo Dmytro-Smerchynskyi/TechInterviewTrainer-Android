@@ -1,0 +1,35 @@
+<resources>
+    <string name="interview_setup">Interview einrichten</string>
+    <string name="interview_choose_level">Wähle dein Interviewniveau</string>
+    <string name="interview_grade_description">Die Fragen und die Tiefe der KI-Bewertung richten sich nach dem gewählten Entwicklerlevel.</string>
+    <string name="interview_setup_info">Fragen für dein Niveau • KI-Bewertung</string>
+    <string name="interview_session">Interview</string>
+    <string name="interview_review">Antwortanalyse</string>
+    <string name="interview_question_label">INTERVIEWFRAGE</string>
+    <string name="interview_position">Frage %1$d von %2$d</string>
+    <string name="interview_finish_answer">Antwort abschließen</string>
+    <string name="interview_next">Nächste Frage</string>
+    <string name="interview_results">Ergebnisse ansehen</string>
+    <string name="interview_continue">Interview fortsetzen</string>
+    <string name="interview_history_retry">Interview erneut versuchen</string>
+    <string name="interview_all_answered">Dein Interview kann abgeschlossen werden</string>
+    <string name="interview_all_answered_description">Sieh dir deine Ergebnisse an, um dieses Interview abzuschließen und deinen Fortschritt zu prüfen.</string>
+    <string name="interview_summary">Interview-Zusammenfassung</string>
+    <string name="interview_summary_subtitle">Deine Interviewergebnisse</string>
+    <string name="interview_summary_score">%1$d / 100</string>
+    <string name="interview_progress_good">Toller Fortschritt</string>
+    <string name="interview_progress_keep">Übe weiter</string>
+    <string name="interview_summary_answered">Beantwortet: %1$d von %2$d Fragen</string>
+    <string name="interview_knew">Gut gewusst</string>
+    <string name="interview_partly">Teilweise</string>
+    <string name="interview_missed">Nicht abgedeckt</string>
+    <string name="interview_weakest">Schwächste Bereiche</string>
+    <string name="interview_recommended">Empfohlene nächste Schritte</string>
+    <string name="interview_review_weak">Schwache Themen wiederholen</string>
+    <string name="interview_weak_count">Themen mit Übungsbedarf: %1$d</string>
+    <string name="interview_spaced">Intervallwiederholung starten</string>
+    <string name="interview_due_count">Geplante Wiederholungen: %1$d</string>
+    <string name="interview_finish">Abschließen</string>
+    <string name="interview_summary_retry">Empfehlungen konnten nicht geladen werden. Tippe, um es erneut zu versuchen.</string>
+</resources>
+

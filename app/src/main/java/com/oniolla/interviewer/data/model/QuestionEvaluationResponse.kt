@@ -2,7 +2,11 @@ package com.oniolla.interviewer.data.model
 
 import com.google.gson.annotations.SerializedName
 
-enum class PracticeGrade { JUNIOR, MIDDLE, SENIOR }
+enum class PracticeGrade {
+    @SerializedName("JUNIOR") JUNIOR,
+    @SerializedName("MIDDLE") MIDDLE,
+    @SerializedName("SENIOR") SENIOR
+}
 
 data class EvaluationKeyPoint(
     @SerializedName("id") val id: String? = null,

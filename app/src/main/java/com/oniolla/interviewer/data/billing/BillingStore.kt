@@ -3,7 +3,7 @@ package com.oniolla.interviewer.data.billing
 import android.app.Activity
 import kotlinx.coroutines.flow.Flow
 
-const val PRO_PRODUCT_ID = "interview-trainer-pro"
+const val PRO_PRODUCT_ID = "interview_trainer_pro"
 
 enum class ProPlan(val basePlanId: String) { WEEKLY("weekly"), MONTHLY("monthly") }
 data class StorePlan(val plan: ProPlan, val price: String, val offerToken: String)

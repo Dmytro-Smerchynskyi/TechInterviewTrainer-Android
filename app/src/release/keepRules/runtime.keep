@@ -1,0 +1,7 @@
+# Kotlin text multifile facade classes have package-private superclass relationships.
+# Preserve this package while still allowing class/member obfuscation, shrinking and optimization.
+# This avoids the IllegalAccessError seen after repackaging these classes out of kotlin.text.
+-keeppackagenames kotlin.text
+
+# OkHttp, Retrofit, Gson, Hilt, Room and coroutines supply their own consumer rules.
+# Do not blanket-keep those libraries or the application's DTO packages.

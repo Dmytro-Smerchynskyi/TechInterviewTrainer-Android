@@ -1,9 +1,11 @@
 package com.oniolla.interviewer.ui.home
 
 import android.app.Activity
+import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.oniolla.interviewer.R
 import com.oniolla.interviewer.data.ApiException
 import com.oniolla.interviewer.data.billing.*
 import com.oniolla.interviewer.data.model.SubscriptionResponse
@@ -24,7 +26,7 @@ data class SubscriptionViewState(
     val selected: ProPlan = ProPlan.MONTHLY,
     val action: BillingAction = BillingAction.IDLE,
     val visible: Boolean = false,
-    val error: String? = null,
+    @get:StringRes val error: Int? = null,
     val notice: String? = null,
     val hasPendingPurchase: Boolean = false,
     val verificationPending: Boolean = false,
@@ -85,7 +87,7 @@ class SubscriptionViewModel @Inject constructor(
                     }
                     is StoreUpdate.Failed -> {
                         checkout = null
-                        _state.update { it.copy(action = BillingAction.IDLE, launchRequestId = null, error = update.message) }
+                        _state.update { it.copy(action = BillingAction.IDLE, launchRequestId = null, error = if (update.alreadyOwned) R.string.billing_error_already_owned else R.string.billing_error_generic) }
                         if (update.alreadyOwned) refresh()
                     }
                 }
@@ -159,7 +161,7 @@ class SubscriptionViewModel @Inject constructor(
         try {
             manage.launch(activity, prepared)?.let { failure ->
                 checkout = null
-                _state.update { it.copy(action = BillingAction.IDLE, error = failure.message) }
+                _state.update { it.copy(action = BillingAction.IDLE, error = if (failure.alreadyOwned) R.string.billing_error_already_owned else R.string.billing_error_generic) }
                 if (failure.alreadyOwned) refresh()
             }
         } catch (error: Exception) {
@@ -191,7 +193,9 @@ class SubscriptionViewModel @Inject constructor(
 
     private fun apply(result: PurchaseProcessing) {
         needsRetry = result.retryNeeded
-        _state.update { it.copy(error = result.error, hasPendingPurchase = result.pending > 0,
+        _state.update { it.copy(error = result.error?.let {
+            if (result.retryNeeded) R.string.billing_error_verification_pending else R.string.billing_error_verification
+        }, hasPendingPurchase = result.pending > 0,
             verificationPending = result.retryNeeded,
             notice = when {
                 result.pending > 0 -> "Payment is pending in Google Play. Pro activates only after payment and server verification."
@@ -219,7 +223,7 @@ class SubscriptionViewModel @Inject constructor(
 
     private fun fail(error: Exception) {
         val api = error.toApiException()
-        _state.update { it.copy(error = api.message?.takeIf(String::isNotBlank) ?: "Unable to update your subscription. Please retry.",
+        _state.update { it.copy(error = if (api is ApiException.NetworkError) R.string.billing_error_network else R.string.billing_error_generic,
             sessionExpired = it.sessionExpired || api is ApiException.Unauthorized) }
     }
 

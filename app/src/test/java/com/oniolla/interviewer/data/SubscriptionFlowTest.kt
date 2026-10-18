@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.oniolla.interviewer.R
 import com.oniolla.interviewer.data.billing.*
 import com.oniolla.interviewer.data.model.*
 import com.oniolla.interviewer.domain.*
@@ -87,10 +88,12 @@ class SubscriptionFlowTest {
         val queue = Queue()
         val store = Store(trace)
         var plan = "FREE"
+        var questions: QuestionsUsage? = null
         var basePlan: String? = null
         var verifyStatus = 200
         var backendAccount = "billing-user"
         var beforeVerifyResponse: (() -> Unit)? = null
+        var subscriptionFailure: java.io.IOException? = null
         val usage: SessionUsageRepository
         init {
             val client = OkHttpClient.Builder()
@@ -101,7 +104,10 @@ class SubscriptionFlowTest {
                     val path = request.url.encodedPath
                     val code = if (path == "/billing/google/verify") verifyStatus else 200
                     val body = when (path) {
-                        "/me/subscription" -> response()
+                        "/me/subscription" -> {
+                            subscriptionFailure?.let { throw it }
+                            response()
+                        }
                         "/billing/google/verify" -> {
                             trace += "verify"
                             if (code == 200) {
@@ -129,7 +135,7 @@ class SubscriptionFlowTest {
             aiEvaluations = AiEvaluationsUsage(10, 0, if (plan == "PRO") 1000 else 20,
                 if (plan == "PRO") 990 else 10, null, null),
             answerReveals = AnswerRevealsUsage(5, if (plan == "PRO") 1000 else 20,
-                if (plan == "PRO") 995 else 15)))
+                if (plan == "PRO") 995 else 15), questions = questions))
         fun manage() = ManageSubscriptionUseCase(usage, store, queue, tokens)
         suspend fun owner(manage: ManageSubscriptionUseCase) = manage.refresh().let { manage.owner() }
         fun calls(path: String) = requests.count { it.url.encodedPath == path }
@@ -148,6 +154,36 @@ class SubscriptionFlowTest {
     private suspend fun failure(block: suspend () -> Unit): Exception {
         try { block() } catch (e: Exception) { return e }
         throw AssertionError("Expected failure")
+    }
+
+    @Test fun networkFailureShowsFriendlyMessageWithoutHostOrExceptionDetails() = runTest(dispatcher) {
+        val f = Fixture()
+        f.subscriptionFailure = java.net.UnknownHostException("Unable to resolve host private.example.test: no address associated")
+        val vm = f.vm()
+        vm.setVisible(true)
+        val state = vm.state.first { !it.isBusy && it.error != null }
+        assertEquals(R.string.billing_error_network, state.error)
+        assertFalse(state.sessionExpired)
+    }
+
+    @Test fun storeFailureDoesNotExposeDiagnosticMessage() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.vm()
+        vm.setVisible(true); f.ready(vm)
+        f.store.updates.emit(StoreUpdate.Failed("SERVICE_DISCONNECTED: internal diagnostic"))
+        val state = vm.state.first { it.error != null }
+        assertEquals(R.string.billing_error_generic, state.error)
+    }
+
+    @Test fun verificationFailureDoesNotExposeBackendMessage() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.vm()
+        vm.setVisible(true); f.ready(vm)
+        f.verifyStatus = 403
+        f.store.updates.emit(StoreUpdate.Purchases(listOf(f.purchase())))
+        val state = vm.state.first { !it.isBusy && it.error != null }
+        assertEquals(R.string.billing_error_verification, state.error)
+        assertFalse(state.subscription!!.isPro)
     }
 
     @Test fun purchasedIsVerifiedBeforeAcknowledgementAndUpdatesSharedCredits() = runTest(dispatcher) {
@@ -169,6 +205,32 @@ class SubscriptionFlowTest {
         assertTrue(f.queue.records.isEmpty())
         assertEquals(1, f.calls("/me/subscription"))
         assertEquals(0, f.calls("/me/usage"))
+    }
+
+    @Test fun subscriptionQuestionLimitsReplaceDashboardCacheAndSurviveLaterDashboard() = runTest(dispatcher) {
+        val f = Fixture()
+        val stale = DashboardUsage("FREE", null, null, QuestionsUsage(false, 5))
+        f.usage.cacheDashboard(f.usage.revision(), f.tokens.snapshot(), stale)
+        f.questions = QuestionsUsage(true, 0)
+        f.usage.subscription(forceRefresh = true)
+        assertEquals(QuestionsUsage(true, 0), f.usage.current()!!.questions)
+        f.usage.cacheDashboard(f.usage.revision(), f.tokens.snapshot(), stale)
+        assertEquals(QuestionsUsage(true, 0), f.usage.current()!!.questions)
+        assertEquals(QuestionsUsage(true, 0), f.usage.currentSubscription()!!.questions)
+
+        f.questions = QuestionsUsage(false, 10)
+        f.usage.refresh()
+        assertEquals(QuestionsUsage(false, 10), f.usage.current()!!.questions)
+        assertEquals(2, f.calls("/me/subscription"))
+        assertEquals(0, f.calls("/me/usage"))
+    }
+
+    @Test fun subscriptionWithoutQuestionsDoesNotReuseOldDashboardLimits() = runTest(dispatcher) {
+        val f = Fixture()
+        f.usage.cacheDashboard(f.usage.revision(), f.tokens.snapshot(),
+            DashboardUsage("FREE", null, null, QuestionsUsage(false, 5)))
+        f.usage.refresh()
+        assertNull(f.usage.current()!!.questions)
     }
 
     @Test fun pendingNeverVerifiesAcknowledgesOrGrantsPro() = runTest(dispatcher) {

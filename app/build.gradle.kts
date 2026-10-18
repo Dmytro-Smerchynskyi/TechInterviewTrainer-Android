@@ -15,8 +15,8 @@ android {
         applicationId = "com.oniolla.interviewer"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 4
+        versionName = "1.0.3"
 
         val googleWebClientId = providers.gradleProperty("GOOGLE_WEB_CLIENT_ID")
             .orElse(providers.environmentVariable("GOOGLE_WEB_CLIENT_ID")).getOrElse("")
@@ -48,7 +48,6 @@ android {
             manifestPlaceholders["usesCleartextTraffic"] = "false"
             optimization {
                 enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
             }
         }
     }

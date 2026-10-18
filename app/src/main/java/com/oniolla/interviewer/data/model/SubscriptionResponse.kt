@@ -21,6 +21,5 @@ data class SubscriptionResponse(
 ) {
     val isPro get() = plan.equals("PRO", true) || plan.startsWith("PRO_", true)
 
-    fun usage(previousQuestions: QuestionsUsage? = null) =
-        DashboardUsage(plan, answerReveals, aiEvaluations, questions ?: previousQuestions)
+    fun usage() = DashboardUsage(plan, answerReveals, aiEvaluations, questions)
 }

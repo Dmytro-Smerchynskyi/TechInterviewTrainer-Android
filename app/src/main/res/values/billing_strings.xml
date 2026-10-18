@@ -1,5 +1,10 @@
 <resources>
     <string name="billing_retry">Retry</string>
+    <string name="billing_error_network">Unable to connect. Please try again.</string>
+    <string name="billing_error_generic">Unable to update your subscription. Please try again.</string>
+    <string name="billing_error_already_owned">You already have this subscription. Try restoring purchases.</string>
+    <string name="billing_error_verification">Unable to verify your purchase. Please try restoring purchases.</string>
+    <string name="billing_error_verification_pending">We couldn’t confirm your purchase yet. We’ll try again automatically.</string>
     <string name="billing_current_plan">Current plan</string>
     <string name="billing_unavailable">Plan unavailable</string>
     <string name="billing_price_unavailable">—</string>

@@ -39,9 +39,10 @@ class SessionUsageRepository @Inject constructor(
             // A dashboard started before a subscription refresh must not restore spent credits.
             if (expectedRevision == revision && usage != null) {
                 val subscription = entry()?.subscription?.takeIf { it.plan == usage.plan }?.copy(
-                    aiEvaluations = usage.aiEvaluations, answerReveals = usage.answerReveals, questions = usage.questions)
+                    aiEvaluations = usage.aiEvaluations, answerReveals = usage.answerReveals)
+                val updatedUsage = if (subscription != null) usage.copy(questions = subscription.questions) else usage
                 revision++
-                entries.value = Entry(session.version, usage, subscription)
+                entries.value = Entry(session.version, updatedUsage, subscription)
             }
             current() ?: usage
         }
@@ -74,7 +75,7 @@ class SessionUsageRepository @Inject constructor(
         synchronized(tokens) {
             ensureSession(session)
             revision++
-            Entry(session.version, response.usage(entry()?.usage?.takeIf { it.plan == response.plan }?.questions), response).also { entries.value = it }
+            Entry(session.version, response.usage(), response).also { entries.value = it }
         }
 
     fun clear() = synchronized(tokens) {

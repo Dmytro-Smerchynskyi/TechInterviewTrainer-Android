@@ -98,7 +98,7 @@ fun PaywallScreen(
             AnimatedVisibility(visible = state.error != null || state.notice != null,
                 enter = fadeIn() + expandVertically()) {
                 Column(Modifier.fillMaxWidth().padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    state.error?.let { Text(it, color = AppTheme.colors.red,
+                    state.error?.let { Text(stringResource(it), color = AppTheme.colors.red,
                         fontSize = 11.sp, lineHeight = 16.sp) }
                     state.notice?.let { Text(it, color = AppTheme.colors.secondaryText,
                         fontSize = 11.sp, lineHeight = 16.sp) }

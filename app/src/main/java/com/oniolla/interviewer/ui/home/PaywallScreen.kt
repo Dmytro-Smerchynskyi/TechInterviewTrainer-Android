@@ -14,6 +14,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -49,11 +53,21 @@ fun PaywallScreen(
     onManage: () -> Unit = {}
 ) {
     val scroll = rememberScrollState()
+    val snackbarHost = remember { SnackbarHostState() }
+    val errorMessage = state.error?.let { stringResource(it) }
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) snackbarHost.showSnackbar(errorMessage, duration = SnackbarDuration.Long)
+    }
     LaunchedEffect(state.visible) { if (state.visible) scroll.scrollTo(0) }
     val monthly = state.selected == BillingPlan.MONTHLY
     val selectedOffer = state.plans.firstOrNull { it.plan == state.selected }
     PracticeTextTheme {
     Scaffold(containerColor = AppTheme.colors.background,
+        snackbarHost = {
+            SnackbarHost(snackbarHost) { data ->
+                Snackbar(data, containerColor = AppTheme.colors.container, contentColor = AppTheme.colors.primaryText)
+            }
+        },
         topBar = { PracticeHeader(stringResource(R.string.paywall_title), onClose, enabled = !state.isBusy, close = true) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(scroll).padding(horizontal = 20.dp)) {

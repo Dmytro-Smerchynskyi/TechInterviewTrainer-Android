@@ -333,6 +333,37 @@ class SubscriptionFlowTest {
         assertEquals(listOf("verify", "verify", "ack"), f.trace)
     }
 
+    @Test fun verificationErrorSurvivesResumeAndEmptyPlayUpdatesUntilVerificationSucceeds() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.vm()
+        vm.setVisible(true); f.ready(vm)
+        f.verifyStatus = 403
+        // Purchase callback can arrive before queryPurchases reports the new purchase.
+        f.store.updates.emit(StoreUpdate.Purchases(listOf(f.purchase())))
+        vm.state.first { !it.isBusy && it.error != null }
+
+        vm.pause()
+        vm.resume()
+        runCurrent()
+        val resumed = vm.state.first { !it.isBusy }
+        assertEquals(R.string.billing_error_verification, resumed.error)
+        assertEquals(1, f.calls("/billing/google/verify"))
+
+        f.store.updates.emit(StoreUpdate.Purchases(emptyList()))
+        runCurrent()
+        assertEquals(R.string.billing_error_verification, vm.state.value.error)
+
+        f.verifyStatus = 200
+        f.store.owned = listOf(f.purchase())
+        vm.restore()
+        runCurrent()
+        val restored = vm.state.first { !it.isBusy && it.entitlementRevision > 0 }
+        assertNull(restored.error)
+        assertTrue(restored.subscription!!.isPro)
+        assertEquals(listOf("verify", "verify", "ack"), f.trace)
+        vm.pause()
+    }
+
     @Test fun automaticRecoveryDoesNotLinkAnotherAppAccountPurchase() = runTest(dispatcher) {
         val f = Fixture(); val m = f.manage(); val owner = f.owner(m)
         f.store.owned = listOf(f.purchase(account = "other-user"), f.purchase(account = null, token = "legacy"))

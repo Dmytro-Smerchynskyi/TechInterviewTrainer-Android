@@ -58,6 +58,7 @@ class SubscriptionViewModel @Inject constructor(
     private var checkout: PreparedSubscription? = null
     private var sequence = 0L
     private var needsRetry = false
+    @get:StringRes private var verificationError: Int? = null
 
     init {
         viewModelScope.launch { manage.observeSubscription().collect { subscription ->
@@ -70,7 +71,7 @@ class SubscriptionViewModel @Inject constructor(
                     is StoreUpdate.Purchases -> {
                         val pendingCheckout = checkout
                         checkout = null
-                        _state.update { it.copy(action = BillingAction.VERIFYING, launchRequestId = null, error = null) }
+                        _state.update { it.copy(action = BillingAction.VERIFYING, launchRequestId = null, error = verificationError) }
                         try {
                             val owner = pendingCheckout?.owner ?: manage.owner()
                             if (manage.isCurrent(owner)) {
@@ -83,7 +84,7 @@ class SubscriptionViewModel @Inject constructor(
                     }
                     StoreUpdate.Cancelled -> {
                         checkout = null
-                        _state.update { it.copy(action = BillingAction.IDLE, launchRequestId = null, error = null) }
+                        _state.update { it.copy(action = BillingAction.IDLE, launchRequestId = null, error = verificationError) }
                     }
                     is StoreUpdate.Failed -> {
                         checkout = null
@@ -112,7 +113,7 @@ class SubscriptionViewModel @Inject constructor(
     fun select(plan: ProPlan) {
         if (_state.value.isBusy) return
         savedState["billingPlan"] = plan.name
-        _state.update { it.copy(selected = plan, error = null) }
+        _state.update { it.copy(selected = plan, error = verificationError) }
     }
 
     fun refresh() {
@@ -120,7 +121,7 @@ class SubscriptionViewModel @Inject constructor(
         operation = viewModelScope.launch {
             mutex.withLock {
                 if (stopped) return@withLock
-                _state.update { it.copy(action = BillingAction.LOADING, error = null) }
+                _state.update { it.copy(action = BillingAction.LOADING, error = verificationError) }
                 try {
                     manage.refresh()
                     val owner = manage.owner()
@@ -143,7 +144,7 @@ class SubscriptionViewModel @Inject constructor(
         val selected = _state.value.selected
         operation = viewModelScope.launch {
             mutex.withLock {
-                _state.update { it.copy(action = BillingAction.PREPARING, error = null, notice = null) }
+                _state.update { it.copy(action = BillingAction.PREPARING, error = verificationError, notice = null) }
                 try {
                     checkout = manage.prepare(selected)
                     _state.update { it.copy(action = BillingAction.CHECKOUT, launchRequestId = ++sequence) }
@@ -175,7 +176,7 @@ class SubscriptionViewModel @Inject constructor(
         if (_state.value.isBusy || operation?.isActive == true || stopped) return
         operation = viewModelScope.launch {
             mutex.withLock {
-                _state.update { it.copy(action = BillingAction.RESTORING, error = null, notice = null) }
+                _state.update { it.copy(action = BillingAction.RESTORING, error = verificationError, notice = null) }
                 try {
                     manage.refresh()
                     val result = manage.recover(manage.owner(), explicitRestore = true)
@@ -193,9 +194,14 @@ class SubscriptionViewModel @Inject constructor(
 
     private fun apply(result: PurchaseProcessing) {
         needsRetry = result.retryNeeded
-        _state.update { it.copy(error = result.error?.let {
-            if (result.retryNeeded) R.string.billing_error_verification_pending else R.string.billing_error_verification
-        }, hasPendingPurchase = result.pending > 0,
+        // An empty Play query does not resolve a failed backend verification.
+        if (result.error != null || result.retryNeeded) {
+            verificationError = if (result.retryNeeded) R.string.billing_error_verification_pending
+                else R.string.billing_error_verification
+        } else if (result.verified > 0) {
+            verificationError = null
+        }
+        _state.update { it.copy(error = verificationError, hasPendingPurchase = result.pending > 0,
             verificationPending = result.retryNeeded,
             notice = when {
                 result.pending > 0 -> "Payment is pending in Google Play. Pro activates only after payment and server verification."

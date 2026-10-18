@@ -17,7 +17,6 @@
     <string name="billing_checkout">Complete purchase in Google Play…</string>
     <string name="billing_loading">Loading…</string>
     <string name="billing_manage">Manage plan</string>
-    <string name="billing_manage_google">Manage in Google Play</string>
     <string name="billing_pro_status">Your plan: Pro</string>
     <string name="billing_free_status">Your plan: Free</string>
     <string name="billing_ai_remaining">AI evaluations: %1$d of %2$d remaining</string>
@@ -32,5 +31,4 @@
     <string name="billing_verification_pending">Purchase verification pending</string>
     <string name="billing_renews">Renews on %1$s</string>
     <string name="billing_access_until">Access until %1$s</string>
-    <string name="billing_manage_unavailable">Unable to open Google Play subscriptions.</string>
 </resources>

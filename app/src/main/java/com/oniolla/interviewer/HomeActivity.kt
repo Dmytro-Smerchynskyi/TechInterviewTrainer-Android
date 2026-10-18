@@ -171,8 +171,7 @@ class HomeActivity : ComponentActivity() {
                             onSelectPlan = subscriptionViewModel::select,
                             onBuy = subscriptionViewModel::buy,
                             onRestore = subscriptionViewModel::restore,
-                            onRetry = subscriptionViewModel::refresh,
-                            onManage = ::manageGoogleSubscription
+                            onRetry = subscriptionViewModel::refresh
                         ) else if (destination == "practice") PracticeScreens(
                             state = practiceState,
                             onBack = backPractice,
@@ -297,15 +296,6 @@ class HomeActivity : ComponentActivity() {
     override fun onPause() {
         if (contentReady) subscriptionViewModel.pause()
         super.onPause()
-    }
-
-    private fun manageGoogleSubscription() {
-        val uri = android.net.Uri.Builder().scheme("https").authority("play.google.com")
-            .path("/store/account/subscriptions")
-            .appendQueryParameter("sku", com.oniolla.interviewer.data.billing.PRO_PRODUCT_ID)
-            .appendQueryParameter("package", packageName).build()
-        runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-            .onFailure { showEvent(UiEvent.Toast(getString(R.string.billing_manage_unavailable))) }
     }
 
     private fun showEvent(event: UiEvent) {

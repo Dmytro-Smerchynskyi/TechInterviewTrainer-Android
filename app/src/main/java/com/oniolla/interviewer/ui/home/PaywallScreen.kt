@@ -49,8 +49,7 @@ fun PaywallScreen(
     onSelectPlan: (BillingPlan) -> Unit = {},
     onBuy: () -> Unit = {},
     onRestore: () -> Unit = {},
-    onRetry: () -> Unit = {},
-    onManage: () -> Unit = {}
+    onRetry: () -> Unit = {}
 ) {
     val scroll = rememberScrollState()
     val snackbarHost = remember { SnackbarHostState() }
@@ -147,11 +146,6 @@ fun PaywallScreen(
             }
             Box(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 16.dp), contentAlignment = Alignment.Center) {
                 LinkText(text = stringResource(R.string.paywall_restore), enabled = !state.isBusy, onClick = onRestore)
-            }
-            if (state.subscription?.provider == "GOOGLE_PLAY" && state.subscription.isPro) {
-                Box(Modifier.fillMaxWidth().padding(bottom = 16.dp), contentAlignment = Alignment.Center) {
-                    LinkText(text = stringResource(R.string.billing_manage_google), enabled = !state.isBusy, onClick = onManage)
-                }
             }
             Text(stringResource(R.string.paywall_terms), Modifier.fillMaxWidth().padding(bottom = 24.dp),
                 color = AppTheme.colors.secondaryText, fontSize = 8.sp, lineHeight = 11.sp, textAlign = TextAlign.Center)

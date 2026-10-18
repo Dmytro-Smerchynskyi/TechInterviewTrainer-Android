@@ -10,7 +10,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import javax.inject.Inject
 
-class Encryptor @Inject constructor() {
+open class Encryptor @Inject constructor() {
 
     private fun getOrCreateKey(): SecretKey {
         KeyStore.getInstance(ANDROID_KEYSTORE).apply {
@@ -34,7 +34,7 @@ class Encryptor @Inject constructor() {
         }.generateKey()
     }
 
-    fun encrypt(text: String): EncryptedValue {
+    open fun encrypt(text: String): EncryptedValue {
         Cipher.getInstance(TRANSFORMATION).apply {
             init(Cipher.ENCRYPT_MODE, getOrCreateKey())
             val data = doFinal(text.toByteArray(Charsets.UTF_8))
@@ -45,7 +45,7 @@ class Encryptor @Inject constructor() {
         }
     }
 
-    fun decrypt(encryptedValue: EncryptedValue): String {
+    open fun decrypt(encryptedValue: EncryptedValue): String {
         Cipher.getInstance(TRANSFORMATION).apply {
             init(
                 Cipher.DECRYPT_MODE, getOrCreateKey(),

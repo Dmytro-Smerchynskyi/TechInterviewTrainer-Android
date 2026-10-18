@@ -88,8 +88,13 @@ class AuthViewModel @Inject constructor(
         super.onCleared()
     }
 
-    init {
-        load()
+    private var startupRequested = false
+
+    fun start() {
+        if (startupRequested) return
+        startupRequested = true
+        // A password-reset deep link takes precedence over ordinary session restoration.
+        if (_stateFlow.value is AuthViewState.Loading) load()
     }
 
     fun openPasswordReset(token: String?) {
@@ -151,6 +156,7 @@ class AuthViewModel @Inject constructor(
     }
 
     fun load() {
+        startupRequested = true
         passwordText.value = ""
         loadingJob?.cancel()
         preparationLanguagesJob?.cancel()

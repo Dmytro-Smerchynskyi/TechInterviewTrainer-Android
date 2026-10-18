@@ -101,6 +101,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oniolla.interviewer.data.model.Specialization
 import com.oniolla.interviewer.ui.AuthViewModel
+import com.oniolla.interviewer.ui.isResumedAndUnlocked
+import com.oniolla.interviewer.ui.runWhenResumedAndUnlocked
 import com.oniolla.interviewer.ui.PasswordResetScreen
 import com.oniolla.interviewer.ui.passwordResetToken
 import com.oniolla.interviewer.ui.GoogleAuthButton
@@ -124,12 +126,15 @@ class AuthActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         consumePasswordResetLink(intent)
+        runWhenResumedAndUnlocked { viewModel.start() }
         applyStatusBarTheme(preferences.theme.value)
         setContent {
             val theme by preferences.theme.collectAsStateWithLifecycle()
             StatusBarTheme(this@AuthActivity, theme)
             InterviewTrainerTheme(themeMode = theme) {
-                Screen(viewModel, onAuthorized = ::openHome)
+                Screen(viewModel, onAuthorized = ::openHome, onRetryRestore = {
+                    if (isResumedAndUnlocked()) viewModel.load()
+                })
             }
         }
     }
@@ -159,7 +164,8 @@ class AuthActivity : ComponentActivity() {
 }
 
 @Composable
-fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
+fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {},
+    onRetryRestore: () -> Unit = viewModel::load) {
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -393,7 +399,7 @@ fun Screen(viewModel: AuthViewModel, onAuthorized: () -> Unit = {}) {
                     Box(Modifier.fillMaxSize().background(AppTheme.colors.background))
 
                 is AuthViewModel.AuthViewState.Error ->
-                    AuthError(state.message, viewModel::load)
+                    AuthError(state.message, onRetryRestore)
 
                 else -> {
                     Scaffold {

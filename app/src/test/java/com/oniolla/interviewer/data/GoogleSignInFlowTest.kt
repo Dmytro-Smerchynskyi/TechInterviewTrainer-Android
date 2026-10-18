@@ -64,7 +64,7 @@ class GoogleSignInFlowTest {
                     if (path == "/auth/google") bodies += Buffer().also { request.body!!.writeTo(it) }.readUtf8()
                     val json = if (code >= 400) """{"error":{"code":"GOOGLE_AUTH_FAILED","message":"Google sign-in failed"}}"""
                     else when (path) {
-                        "/auth/google" -> """{"accessToken":"google-access","refreshToken":"google-refresh","expiresIn":900}"""
+                        "/auth/google", "/auth/refresh" -> """{"accessToken":"google-access","refreshToken":"google-refresh","expiresIn":900}"""
                         "/me" -> """{"id":"google-user","email":"developer@example.com","displayName":"Developer",
                             "emailVerified":$emailVerified,"onboardingCompleted":$onboarding,
                             "specialization":${gson.toJson(specialization)},"preparationLanguage":${gson.toJson(language)},
@@ -83,14 +83,46 @@ class GoogleSignInFlowTest {
             google = GoogleSignInUseCase(repository, resolve)
         }
 
-        fun vm() = AuthViewModel(RestoreSessionUseCase(repository, resolve),
+        fun vm(start: Boolean = true) = AuthViewModel(RestoreSessionUseCase(repository, resolve),
             LoginUseCase(repository, resend, resolve), SignupUseCase(repository),
             ForgotPasswordUseCase(repository), VerifyEmailUseCase(repository, resolve),
             resend, ClearSessionUseCase(repository), SelectSpecializationUseCase(repository, resolve),
             GetPreparationLanguagesUseCase(repository), SelectPreparationLanguageUseCase(repository, resolve),
-            google, ResetPasswordUseCase(repository)).also { stores += ViewModelStore().apply { put("auth", it) } }
+            google, ResetPasswordUseCase(repository)).also {
+                stores += ViewModelStore().apply { put("auth", it) }
+                if (start) it.start()
+            }
         suspend fun ready(vm: AuthViewModel) { vm.stateFlow.first { it is AuthViewState.Unauthorized.Login } }
         fun calls(path: String) = requests.count { it.url.encodedPath == path }
+    }
+
+    @Test fun startupWaitsForActivityAndDoesNotRestoreTwice() = runTest(dispatcher) {
+        val f = Fixture()
+        f.tokens.refreshToken = "saved-refresh"
+        val vm = f.vm(start = false)
+        runCurrent()
+        assertTrue(vm.stateFlow.value is AuthViewState.Loading)
+        assertTrue(f.requests.isEmpty())
+
+        vm.start()
+        vm.start()
+        vm.stateFlow.first { it is AuthViewState.Authorized }
+        assertEquals(1, f.calls("/auth/refresh"))
+        assertEquals(1, f.calls("/me"))
+        vm.start()
+        runCurrent()
+        assertEquals(1, f.calls("/auth/refresh"))
+    }
+
+    @Test fun deferredStartupDoesNotOverridePasswordResetLink() = runTest(dispatcher) {
+        val f = Fixture()
+        f.tokens.refreshToken = "saved-refresh"
+        val vm = f.vm(start = false)
+        vm.openPasswordReset("reset-token")
+        vm.start()
+        runCurrent()
+        assertTrue(vm.stateFlow.value is AuthViewState.PasswordReset)
+        assertTrue(f.requests.isEmpty())
     }
 
     @Test fun googlePayloadSendsExplicitNullWithoutChangingOtherGsonNullHandling() {

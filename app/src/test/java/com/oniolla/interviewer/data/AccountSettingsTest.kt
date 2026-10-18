@@ -168,7 +168,7 @@ class AccountSettingsTest {
                 resend, ClearSessionUseCase(repository), SelectSpecializationUseCase(repository, resolve),
                 GetPreparationLanguagesUseCase(repository), SelectPreparationLanguageUseCase(repository, resolve),
                 GoogleSignInUseCase(repository, resolve), ResetPasswordUseCase(repository))
-                .also { stores += ViewModelStore().apply { put("auth", it) } }
+                .also { stores += ViewModelStore().apply { put("auth", it) }; it.start() }
         }
 
         fun vm(handle: SavedStateHandle = SavedStateHandle()) =

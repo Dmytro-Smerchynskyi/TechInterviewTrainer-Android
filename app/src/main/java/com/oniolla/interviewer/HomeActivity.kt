@@ -18,12 +18,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.background
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.oniolla.interviewer.data.AppPreferences
 import com.oniolla.interviewer.ui.UiEvent
+import com.oniolla.interviewer.ui.runWhenResumedAndUnlocked
 import com.oniolla.interviewer.ui.GoogleTokenResult
 import com.oniolla.interviewer.ui.rememberGoogleTokenRequest
 import com.oniolla.interviewer.ui.home.*
@@ -44,11 +47,18 @@ class HomeActivity : ComponentActivity() {
     private val practiceViewModel: PracticeViewModel by viewModels()
     private val interviewViewModel: InterviewViewModel by viewModels()
     private val subscriptionViewModel: SubscriptionViewModel by viewModels()
+    private var contentReady by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applyStatusBarTheme(preferences.theme.value)
+        runWhenResumedAndUnlocked {
+            contentReady = true
+            subscriptionViewModel.resume()
+        }
         setContent {
+            // Creating these ViewModels starts dashboard, statistics and history requests.
+            if (!contentReady) return@setContent
             val theme by preferences.theme.collectAsStateWithLifecycle()
             StatusBarTheme(this@HomeActivity, theme)
             InterviewTrainerTheme(themeMode = theme) {
@@ -284,13 +294,8 @@ class HomeActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        subscriptionViewModel.resume()
-    }
-
     override fun onPause() {
-        subscriptionViewModel.pause()
+        if (contentReady) subscriptionViewModel.pause()
         super.onPause()
     }
 

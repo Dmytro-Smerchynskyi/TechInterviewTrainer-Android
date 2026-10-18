@@ -133,7 +133,7 @@ class PreparationLanguageFlowTest {
             resend, ClearSessionUseCase(repository), SelectSpecializationUseCase(repository, resolve),
             GetPreparationLanguagesUseCase(repository), SelectPreparationLanguageUseCase(repository, resolve),
             GoogleSignInUseCase(repository, resolve), ResetPasswordUseCase(repository)
-        )
+        ).also { it.start() }
 
         fun paths() = requests.map { it.url.encodedPath }
         fun savedLanguages() = bodies.filter { it.first == "/me/preparation-language" }

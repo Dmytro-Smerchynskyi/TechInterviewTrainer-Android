@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.oniolla.interviewer.data.ThemeMode
+import com.oniolla.interviewer.data.model.SubscriptionResponse
 import com.oniolla.interviewer.data.model.MeResponse
 import com.oniolla.interviewer.data.model.DashboardUsage
 import com.oniolla.interviewer.data.model.Specialization
@@ -31,6 +32,7 @@ data class ProfileViewState(
     val profile: ContentViewState<MeResponse> = ContentViewState.NotLoaded,
     val usage: ContentViewState<DashboardUsage> = ContentViewState.NotLoaded,
     val streakDays: Int? = null,
+    val subscription: SubscriptionResponse? = null,
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val themeDialog: Boolean = false,
     val specialization: AuthViewState.SpecializationSelection = AuthViewState.SpecializationSelection(),
@@ -61,6 +63,9 @@ class ProfileViewModel @Inject constructor(
     private var changed = savedState.get<Boolean>("profileChanged") ?: false
 
     init {
+        viewModelScope.launch { manage.cachedSubscription().collect { subscription ->
+            _state.update { it.copy(subscription = subscription) }
+        } }
         viewModelScope.launch { manage.cachedUsage().collect { usage ->
             _state.update { state ->
                 state.copy(usage = usage?.let { ContentViewState.Ready(it) }

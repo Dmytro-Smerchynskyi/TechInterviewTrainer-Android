@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oniolla.interviewer.R
 import com.oniolla.interviewer.data.model.DashboardUsage
+import com.oniolla.interviewer.data.model.SubscriptionResponse
 import com.oniolla.interviewer.ui.theme.AccountHeroStroke
 import com.oniolla.interviewer.ui.theme.AppTheme
 import java.util.Locale
@@ -26,13 +27,14 @@ internal fun ProfileUsage(
     usage: ContentViewState<DashboardUsage>,
     enabled: Boolean,
     onRetry: () -> Unit,
-    onUpgrade: () -> Unit = {}
+    onUpgrade: () -> Unit = {},
+    subscription: SubscriptionResponse? = null
 ) {
     Text(stringResource(R.string.account_plan_usage), fontSize = 15.sp, lineHeight = 19.sp,
         color = AppTheme.colors.primaryText, fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(top = 26.dp, bottom = 10.dp))
     when (usage) {
-        is ContentViewState.Ready -> UsageCard(usage.content, enabled, onUpgrade)
+        is ContentViewState.Ready -> UsageCard(usage.content, enabled, onUpgrade, subscription)
         is ContentViewState.Failed -> Box(Modifier.fillMaxWidth().height(150.dp)) {
             ContentError(usage.message, onRetry)
         }
@@ -48,7 +50,9 @@ internal fun ProfileUsage(
 }
 
 @Composable
-private fun UsageCard(usage: DashboardUsage, enabled: Boolean, onUpgrade: () -> Unit) {
+private fun UsageCard(usage: DashboardUsage, enabled: Boolean, onUpgrade: () -> Unit,
+    subscription: SubscriptionResponse?) {
+    val isPro = subscription?.isPro ?: (usage.plan == "PRO" || usage.plan.startsWith("PRO_"))
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, AccountHeroStroke), color = Color.Transparent) {
         Column(Modifier.background(Brush.horizontalGradient(listOf(AppTheme.colors.heroStart, AppTheme.colors.heroEnd)))
@@ -68,10 +72,14 @@ private fun UsageCard(usage: DashboardUsage, enabled: Boolean, onUpgrade: () -> 
                     shape = RoundedCornerShape(13.dp), color = AppTheme.colors.container,
                     border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.account_upgrade), fontSize = 9.sp,
+                        Text(stringResource(if (isPro) R.string.billing_manage else R.string.account_upgrade), fontSize = 9.sp,
                             color = AppTheme.colors.primaryText, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+            subscription?.takeIf { it.isPro }?.let {
+                Spacer(Modifier.height(12.dp))
+                SubscriptionPeriodText(it)
             }
             Spacer(Modifier.height(18.dp))
             UsageLine(stringResource(R.string.account_ai_evaluations),

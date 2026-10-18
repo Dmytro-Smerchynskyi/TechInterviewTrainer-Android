@@ -243,7 +243,10 @@ class SavedQuestionsFlowTest {
         vm.toggleQuestionSaved(1)
         advanceTimeBy(500)
         runCurrent()
-        assertEquals("/questions/2/saved", fixture.completedMutations.receive().url.encodedPath)
+        // Keep virtual time at 1s while Retrofit's real worker completes question 2.
+        // Suspending here lets runTest auto-advance question 1's separate 1.5s timer.
+        val first = runBlocking { kotlinx.coroutines.withTimeout(5_000) { fixture.completedMutations.receive() } }
+        assertEquals("/questions/2/saved", first.url.encodedPath)
         assertEquals(1, fixture.mutations().size)
         advanceTimeBy(500)
         runCurrent()
@@ -308,7 +311,10 @@ class SavedQuestionsFlowTest {
         vm.selectTab(HomeTab.HOME)
         vm.selectTab(HomeTab.QUESTIONS)
         advanceTimeBy(1000)
-        assertEquals("/questions/2/saved", fixture.completedMutations.receive().url.encodedPath)
+        // Keep virtual time at 1s while Retrofit's real worker completes question 2.
+        // Suspending here lets runTest auto-advance question 1's separate 1.5s timer.
+        val first = runBlocking { kotlinx.coroutines.withTimeout(5_000) { fixture.completedMutations.receive() } }
+        assertEquals("/questions/2/saved", first.url.encodedPath)
         assertEquals(1, fixture.mutations().size)
     }
 

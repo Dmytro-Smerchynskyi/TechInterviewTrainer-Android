@@ -15,16 +15,11 @@
     <string name="paywall_monthly">Monthly</string>
     <string name="paywall_weekly_allowance">250 AI reviews + 250 answer reveals / 7 days</string>
     <string name="paywall_monthly_allowance">1,000 AI reviews + 1,000 answer reveals / month</string>
-    <string name="paywall_weekly_price">$4.99</string>
-    <string name="paywall_monthly_price">$14.99</string>
     <string name="paywall_per_week">/ week</string>
     <string name="paywall_per_month">/ month</string>
     <string name="paywall_weekly_note">Flexible for short interview prep</string>
     <string name="paywall_monthly_note">Best value • 4× the AI reviews and answer reveals</string>
     <string name="paywall_best_value">BEST VALUE</string>
-    <string name="paywall_start_weekly">Start Weekly • $4.99/week</string>
-    <string name="paywall_start_monthly">Start Monthly • $14.99/month</string>
     <string name="paywall_restore">Restore purchases</string>
     <string name="paywall_terms">Subscription renews automatically until cancelled. Terms • Privacy</string>
-    <string name="paywall_coming_soon">Pro subscriptions will be available soon.</string>
 </resources>

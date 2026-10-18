@@ -1,6 +1,8 @@
 package com.oniolla.interviewer.data
 
 import com.oniolla.interviewer.data.model.DashboardUsage
+import com.oniolla.interviewer.data.model.SubscriptionResponse
+import com.oniolla.interviewer.data.payload.VerifyGooglePurchasePayload
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -17,50 +19,63 @@ class SessionUsageRepository @Inject constructor(
     private val sessionRefresh: SessionRefreshCoordinator,
     private val tokens: SessionTokenStorage
 ) {
-    private data class Entry(val sessionVersion: Long, val usage: DashboardUsage)
+    private data class Entry(val sessionVersion: Long, val usage: DashboardUsage,
+        val subscription: SubscriptionResponse? = null)
     private val entries = MutableStateFlow<Entry?>(null)
     private val refreshMutex = Mutex()
     private var revision = 0L
 
-    fun current(): DashboardUsage? = synchronized(tokens) {
-        entries.value?.takeIf { it.sessionVersion == tokens.snapshot().version }?.usage
-    }
+    private fun entry(): Entry? = entries.value?.takeIf { it.sessionVersion == tokens.snapshot().version }
+    fun current(): DashboardUsage? = synchronized(tokens) { entry()?.usage }
+    fun currentSubscription(): SubscriptionResponse? = synchronized(tokens) { entry()?.subscription }
 
-    fun observe() = entries.map { entry ->
-        synchronized(tokens) {
-            entry?.takeIf { it.sessionVersion == tokens.snapshot().version }?.usage
-        }
-    }
-
+    fun observe() = entries.map { synchronized(tokens) { entry()?.usage } }
+    fun observeSubscription() = entries.map { synchronized(tokens) { entry()?.subscription } }
     fun revision(): Long = synchronized(tokens) { revision }
 
     fun cacheDashboard(expectedRevision: Long, session: SessionSnapshot, usage: DashboardUsage?): DashboardUsage? =
         synchronized(tokens) {
             ensureSession(session)
-            // A dashboard started before a usage refresh must not restore spent credits.
+            // A dashboard started before a subscription refresh must not restore spent credits.
             if (expectedRevision == revision && usage != null) {
+                val subscription = entry()?.subscription?.takeIf { it.plan == usage.plan }?.copy(
+                    aiEvaluations = usage.aiEvaluations, answerReveals = usage.answerReveals, questions = usage.questions)
                 revision++
-                entries.value = Entry(session.version, usage)
+                entries.value = Entry(session.version, usage, subscription)
             }
             current() ?: usage
         }
 
-    suspend fun get(): DashboardUsage = current() ?: refreshMutex.withLock {
-        current() ?: fetch()
+    suspend fun get(): DashboardUsage = current() ?: refreshMutex.withLock { current() ?: fetch().usage }
+    suspend fun refresh(): DashboardUsage = refreshMutex.withLock { fetch().usage }
+    suspend fun subscription(forceRefresh: Boolean = false): SubscriptionResponse = refreshMutex.withLock {
+        if (forceRefresh) fetch().subscription!! else currentSubscription() ?: fetch().subscription!!
     }
 
-    suspend fun refresh(): DashboardUsage = refreshMutex.withLock { fetch() }
-
-    private suspend fun fetch(): DashboardUsage {
-        val (session, usage) = sessionRefresh.authorizedApiCall { it to api.accountUsage(it) }
+    suspend fun verifyGooglePurchase(payload: VerifyGooglePurchasePayload, accountId: String,
+        sessionVersion: Long): SubscriptionResponse = refreshMutex.withLock {
+        val (session, response) = sessionRefresh.authorizedApiCall { session ->
+            if (session.version != sessionVersion) throw CancellationException("Billing session changed")
+            session to api.verifyGooglePurchase(payload, session)
+        }
         currentCoroutineContext().ensureActive()
-        return synchronized(tokens) {
+        check(response.billingAccountId == accountId) { "Purchase verification returned another billing account" }
+        cacheSubscription(session, response)
+        response
+    }
+
+    private suspend fun fetch(): Entry {
+        val (session, subscription) = sessionRefresh.authorizedApiCall { it to api.subscription(it) }
+        currentCoroutineContext().ensureActive()
+        return cacheSubscription(session, subscription)
+    }
+
+    private fun cacheSubscription(session: SessionSnapshot, response: SubscriptionResponse): Entry =
+        synchronized(tokens) {
             ensureSession(session)
             revision++
-            entries.value = Entry(session.version, usage)
-            usage
+            Entry(session.version, response.usage(entry()?.usage?.takeIf { it.plan == response.plan }?.questions), response).also { entries.value = it }
         }
-    }
 
     fun clear() = synchronized(tokens) {
         revision++
@@ -68,8 +83,6 @@ class SessionUsageRepository @Inject constructor(
     }
 
     private fun ensureSession(session: SessionSnapshot) {
-        if (tokens.snapshot().version != session.version) {
-            throw CancellationException("Session changed while loading usage")
-        }
+        if (tokens.snapshot().version != session.version) throw CancellationException("Session changed while loading subscription")
     }
 }

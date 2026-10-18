@@ -98,7 +98,7 @@ class ProfileSettingsTest {
                     if (logoutOffline) throw java.io.IOException("Offline")
                 }
                 val code = if (path == "/auth/logout") logoutStatus
-                    else if (path == "/me/usage") usageStatus else if (request.method == "PUT") updateStatus else 200
+                    else if (path == "/me/subscription") usageStatus else if (request.method == "PUT") updateStatus else 200
                 if (request.method == "PUT") beforeUpdate?.invoke()
                 val body = if (code >= 400) """{"error":{"code":"FAILED","message":"Unable to update profile"}}"""
                     else when (path) {
@@ -111,7 +111,7 @@ class ProfileSettingsTest {
                             profileBody()
                         }
                         "/me" -> profileBody()
-                        "/me/usage" -> usageBody().also { beforeUsage?.invoke() }
+                        "/me/subscription" -> usageBody().also { beforeUsage?.invoke() }
                         "/questions/4/answer" -> {
                             reveals--
                             """{"questionId":4,"referenceAnswer":"Reference answer","language":"en","requestedLanguage":"en"}"""
@@ -198,21 +198,21 @@ class ProfileSettingsTest {
         val f = Fixture()
         val vm = f.profileVm()
         runCurrent()
-        assertEquals(0, f.calls("/me/usage"))
+        assertEquals(0, f.calls("/me/subscription"))
         vm.open()
         readyProfile(vm)
         val usage = (vm.state.first { it.usage is ContentViewState.Ready }.usage as ContentViewState.Ready).content
         assertEquals(12, usage.aiEvaluations!!.remaining)
         assertEquals(8, usage.answerReveals!!.remaining)
         assertTrue(usage.questions!!.unlimited)
-        assertEquals(1, f.calls("/me/usage"))
+        assertEquals(1, f.calls("/me/subscription"))
         val profile = (vm.state.value.profile as ContentViewState.Ready).content
         vm.openAccount()
         vm.finishAccount(profile, false)
         vm.back()
         vm.open()
         runCurrent()
-        assertEquals(1, f.calls("/me/usage"))
+        assertEquals(1, f.calls("/me/subscription"))
     }
 
     @Test fun profileUsesTheUsageAlreadyLoadedByDashboardWithoutAnExtraRequest() = runTest(dispatcher) {
@@ -224,7 +224,7 @@ class ProfileSettingsTest {
         readyProfile(profile)
         profile.state.first { it.usage is ContentViewState.Ready }
         assertEquals(8, (profile.state.value.usage as ContentViewState.Ready).content.answerReveals!!.remaining)
-        assertEquals(0, f.calls("/me/usage"))
+        assertEquals(0, f.calls("/me/subscription"))
     }
 
     @Test fun revealingAnAnswerUpdatesTheClosedProfileAndReopeningDoesNotRefetchUsage() = runTest(dispatcher) {
@@ -245,12 +245,12 @@ class ProfileSettingsTest {
         } == true }
         profile.state.first { (it.usage as? ContentViewState.Ready)?.content?.answerReveals?.remaining == 7 }
         assertEquals(7, (home.stateFlow.value.dashboard as ContentViewState.Ready).content.dashboard.usage!!.answerReveals!!.remaining)
-        assertEquals(2, f.calls("/me/usage"))
+        assertEquals(2, f.calls("/me/subscription"))
         home.closeQuestion()
         profile.open()
         runCurrent()
         assertEquals(7, (profile.state.value.usage as ContentViewState.Ready).content.answerReveals!!.remaining)
-        assertEquals(2, f.calls("/me/usage"))
+        assertEquals(2, f.calls("/me/subscription"))
     }
 
     @Test fun aProfileUsageRefreshAlsoUpdatesTheOpenQuestionAndDashboard() = runTest(dispatcher) {
@@ -302,11 +302,11 @@ class ProfileSettingsTest {
             started.await()
             val second = async { f.auth.accountUsage() }
             runCurrent()
-            assertEquals(1, f.calls("/me/usage"))
+            assertEquals(1, f.calls("/me/subscription"))
             release.countDown()
             assertEquals(first.await(), second.await())
         } finally { release.countDown() }
-        assertEquals(1, f.calls("/me/usage"))
+        assertEquals(1, f.calls("/me/subscription"))
     }
 
     @Test fun usageCacheIsClearedAndNeverReusedByAnotherUser() = runTest(dispatcher) {
@@ -319,7 +319,7 @@ class ProfileSettingsTest {
         assertNull(f.manage.currentUsage())
         f.reveals = 2
         assertEquals(2, f.auth.accountUsage().answerReveals!!.remaining)
-        assertEquals(2, f.calls("/me/usage"))
+        assertEquals(2, f.calls("/me/subscription"))
     }
 
     @Test fun aFailedUsageRefreshKeepsTheLastSuccessfulSharedValue() = runTest(dispatcher) {
@@ -329,7 +329,7 @@ class ProfileSettingsTest {
         assertTrue(f.manage.usage(forceRefresh = true) is ContentResult.Error)
         assertEquals(cached, f.manage.currentUsage())
         assertEquals(cached, f.home.currentUsage())
-        assertEquals(2, f.calls("/me/usage"))
+        assertEquals(2, f.calls("/me/subscription"))
     }
 
     @Test fun failedPlanUsageCanBeRetriedFromProfile() = runTest(dispatcher) {
@@ -343,7 +343,7 @@ class ProfileSettingsTest {
         f.usageStatus = 200
         vm.loadUsage()
         vm.state.first { it.usage is ContentViewState.Ready }
-        assertEquals(2, f.calls("/me/usage"))
+        assertEquals(2, f.calls("/me/subscription"))
     }
 
     @Test fun accountChangesUpdateProfileAndRequestHomeReloadOnReturn() = runTest(dispatcher) {

@@ -4,6 +4,8 @@ import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.oniolla.interviewer.data.model.*
+import com.oniolla.interviewer.data.billing.ProPlan
+import com.oniolla.interviewer.data.billing.StorePlan
 import com.oniolla.interviewer.ui.theme.InterviewTrainerTheme
 
 private val practicePreview = PracticeViewState(page = PracticePage.GRADE, reviewsRemaining = 12,
@@ -74,10 +76,28 @@ fun PracticeLimitLightPreview() { InterviewTrainerTheme(darkTheme = false) {
 } }
 @Preview(widthDp = 390, heightDp = 844)
 @Composable
-fun PaywallDarkPreview() { InterviewTrainerTheme(darkTheme = true) { PaywallScreen() } }
+fun PaywallDarkPreview() { InterviewTrainerTheme(darkTheme = true) { PaywallScreen(billingPreview) } }
 @Preview(widthDp = 390, heightDp = 844)
 @Composable
-fun PaywallLightPreview() { InterviewTrainerTheme(darkTheme = false) { PaywallScreen() } }
+fun PaywallLightPreview() { InterviewTrainerTheme(darkTheme = false) { PaywallScreen(billingPreview) } }
+private val billingPreview = SubscriptionViewState(
+    subscription = SubscriptionResponse(billingAccountId = "preview"),
+    plans = listOf(StorePlan(ProPlan.WEEKLY, "€4.99", "preview"), StorePlan(ProPlan.MONTHLY, "€14.99", "preview")))
+
+@Preview(widthDp = 390, heightDp = 1100)
+@Composable
+fun PaywallProPreview() { InterviewTrainerTheme(darkTheme = true) {
+    PaywallScreen(billingPreview.copy(subscription = SubscriptionResponse(plan = "PRO", provider = "GOOGLE_PLAY",
+        status = "ACTIVE", basePlanId = "monthly", autoRenew = true, billingAccountId = "preview",
+        currentPeriodEnd = "2026-11-18T08:00:00Z",
+        aiEvaluations = AiEvaluationsUsage(50, 0, 1000, 950, null, null),
+        answerReveals = AnswerRevealsUsage(10, 1000, 990))))
+} }
+@Preview(widthDp = 320, heightDp = 844)
+@Composable
+fun PaywallPendingPreview() { InterviewTrainerTheme(darkTheme = false) {
+    PaywallScreen(billingPreview.copy(hasPendingPurchase = true, notice = "Payment is pending in Google Play. Pro activates only after payment and server verification."))
+} }
 @Preview(widthDp = 320, heightDp = 640)
 @Composable
 fun PracticeCompactPreview() { InterviewTrainerTheme(darkTheme = false) {

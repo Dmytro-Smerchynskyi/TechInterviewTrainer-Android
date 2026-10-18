@@ -69,7 +69,7 @@ class PracticeFlowTest {
                     val code = when {
                         expired -> 401
                         path == "/questions/4/evaluate" -> status
-                        path == "/me/usage" -> usageStatus
+                        path == "/me/subscription" -> usageStatus
                         path == "/auth/refresh" -> refreshStatus
                         else -> error("Unexpected endpoint $path")
                     }
@@ -91,7 +91,7 @@ class PracticeFlowTest {
                                 "referenceAnswerAvailable":true,"referenceAnswer":"Reference answer",
                                 "referenceAnswerLanguage":"en","createdAt":"2026-10-15T12:00:00Z"}"""
                         }
-                        "/me/usage" -> """{"plan":"FREE","answerReveals":{"used":12,"limit":20,"remaining":8},
+                        "/me/subscription" -> """{"plan":"FREE","answerReveals":{"used":12,"limit":20,"remaining":8},
                             "aiEvaluations":{"used":${20 - aiRemaining},"reserved":0,"limit":20,"remaining":$aiRemaining,
                                 "periodEndsAt":null,"resetAt":null},"questions":{"unlimited":true,"limitPerTopic":null}}"""
                         "/auth/refresh" -> """{"accessToken":"renewed","refreshToken":"renewed-refresh","expiresIn":900}"""

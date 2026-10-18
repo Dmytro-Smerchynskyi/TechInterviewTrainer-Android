@@ -1,7 +1,8 @@
 package com.oniolla.interviewer.data
 
 import com.oniolla.interviewer.data.model.DashboardResponse
-import com.oniolla.interviewer.data.model.DashboardUsage
+import com.oniolla.interviewer.data.model.SubscriptionResponse
+import com.oniolla.interviewer.data.payload.VerifyGooglePurchasePayload
 import com.oniolla.interviewer.data.payload.ChangeNamePayload
 import com.oniolla.interviewer.data.payload.ChangeEmailPayload
 import com.oniolla.interviewer.data.payload.ConfirmEmailChangePayload
@@ -80,8 +81,12 @@ interface Api {
         com.oniolla.interviewer.data.model.InterviewResponse
 
 
-    @GET("me/usage")
-    suspend fun accountUsage(@Tag session: SessionSnapshot? = null): DashboardUsage
+    @GET("me/subscription")
+    suspend fun subscription(@Tag session: SessionSnapshot? = null): SubscriptionResponse
+
+    @POST("billing/google/verify")
+    suspend fun verifyGooglePurchase(@Body payload: VerifyGooglePurchasePayload,
+        @Tag session: SessionSnapshot? = null): SubscriptionResponse
 
     @PUT("me/name")
     suspend fun changeName(@Body payload: ChangeNamePayload, @Tag session: SessionSnapshot? = null): MeResponse

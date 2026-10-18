@@ -17,6 +17,7 @@ class ManageProfileUseCase @Inject constructor(
     val theme get() = preferences.theme
     fun cachedStats() = statsCache.observe(tokens.snapshot().version)
     suspend fun profile() = loadContent { authRepository.getSessionProfile() }
+    fun cachedSubscription() = authRepository.cachedSubscription()
     fun cachedUsage() = authRepository.cachedUsage()
     fun currentUsage() = authRepository.currentUsage()
     suspend fun usage(forceRefresh: Boolean = false) = loadContent { authRepository.accountUsage(forceRefresh) }

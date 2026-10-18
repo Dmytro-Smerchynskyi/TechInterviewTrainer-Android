@@ -33,7 +33,13 @@ class InterviewViewModel @Inject constructor(
     init {
         refreshHistory()
         viewModelScope.launch { useCase.usage().collect { usage ->
-            _state.update { it.copy(practice = it.practice.copy(reviewsRemaining = usage?.aiEvaluations?.remaining)) }
+            _state.update {
+                val remaining = usage?.aiEvaluations?.remaining
+                val unlocked = it.page == InterviewPage.LIMIT && remaining != null && remaining > 0
+                it.copy(page = if (unlocked) InterviewPage.ANSWERING else it.page,
+                    practice = it.practice.copy(reviewsRemaining = remaining,
+                        page = if (unlocked) PracticePage.ANSWERING else it.practice.page))
+            }
         } }
         saved.get<String>("interviewId")?.let { resume(it, restoreDraft = true) }
     }

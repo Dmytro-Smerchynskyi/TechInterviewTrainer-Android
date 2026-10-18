@@ -206,7 +206,7 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
                     enabled = !state.isSigningOut, chevron = false, onClick = null) {
                     FigmaIcon("code", Modifier.size(20.dp), AppTheme.colors.homeIcon)
                 }
-                ProfileUsage(state.usage, !state.isSigningOut, onRetryUsage, onUpgrade)
+                ProfileUsage(state.usage, !state.isSigningOut, onRetryUsage, onUpgrade, state.subscription)
                 Spacer(Modifier.height(20.dp))
             }
         }

@@ -43,6 +43,7 @@ class HomeActivity : ComponentActivity() {
     private val accountViewModel: AccountViewModel by viewModels()
     private val practiceViewModel: PracticeViewModel by viewModels()
     private val interviewViewModel: InterviewViewModel by viewModels()
+    private val subscriptionViewModel: SubscriptionViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,6 +70,14 @@ class HomeActivity : ComponentActivity() {
                 }
                 val practiceState by practiceViewModel.state.collectAsStateWithLifecycle()
                 val interviewState by interviewViewModel.state.collectAsStateWithLifecycle()
+                val subscriptionState by subscriptionViewModel.state.collectAsStateWithLifecycle()
+                LaunchedEffect(state.paywallOpen) { subscriptionViewModel.setVisible(state.paywallOpen) }
+                LaunchedEffect(subscriptionState.launchRequestId) {
+                    subscriptionState.launchRequestId?.let { subscriptionViewModel.launch(this@HomeActivity, it) }
+                }
+                LaunchedEffect(subscriptionState.entitlementRevision) {
+                    if (subscriptionState.entitlementRevision > 0) viewModel.refreshAfterPractice()
+                }
                 LaunchedEffect(interviewState.page) {
                     if (interviewViewModel.takeContentRefresh()) viewModel.refreshAfterPractice()
                 }
@@ -90,11 +99,12 @@ class HomeActivity : ComponentActivity() {
                         launch { interviewViewModel.events.collect(::showEvent) }
                     }
                 }
-                LaunchedEffect(state.sessionExpired, profileState.sessionExpired, profileState.signedOut, accountState.sessionExpired, practiceState.sessionExpired, interviewState.sessionExpired) {
-                    if ((state.sessionExpired || profileState.sessionExpired || profileState.signedOut || accountState.sessionExpired || practiceState.sessionExpired || interviewState.sessionExpired) && !isFinishing) {
+                LaunchedEffect(state.sessionExpired, profileState.sessionExpired, profileState.signedOut, accountState.sessionExpired, practiceState.sessionExpired, interviewState.sessionExpired, subscriptionState.sessionExpired) {
+                    if ((state.sessionExpired || profileState.sessionExpired || profileState.signedOut || accountState.sessionExpired || practiceState.sessionExpired || interviewState.sessionExpired || subscriptionState.sessionExpired) && !isFinishing) {
                         viewModel.stopSessionWork()
                         practiceViewModel.stopSessionWork()
                         interviewViewModel.stopSessionWork()
+                        subscriptionViewModel.stop()
                         startActivity(Intent(this@HomeActivity, AuthActivity::class.java).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         })
@@ -125,7 +135,7 @@ class HomeActivity : ComponentActivity() {
                 }
                 BackHandler(enabled = state.paywallOpen || practiceState.isOpen || interviewState.isOpen || profileOpen || state.questionDetail != null || state.tab != HomeTab.HOME) {
                     when {
-                        state.paywallOpen -> viewModel.closePaywall()
+                        state.paywallOpen -> if (!subscriptionState.isBusy) viewModel.closePaywall()
                         practiceState.isOpen -> backPractice()
                         interviewState.isOpen -> interviewViewModel.close()
                         profileOpen -> back()
@@ -146,8 +156,13 @@ class HomeActivity : ComponentActivity() {
                     label = "profile navigation") { destination ->
                     screenStateHolder.SaveableStateProvider(destination) {
                         if (destination == "paywall") PaywallScreen(
-                            onClose = viewModel::closePaywall,
-                            onUnavailable = { showEvent(UiEvent.Toast(getString(R.string.paywall_coming_soon))) }
+                            state = subscriptionState,
+                            onClose = { if (!subscriptionState.isBusy) viewModel.closePaywall() },
+                            onSelectPlan = subscriptionViewModel::select,
+                            onBuy = subscriptionViewModel::buy,
+                            onRestore = subscriptionViewModel::restore,
+                            onRetry = subscriptionViewModel::refresh,
+                            onManage = ::manageGoogleSubscription
                         ) else if (destination == "practice") PracticeScreens(
                             state = practiceState,
                             onBack = backPractice,
@@ -210,6 +225,7 @@ class HomeActivity : ComponentActivity() {
                             onDismissTheme = profileViewModel::dismissThemeDialog,
                             onSelectTheme = profileViewModel::selectTheme,
                             onSignOut = {
+                                subscriptionViewModel.stop()
                                 viewModel.stopSessionWork()
                                 profileViewModel.signOut()
                             },
@@ -266,6 +282,25 @@ class HomeActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        subscriptionViewModel.resume()
+    }
+
+    override fun onPause() {
+        subscriptionViewModel.pause()
+        super.onPause()
+    }
+
+    private fun manageGoogleSubscription() {
+        val uri = android.net.Uri.Builder().scheme("https").authority("play.google.com")
+            .path("/store/account/subscriptions")
+            .appendQueryParameter("sku", com.oniolla.interviewer.data.billing.PRO_PRODUCT_ID)
+            .appendQueryParameter("package", packageName).build()
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+            .onFailure { showEvent(UiEvent.Toast(getString(R.string.billing_manage_unavailable))) }
     }
 
     private fun showEvent(event: UiEvent) {

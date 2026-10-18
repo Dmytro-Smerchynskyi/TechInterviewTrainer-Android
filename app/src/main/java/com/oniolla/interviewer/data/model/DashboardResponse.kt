@@ -59,7 +59,9 @@ data class DashboardUsage(
 data class AnswerRevealsUsage(
     @SerializedName("used") val used: Int,
     @SerializedName("limit") val limit: Int,
-    @SerializedName("remaining") val remaining: Int
+    @SerializedName("remaining") val remaining: Int,
+    @SerializedName("resetAt") val resetAt: String? = null,
+    @SerializedName("periodEndsAt") val periodEndsAt: String? = null
 )
 
 data class AiEvaluationsUsage(

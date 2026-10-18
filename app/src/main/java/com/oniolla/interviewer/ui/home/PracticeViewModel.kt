@@ -53,7 +53,12 @@ class PracticeViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { evaluate.cachedUsage().collect { usage ->
-            _state.update { it.copy(reviewsRemaining = usage?.aiEvaluations?.remaining?.coerceAtLeast(0)) }
+            _state.update {
+                val remaining = usage?.aiEvaluations?.remaining?.coerceAtLeast(0)
+                it.copy(reviewsRemaining = remaining,
+                    page = if (it.page == PracticePage.LIMIT && remaining != null && remaining > 0)
+                        PracticePage.ANSWERING else it.page)
+            }
         } }
     }
 

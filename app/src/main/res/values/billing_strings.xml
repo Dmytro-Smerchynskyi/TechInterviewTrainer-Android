@@ -1,0 +1,31 @@
+<resources>
+    <string name="billing_retry">Retry</string>
+    <string name="billing_current_plan">Current plan</string>
+    <string name="billing_unavailable">Plan unavailable</string>
+    <string name="billing_price_unavailable">—</string>
+    <string name="billing_start_weekly">Start Weekly • %1$s/week</string>
+    <string name="billing_start_monthly">Start Monthly • %1$s/month</string>
+    <string name="billing_switch_weekly">Switch to Weekly • %1$s/week</string>
+    <string name="billing_switch_monthly">Switch to Monthly • %1$s/month</string>
+    <string name="billing_restoring">Restoring purchases…</string>
+    <string name="billing_verifying">Verifying purchase…</string>
+    <string name="billing_checkout">Complete purchase in Google Play…</string>
+    <string name="billing_loading">Loading…</string>
+    <string name="billing_manage">Manage plan</string>
+    <string name="billing_manage_google">Manage in Google Play</string>
+    <string name="billing_pro_status">Your plan: Pro</string>
+    <string name="billing_free_status">Your plan: Free</string>
+    <string name="billing_ai_remaining">AI evaluations: %1$d of %2$d remaining</string>
+    <string name="billing_reveals_remaining">Answer reveals: %1$d of %2$d remaining</string>
+    <string name="billing_active">Active</string>
+    <string name="billing_cancelled">Renewal cancelled</string>
+    <string name="billing_grace">Payment needs attention</string>
+    <string name="billing_on_hold">Subscription on hold</string>
+    <string name="billing_expired">Expired</string>
+    <string name="billing_paused">Paused</string>
+    <string name="billing_pending">Payment pending</string>
+    <string name="billing_verification_pending">Purchase verification pending</string>
+    <string name="billing_renews">Renews on %1$s</string>
+    <string name="billing_access_until">Access until %1$s</string>
+    <string name="billing_manage_unavailable">Unable to open Google Play subscriptions.</string>
+</resources>

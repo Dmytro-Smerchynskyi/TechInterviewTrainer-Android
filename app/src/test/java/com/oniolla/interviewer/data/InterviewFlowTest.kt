@@ -125,7 +125,7 @@ class InterviewFlowTest {
                                 model
                             }
                         }
-                        path == "/me/usage" -> mapOf("plan" to "FREE", "answerReveals" to mapOf("remaining" to 8),
+                        path == "/me/subscription" -> mapOf("plan" to "FREE", "answerReveals" to mapOf("remaining" to 8),
                             "aiEvaluations" to mapOf("remaining" to 12 - evaluations))
                         path == "/stats" -> StatsResponse(summary = StatsSummary(dueCount = 3),
                             weakTopics = listOf(WeakTopic(7, "Flow", mastery = 42.0)))

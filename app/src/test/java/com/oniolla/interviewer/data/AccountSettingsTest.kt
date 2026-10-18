@@ -76,7 +76,7 @@ class AccountSettingsTest {
                     val request = chain.request()
                     requests += request
                     val path = request.url.encodedPath
-                    if (path != "/me" && path != "/me/usage" && path != "/auth/refresh") beforeMutation?.invoke()
+                    if (path != "/me" && path != "/me/subscription" && path != "/auth/refresh") beforeMutation?.invoke()
                     var status = 200
                     val body = when {
                         path in setOf("/auth/password/change", "/auth/email/change/request",
@@ -120,7 +120,7 @@ class AccountSettingsTest {
                         }
                         path == "/auth/email/resend-code" -> """{"message":"Sent"}"""
                         path == "/me" -> profile()
-                        path == "/me/usage" -> """{"plan":"FREE","answerReveals":{"used":12,"limit":20,"remaining":8},
+                        path == "/me/subscription" -> """{"plan":"FREE","answerReveals":{"used":12,"limit":20,"remaining":8},
                             "aiEvaluations":{"used":8,"reserved":0,"limit":20,"remaining":12,"periodEndsAt":null,"resetAt":null},
                             "questions":{"unlimited":true,"limitPerTopic":null}}"""
                         path == "/me/name" -> { name = payload(request).get("name").asString; profile() }
@@ -711,7 +711,7 @@ class AccountSettingsTest {
         vm.open(null)
         runCurrent()
         assertEquals(1, f.calls("/me"))
-        assertEquals(0, f.calls("/me/usage"))
+        assertEquals(0, f.calls("/me/subscription"))
     }
 
     @Test fun nameValidationPreventsCallAndSuccessfulSaveUpdatesCachedMe() = runTest(dispatcher) {
@@ -941,12 +941,12 @@ class AccountSettingsTest {
     }
 
     @Test fun unauthorizedUsageRefreshesThenRetriesWithoutExposingErrorState() = runTest(dispatcher) {
-        val f = Fixture().apply { unauthorizedPath = "/me/usage" }
+        val f = Fixture().apply { unauthorizedPath = "/me/subscription" }
         val usage = f.repository.accountUsage()
         assertEquals(12, usage.aiEvaluations!!.remaining)
-        assertEquals(2, f.calls("/me/usage"))
+        assertEquals(2, f.calls("/me/subscription"))
         assertEquals(1, f.calls("/auth/refresh"))
-        assertEquals("Bearer refreshed", f.request("/me/usage").header("Authorization"))
+        assertEquals("Bearer refreshed", f.request("/me/subscription").header("Authorization"))
     }
 
     @Test fun meFailureAfterPasswordMutationDoesNotRepeatSuccessfulMutation() = runTest(dispatcher) {

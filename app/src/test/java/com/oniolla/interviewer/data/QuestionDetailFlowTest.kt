@@ -83,7 +83,7 @@ class QuestionDetailFlowTest {
                         path == "/questions/4/evaluate" -> evaluationStatus
                         answer -> answerStatus
                         saved -> savedStatus
-                        path == "/me/usage" -> usageStatus
+                        path == "/me/subscription" -> usageStatus
                         path == "/auth/refresh" -> refreshStatus
                         else -> 200
                     }
@@ -107,7 +107,7 @@ class QuestionDetailFlowTest {
                                 "userAnswer":"My answer","overallFeedback":"Feedback","grade":"MIDDLE"}"""
                         }
                         saved -> { serverSaved = request.method == "PUT"; "" }
-                        path == "/me/usage" -> usage()
+                        path == "/me/subscription" -> usage()
                         path == "/questions" || path == "/questions/saved" ->
                             """{"items":[${Gson().toJson(question())}],"nextCursor":null,"topics":[]}"""
                         path == "/dashboard" -> """{"readiness":{"score":0,"gradePerformance":[]},
@@ -300,7 +300,7 @@ class QuestionDetailFlowTest {
         assertTrue(detail(vm).canPractice)
         assertEquals(0, f.calls("/questions/4/answer"))
         assertEquals(1, f.calls("/questions"))
-        assertEquals(1, f.calls("/me/usage"))
+        assertEquals(1, f.calls("/me/subscription"))
     }
 
     @Test fun revealUsesAuthorizedGetShowsLoadingAndRefreshesQuotasAfterSuccess() = runTest(dispatcher) {
@@ -327,7 +327,7 @@ class QuestionDetailFlowTest {
         vm.revealQuestionAnswer()
         runCurrent()
         assertEquals(1, f.calls("/questions/4/answer"))
-        assertEquals(2, f.calls("/me/usage"))
+        assertEquals(2, f.calls("/me/subscription"))
     }
 
     @Test fun aPreviouslyRevealedAnswerCanBeLoadedWithNoCreditsAndShownFromCache() = runTest(dispatcher) {
@@ -351,7 +351,7 @@ class QuestionDetailFlowTest {
         assertSame(cached, detail(vm).answer)
         runCurrent()
         assertEquals(1, f.calls("/questions/4/answer"))
-        assertEquals(1, f.calls("/me/usage"))
+        assertEquals(1, f.calls("/me/subscription"))
     }
 
     @Test fun successfulFirstRevealUpdatesAllListsAndCanBeHiddenAfterTheLastCredit() = runTest(dispatcher) {
@@ -379,11 +379,11 @@ class QuestionDetailFlowTest {
         open(vm, f.question().copy(answerRevealed = false))
         assertTrue(detail(vm).question.answerRevealed)
         assertTrue(detail(vm).canReveal)
-        val usageCalls = f.calls("/me/usage")
+        val usageCalls = f.calls("/me/subscription")
         vm.revealQuestionAnswer()
         revealed(vm)
         assertEquals(2, f.calls("/questions/4/answer"))
-        assertEquals(usageCalls, f.calls("/me/usage"))
+        assertEquals(usageCalls, f.calls("/me/subscription"))
     }
 
     @Test fun alreadyRevealedAnswerIsAvailableEvenWhenUsageFails() = runTest(dispatcher) {
@@ -397,7 +397,7 @@ class QuestionDetailFlowTest {
         revealed(vm)
         assertTrue(detail(vm).isAnswerVisible)
         runCurrent()
-        assertEquals(1, f.calls("/me/usage"))
+        assertEquals(1, f.calls("/me/subscription"))
         f.usageStatus = 200
         vm.revealQuestionAnswer()
         vm.revealQuestionAnswer()
@@ -414,14 +414,14 @@ class QuestionDetailFlowTest {
         vm.revealQuestionAnswer()
         vm.stateFlow.first { it.questionDetail?.answer is ContentViewState.Failed }
         runCurrent()
-        assertEquals(1, f.calls("/me/usage"))
+        assertEquals(1, f.calls("/me/subscription"))
         assertEquals(usage, detail(vm).usage)
         assertTrue(detail(vm).question.answerRevealed)
         f.answerStatus = 200
         vm.revealQuestionAnswer()
         revealed(vm)
         runCurrent()
-        assertEquals(1, f.calls("/me/usage"))
+        assertEquals(1, f.calls("/me/subscription"))
         assertEquals(2, f.calls("/questions/4/answer"))
     }
 

@@ -131,6 +131,7 @@ class AuthRepository @Inject constructor(
         api.selectPreparationLanguage(PreparationLanguagePayload(language), it)
     }
 
+    fun cachedSubscription() = usageRepository.observeSubscription()
     fun cachedUsage() = usageRepository.observe()
     fun currentUsage() = usageRepository.current()
     suspend fun accountUsage(forceRefresh: Boolean = false) =

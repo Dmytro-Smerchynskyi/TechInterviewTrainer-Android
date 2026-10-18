@@ -25,6 +25,16 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("interviewtrainer-release.keystore")
+            storeType = "PKCS12"
+            storePassword = "InterviewTrainer-Release-2026!9K7vQ2mR"
+            keyAlias = "interviewtrainer"
+            keyPassword = storePassword
+        }
+    }
+
     buildTypes {
         debug {
             buildConfigField("String", "API_BASE_URL",
@@ -32,6 +42,7 @@ android {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
         }
         release {
+            signingConfig = signingConfigs.getByName("release")
             buildConfigField("String", "API_BASE_URL",
                 "\"${providers.gradleProperty("RELEASE_API_BASE_URL").getOrElse("")}\"")
             manifestPlaceholders["usesCleartextTraffic"] = "false"

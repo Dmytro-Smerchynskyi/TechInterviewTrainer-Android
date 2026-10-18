@@ -88,6 +88,8 @@ class SubscriptionFlowTest {
         val queue = Queue()
         val store = Store(trace)
         var plan = "FREE"
+        var subscriptionStatus = "ACTIVE"
+        var autoRenew = true
         var questions: QuestionsUsage? = null
         var basePlan: String? = null
         var verifyStatus = 200
@@ -130,7 +132,7 @@ class SubscriptionFlowTest {
         }
         private fun response() = Gson().toJson(SubscriptionResponse(
             id = "subscription", provider = "GOOGLE_PLAY", productId = PRO_PRODUCT_ID, basePlanId = basePlan,
-            status = "ACTIVE", plan = plan, autoRenew = true, billingAccountId = backendAccount,
+            status = subscriptionStatus, plan = plan, autoRenew = autoRenew, billingAccountId = backendAccount,
             currentPeriodEnd = "2026-11-18T08:00:00Z",
             aiEvaluations = AiEvaluationsUsage(10, 0, if (plan == "PRO") 1000 else 20,
                 if (plan == "PRO") 990 else 10, null, null),
@@ -362,6 +364,111 @@ class SubscriptionFlowTest {
         assertTrue(restored.subscription!!.isPro)
         assertEquals(listOf("verify", "verify", "ack"), f.trace)
         vm.pause()
+    }
+
+    @Test fun expiredBackendSubscriptionAndNoPlayPurchaseClearOldVerificationError() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.vm()
+        vm.setVisible(true); f.ready(vm)
+        f.verifyStatus = 403
+        f.store.updates.emit(StoreUpdate.Purchases(listOf(f.purchase())))
+        vm.state.first { !it.isBusy && it.error != null }
+
+        f.subscriptionStatus = "EXPIRED"
+        f.autoRenew = false
+        vm.refresh()
+        runCurrent()
+        val refreshed = vm.state.first { !it.isBusy }
+        assertNull(refreshed.error)
+        assertFalse(refreshed.verificationPending)
+        assertFalse(refreshed.subscription!!.isPro)
+        assertEquals(1, f.calls("/billing/google/verify"))
+        assertEquals(listOf("verify"), f.trace)
+    }
+
+    @Test fun cancellationWithRemainingProAccessDoesNotResolveFailedVerification() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.vm()
+        vm.setVisible(true); f.ready(vm)
+        f.verifyStatus = 403
+        f.store.owned = listOf(f.purchase())
+        f.store.updates.emit(StoreUpdate.Purchases(f.store.owned))
+        vm.state.first { !it.isBusy && it.error != null }
+
+        f.plan = "PRO"
+        f.subscriptionStatus = "CANCELED"
+        f.autoRenew = false
+        vm.refresh()
+        runCurrent()
+        val refreshed = vm.state.first { !it.isBusy }
+        assertEquals(R.string.billing_error_verification, refreshed.error)
+        assertTrue(refreshed.subscription!!.isPro)
+        assertFalse(refreshed.subscription.autoRenew)
+    }
+
+    @Test fun expiredSubscriptionDoesNotDiscardQueuedUnverifiedPurchase() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.vm()
+        vm.setVisible(true); f.ready(vm)
+        f.verifyStatus = 503
+        f.store.updates.emit(StoreUpdate.Purchases(listOf(f.purchase())))
+        vm.state.first { !it.isBusy && it.error != null }
+
+        f.subscriptionStatus = "EXPIRED"
+        f.autoRenew = false
+        vm.refresh()
+        runCurrent()
+        val refreshed = vm.state.first { !it.isBusy }
+        assertEquals(R.string.billing_error_verification_pending, refreshed.error)
+        assertTrue(refreshed.verificationPending)
+        assertEquals(1, f.queue.records.size)
+        assertFalse(refreshed.subscription!!.isPro)
+        assertEquals(2, f.calls("/billing/google/verify"))
+        assertFalse(f.trace.contains("ack"))
+    }
+
+    @Test fun revokedVerificationClearsQueueWithoutAcknowledgementOrRetry() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.vm()
+        vm.setVisible(true); f.ready(vm)
+        f.store.acknowledgeFails = true
+        f.beforeVerifyResponse = {
+            f.plan = "FREE"
+            f.subscriptionStatus = "REVOKED"
+            f.autoRenew = false
+        }
+        f.store.owned = listOf(f.purchase())
+        f.store.updates.emit(StoreUpdate.Purchases(f.store.owned))
+        val resolved = vm.state.first { !it.isBusy && f.calls("/billing/google/verify") > 0 }
+        assertNull(resolved.error)
+        assertFalse(resolved.verificationPending)
+        assertFalse(resolved.subscription!!.isPro)
+        assertNull(resolved.notice)
+        assertTrue(f.queue.records.isEmpty())
+        assertEquals(listOf("verify"), f.trace)
+
+        vm.refresh()
+        runCurrent()
+        val refreshed = vm.state.first { !it.isBusy }
+        assertNull(refreshed.error)
+        assertFalse(refreshed.verificationPending)
+        assertEquals(1, f.calls("/billing/google/verify"))
+        assertEquals(listOf("verify"), f.trace)
+    }
+
+    @Test fun newCheckoutDoesNotReplaceARevokedPurchaseToken() = runTest(dispatcher) {
+        val f = Fixture()
+        f.store.owned = listOf(f.purchase())
+        f.beforeVerifyResponse = {
+            f.plan = "FREE"
+            f.subscriptionStatus = "REVOKED"
+            f.autoRenew = false
+        }
+        val prepared = f.manage().prepare(ProPlan.MONTHLY)
+        assertNull(prepared.oldToken)
+        assertFalse(f.usage.currentSubscription()!!.isPro)
+        assertTrue(f.queue.records.isEmpty())
+        assertEquals(listOf("verify"), f.trace)
     }
 
     @Test fun automaticRecoveryDoesNotLinkAnotherAppAccountPurchase() = runTest(dispatcher) {

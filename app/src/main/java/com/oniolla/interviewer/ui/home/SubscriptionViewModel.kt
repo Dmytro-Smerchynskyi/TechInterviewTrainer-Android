@@ -198,7 +198,7 @@ class SubscriptionViewModel @Inject constructor(
         if (result.error != null || result.retryNeeded) {
             verificationError = if (result.retryNeeded) R.string.billing_error_verification_pending
                 else R.string.billing_error_verification
-        } else if (result.verified > 0) {
+        } else if (result.verified > 0 || result.subscriptionEnded) {
             verificationError = null
         }
         _state.update { it.copy(error = verificationError, hasPendingPurchase = result.pending > 0,
@@ -206,6 +206,7 @@ class SubscriptionViewModel @Inject constructor(
             notice = when {
                 result.pending > 0 -> "Payment is pending in Google Play. Pro activates only after payment and server verification."
                 result.verified > 0 && result.error == null -> "Purchase verified. Your subscription and credits are up to date."
+                result.subscriptionEnded -> null
                 else -> it.notice
             }, entitlementRevision = it.entitlementRevision + if (result.verified > 0) 1 else 0) }
         scheduleRetry()

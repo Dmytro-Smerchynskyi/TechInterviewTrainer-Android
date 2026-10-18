@@ -15,7 +15,7 @@ import javax.inject.Inject
 data class BillingOwner(val accountId: String, val sessionVersion: Long)
 class PreparedSubscription(val owner: BillingOwner, val plan: ProPlan, val oldToken: String?)
 data class PurchaseProcessing(val verified: Int = 0, val pending: Int = 0,
-    val retryNeeded: Boolean = false, val error: String? = null)
+    val retryNeeded: Boolean = false, val error: String? = null, val subscriptionEnded: Boolean = false)
 
 class ManageSubscriptionUseCase @Inject constructor(
     private val usage: SessionUsageRepository,
@@ -26,6 +26,8 @@ class ManageSubscriptionUseCase @Inject constructor(
     val updates get() = store.updates
     fun observeSubscription() = usage.observeSubscription()
     fun current() = usage.currentSubscription()
+    private fun SubscriptionResponse.hasEnded() = !isPro && status in
+        setOf("EXPIRED", "REVOKED", "CANCELED", "CANCELLED")
     private val processing = Mutex()
     private val completed = mutableSetOf<Pair<Long, String>>()
     private val rejected = mutableMapOf<Pair<Long, String>, String>()
@@ -94,7 +96,7 @@ class ManageSubscriptionUseCase @Inject constructor(
         // Always fetch a fresh ProductDetails/offer before launching Google Play.
         check(store.plans().any { it.plan == plan }) { "This plan is unavailable in Google Play." }
         checkOwner(owner)
-        return PreparedSubscription(owner, plan, owned.firstOrNull()?.token)
+        return PreparedSubscription(owner, plan, if (verifiedSubscription.isPro) owned.firstOrNull()?.token else null)
     }
 
     fun launch(activity: Activity, prepared: PreparedSubscription): StoreUpdate.Failed? {
@@ -111,6 +113,18 @@ class ManageSubscriptionUseCase @Inject constructor(
             if (queue.all(owner.accountId).isEmpty()) throw error
             val result = process(owner, emptyList(), includeQueued = true)
             return result.copy(retryNeeded = true, error = result.error ?: error.message)
+        }
+        processing.withLock {
+            checkOwner(owner)
+            val ended = current()?.hasEnded() == true
+            // Resolve an old failure only when backend and a successful full Play query agree.
+            // Never discard a paid purchase still waiting for server verification.
+            if (ended && purchases.none { PRO_PRODUCT_ID in it.products && it.state != PurchaseState.OTHER } &&
+                queue.all(owner.accountId).isEmpty()) {
+                rejected.keys.removeAll { it.first == owner.sessionVersion }
+                completed.removeAll { it.first == owner.sessionVersion }
+                return PurchaseProcessing(subscriptionEnded = true)
+            }
         }
         return process(owner, purchases, selectedPlan = checkout?.plan, oldPurchaseToken = checkout?.oldToken,
             explicitRestore = explicitRestore, includeQueued = true)
@@ -142,6 +156,7 @@ class ManageSubscriptionUseCase @Inject constructor(
             }
         }
         var verified = 0
+        var subscriptionEnded = false
         var retry = false
         var message: String? = null
         for (purchase in toProcess.values) {
@@ -159,10 +174,19 @@ class ManageSubscriptionUseCase @Inject constructor(
                 queue.put(purchase) // Durable before HTTP; app/process death can recover the purchase.
                 currentCoroutineContext().ensureActive()
                 checkOwner(owner)
-                usage.verifyGooglePurchase(VerifyGooglePurchasePayload(purchase.purchaseToken,
+                val subscription = usage.verifyGooglePurchase(VerifyGooglePurchasePayload(purchase.purchaseToken,
                     purchase.productId, purchase.basePlanId), owner.accountId, owner.sessionVersion)
-                verified++
                 checkOwner(owner)
+                if (subscription.hasEnded()) {
+                    // The backend resolved this receipt as inactive; Play cannot acknowledge a revoked purchase.
+                    queue.remove(owner.accountId, purchase.purchaseToken)
+                    checkOwner(owner)
+                    completed.add(key)
+                    rejected.remove(key)
+                    subscriptionEnded = true
+                    continue
+                }
+                verified++
                 // Only PURCHASED purchases reach this queue; never acknowledge before server verification.
                 if (!purchase.acknowledged) store.acknowledge(purchase.purchaseToken)
                 currentCoroutineContext().ensureActive()
@@ -186,7 +210,7 @@ class ManageSubscriptionUseCase @Inject constructor(
                 message = failureMessage
             }
         }
-        PurchaseProcessing(verified, pending, retry, message)
+        PurchaseProcessing(verified, pending, retry, message, subscriptionEnded)
     }
 
     fun close() = store.close()

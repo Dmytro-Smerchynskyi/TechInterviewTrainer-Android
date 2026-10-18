@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Tech Trainer</string>
+    <string name="app_name">Interview Trainer</string>
     <string name="title_activity_auth">Authentication Activity</string>
 
     <string name="app_slogan">Focused practice for your next tech interview.</string>

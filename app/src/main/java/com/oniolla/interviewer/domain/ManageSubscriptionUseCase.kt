@@ -28,7 +28,7 @@ class ManageSubscriptionUseCase @Inject constructor(
     fun current() = usage.currentSubscription()
     private val processing = Mutex()
     private val completed = mutableSetOf<Pair<Long, String>>()
-    private val rejected = mutableSetOf<Pair<Long, String>>()
+    private val rejected = mutableMapOf<Pair<Long, String>, String>()
 
     suspend fun refresh(): SubscriptionResponse {
         val version = tokens.snapshot().version
@@ -147,7 +147,14 @@ class ManageSubscriptionUseCase @Inject constructor(
         for (purchase in toProcess.values) {
             checkOwner(owner)
             val key = owner.sessionVersion to purchase.purchaseToken
-            if (!explicitRestore && (key in completed || key in rejected)) continue
+            if (!explicitRestore) {
+                if (key in completed) continue
+                val previousError = rejected[key]
+                if (previousError != null) {
+                    message = previousError
+                    continue
+                }
+            }
             try {
                 queue.put(purchase) // Durable before HTTP; app/process death can recover the purchase.
                 currentCoroutineContext().ensureActive()
@@ -170,12 +177,13 @@ class ManageSubscriptionUseCase @Inject constructor(
                 if (apiError is ApiException.Unauthorized) throw apiError
                 val permanent = apiError is ApiException.BadRequest || apiError is ApiException.Forbidden ||
                     apiError is ApiException.NotFound
+                val failureMessage = if (permanent) apiError.message ?: "This purchase could not be verified."
+                    else "Your purchase is saved. Verification or Google Play confirmation will retry automatically."
                 if (permanent) {
                     queue.remove(owner.accountId, purchase.purchaseToken)
-                    rejected.add(key)
+                    rejected[key] = failureMessage
                 } else retry = true
-                message = if (permanent) apiError.message ?: "This purchase could not be verified."
-                    else "Your purchase is saved. Verification or Google Play confirmation will retry automatically."
+                message = failureMessage
             }
         }
         PurchaseProcessing(verified, pending, retry, message)

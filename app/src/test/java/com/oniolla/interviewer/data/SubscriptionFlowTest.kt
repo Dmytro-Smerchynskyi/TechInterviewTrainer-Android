@@ -303,8 +303,34 @@ class SubscriptionFlowTest {
         assertFalse(report.retryNeeded)
         assertTrue(f.queue.records.isEmpty())
         assertEquals("FREE", f.usage.current()!!.plan)
-        m.process(owner, listOf(f.purchase()))
+        assertNotNull(m.process(owner, listOf(f.purchase())).error)
         assertEquals(listOf("verify"), f.trace)
+    }
+
+    @Test fun rejectedPurchaseStaysVisibleOnRefreshAndRestoreCanRetryIt() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.vm()
+        vm.setVisible(true); f.ready(vm)
+        f.verifyStatus = 403
+        f.store.owned = listOf(f.purchase())
+        f.store.updates.emit(StoreUpdate.Purchases(f.store.owned))
+        vm.state.first { !it.isBusy && it.error != null }
+
+        vm.refresh()
+        runCurrent()
+        val refreshed = vm.state.first { !it.isBusy && it.error != null }
+        assertEquals(R.string.billing_error_verification, refreshed.error)
+        assertEquals(1, f.calls("/billing/google/verify"))
+        assertFalse(refreshed.subscription!!.isPro)
+
+        f.verifyStatus = 200
+        vm.restore()
+        runCurrent()
+        val restored = vm.state.first { !it.isBusy && it.entitlementRevision > 0 }
+        assertNull(restored.error)
+        assertTrue(restored.subscription!!.isPro)
+        assertEquals(2, f.calls("/billing/google/verify"))
+        assertEquals(listOf("verify", "verify", "ack"), f.trace)
     }
 
     @Test fun automaticRecoveryDoesNotLinkAnotherAppAccountPurchase() = runTest(dispatcher) {

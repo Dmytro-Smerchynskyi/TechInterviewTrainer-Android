@@ -1,7 +1,9 @@
 package com.oniolla.interviewer.data.payload
 
+import com.google.gson.annotations.SerializedName
+
 class VerifyGooglePurchasePayload(
-    val purchaseToken: String,
-    val productId: String,
-    val basePlanId: String? = null
+    @SerializedName("purchaseToken") val purchaseToken: String,
+    @SerializedName("productId") val productId: String,
+    @SerializedName("basePlanId") val basePlanId: String? = null
 )

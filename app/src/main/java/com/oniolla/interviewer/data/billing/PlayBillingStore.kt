@@ -105,7 +105,11 @@ class PlayBillingStore @Inject constructor(@ApplicationContext context: Context)
             item.setSubscriptionProductReplacementParams(
                 BillingFlowParams.ProductDetailsParams.SubscriptionProductReplacementParams.newBuilder()
                     .setOldProductId(PRO_PRODUCT_ID)
-                    .setReplacementMode(BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.WITHOUT_PRORATION).build())
+                    .setReplacementMode(
+                        if (plan == ProPlan.MONTHLY)
+                            BillingFlowParams.ProductDetailsParams.SubscriptionProductReplacementParams.ReplacementMode.CHARGE_FULL_PRICE
+                        else BillingFlowParams.ProductDetailsParams.SubscriptionProductReplacementParams.ReplacementMode.WITHOUT_PRORATION
+                    ).build())
         }
         flow.setProductDetailsParamsList(listOf(item.build()))
         val result = client.launchBillingFlow(activity, flow.build())

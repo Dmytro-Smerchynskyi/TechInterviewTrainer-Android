@@ -97,6 +97,7 @@ fun HomeScreen(
         if (detail != null) {
             QuestionDetailScreen(detail, onBack = onCloseQuestion, onReveal = onRevealAnswer,
                 onRetryUsage = onRetryQuestionUsage, onToggleSaved = onToggleQuestionSaved, onPractice = onPractice,
+                onPro = onPro,
                 bottomBar = { HomeNavigation(state.tab, onTabSelected) })
         } else stateHolder.SaveableStateProvider("homeTabs") {
             Scaffold(

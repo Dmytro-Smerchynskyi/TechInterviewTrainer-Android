@@ -278,7 +278,11 @@ class HomeActivity : ComponentActivity() {
                             onRevealAnswer = viewModel::revealQuestionAnswer,
                             onRetryQuestionUsage = viewModel::refreshQuestionUsage,
                             onPro = viewModel::openPaywall,
-                            onStartInterview = interviewViewModel::open,
+                            onStartInterview = {
+                                if (subscriptionState.subscription?.aiEvaluations?.remaining?.let { it <= 0 } == true) {
+                                    viewModel.openPaywall()
+                                } else interviewViewModel.open()
+                            },
                             interviewHistory = interviewState.history,
                             onPractice = {
                                 state.questionDetail?.takeIf { it.canPractice }?.question?.let(practiceViewModel::open)

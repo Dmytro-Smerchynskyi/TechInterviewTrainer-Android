@@ -49,6 +49,11 @@ data class QuestionDetailState(
             !isUsageLoading && usageError == null && revealsRemaining > 0)
     val canPractice get() = !isUsageLoading && usageError == null && aiReviewsRemaining > 0 &&
         answer != ContentViewState.Loading
+    private val canCheckLimits get() = !isUsageLoading && usageError == null && answer != ContentViewState.Loading
+    val revealLimitReached get() = canCheckLimits && !canReveal &&
+        usage?.answerReveals?.remaining?.let { it <= 0 } == true
+    val practiceLimitReached get() = canCheckLimits &&
+        usage?.aiEvaluations?.remaining?.let { it <= 0 } == true
 }
 
 data class StatisticsContent(

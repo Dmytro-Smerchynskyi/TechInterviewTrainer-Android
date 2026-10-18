@@ -446,6 +446,30 @@ class QuestionDetailFlowTest {
         assertFalse(gson.fromJson("""{"id":4}""", QuestionResponse::class.java).answerRevealed)
     }
 
+    @Test fun paywallIsOfferedOnlyForKnownExhaustedCreditsWhileIdle() = runTest(dispatcher) {
+        val f = Fixture().apply { reveals = 0; aiReviews = 0 }
+        val vm = f.vm()
+        ready(vm)
+        open(vm, f.question())
+        val detail = detail(vm)
+        assertTrue(detail.revealLimitReached)
+        assertTrue(detail.practiceLimitReached)
+        for (unavailable in listOf(
+            detail.copy(isUsageLoading = true),
+            detail.copy(usageError = "Request failed"),
+            detail.copy(usage = null),
+            detail.copy(answer = ContentViewState.Loading)
+        )) {
+            assertFalse(unavailable.revealLimitReached)
+            assertFalse(unavailable.practiceLimitReached)
+        }
+        val alreadyRevealed = detail.copy(question = detail.question.copy(answerRevealed = true))
+        assertFalse(alreadyRevealed.revealLimitReached)
+        assertTrue(alreadyRevealed.canReveal)
+        assertTrue(alreadyRevealed.practiceLimitReached)
+        assertEquals(0, f.calls("/questions/4/answer"))
+    }
+
     @Test fun zeroRevealsDisableRevealButDoNotDisableAvailableAiReviews() = runTest(dispatcher) {
         val f = Fixture().apply { reveals = 0 }
         val vm = f.vm()

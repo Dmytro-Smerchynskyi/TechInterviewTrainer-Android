@@ -54,6 +54,7 @@ internal fun QuestionDetailScreen(
     onRetryUsage: () -> Unit = {},
     onToggleSaved: (Long) -> Unit = {},
     onPractice: () -> Unit = {},
+    onPro: () -> Unit = {},
     bottomBar: @Composable () -> Unit = {}
 ) {
     Scaffold(containerColor = AppTheme.colors.background,
@@ -72,7 +73,7 @@ internal fun QuestionDetailScreen(
                 DetailLastScore(state.question.progress, Modifier.padding(start = 8.dp))
             }
             Spacer(Modifier.height(14.dp))
-            QuestionHero(state, onReveal, onToggleSaved, onPractice)
+            QuestionHero(state, onReveal, onToggleSaved, onPractice, onPro)
             state.usageError?.let { message ->
                 Column(Modifier.fillMaxWidth().padding(top = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -163,7 +164,8 @@ private fun DetailLastScore(progress: QuestionProgress?, modifier: Modifier = Mo
 }
 
 @Composable
-private fun QuestionHero(state: QuestionDetailState, onReveal: () -> Unit, onToggleSaved: (Long) -> Unit, onPractice: () -> Unit) {
+private fun QuestionHero(state: QuestionDetailState, onReveal: () -> Unit, onToggleSaved: (Long) -> Unit,
+    onPractice: () -> Unit, onPro: () -> Unit) {
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = Color.Transparent,
         border = BorderStroke(1.dp, Color(0xFF47629A))) {
         Box(Modifier.background(Brush.horizontalGradient(listOf(AppTheme.colors.heroStart, AppTheme.colors.heroEnd)))) {
@@ -173,14 +175,15 @@ private fun QuestionHero(state: QuestionDetailState, onReveal: () -> Unit, onTog
                 Text(state.question.question, color = AppTheme.colors.primaryText,
                     fontSize = 21.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(24.dp))
-                QuestionActions(state, onReveal, onToggleSaved, onPractice)
+                QuestionActions(state, onReveal, onToggleSaved, onPractice, onPro)
             }
         }
     }
 }
 
 @Composable
-private fun QuestionActions(state: QuestionDetailState, onReveal: () -> Unit, onToggleSaved: (Long) -> Unit, onPractice: () -> Unit) {
+private fun QuestionActions(state: QuestionDetailState, onReveal: () -> Unit, onToggleSaved: (Long) -> Unit,
+    onPractice: () -> Unit, onPro: () -> Unit) {
     val reveal: @Composable (Modifier) -> Unit = { modifier ->
         val hideAnswer = state.isAnswerVisible && state.answer is ContentViewState.Ready
         DetailAction(modifier,
@@ -193,12 +196,14 @@ private fun QuestionActions(state: QuestionDetailState, onReveal: () -> Unit, on
             else stringResource(R.string.question_reveals_remaining, state.revealsRemaining),
             enabled = state.canReveal, loading = state.answer == ContentViewState.Loading,
             usageLoading = state.isUsageLoading && !state.question.answerRevealed,
-            hideIcon = hideAnswer, onClick = onReveal)
+            hideIcon = hideAnswer, onClick = onReveal,
+            onDisabledClick = onPro.takeIf { state.revealLimitReached })
     }
     val practice: @Composable (Modifier) -> Unit = { modifier ->
         DetailAction(modifier, stringResource(R.string.question_ai_practice),
             stringResource(R.string.question_ai_reviews_remaining, state.aiReviewsRemaining),
-            enabled = state.canPractice, usageLoading = state.isUsageLoading, onClick = onPractice)
+            enabled = state.canPractice, usageLoading = state.isUsageLoading, onClick = onPractice,
+            onDisabledClick = onPro.takeIf { state.practiceLimitReached })
     }
     val saved: @Composable () -> Unit = {
         Box(Modifier.padding(top = 3.dp)) {
@@ -228,12 +233,15 @@ private fun QuestionActions(state: QuestionDetailState, onReveal: () -> Unit, on
 
 @Composable
 private fun DetailAction(modifier: Modifier, label: String, remaining: String, enabled: Boolean,
-    loading: Boolean = false, usageLoading: Boolean, hideIcon: Boolean = false, onClick: () -> Unit) {
-    val opacity by animateFloatAsState(if (enabled || loading) 1f else 0.4f, tween(200), label = "question action enabled")
+    loading: Boolean = false, usageLoading: Boolean, hideIcon: Boolean = false, onClick: () -> Unit,
+    onDisabledClick: (() -> Unit)? = null) {
+    val opacity by animateFloatAsState(if (enabled || onDisabledClick != null || loading) 1f else 0.4f,
+        tween(200), label = "question action enabled")
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        MainButton(Modifier.fillMaxWidth().height(38.dp).alpha(opacity), onClick = onClick,
+        MainButton(Modifier.fillMaxWidth().height(38.dp).alpha(opacity),
+            onClick = { if (enabled) onClick() else onDisabledClick?.invoke() },
             buttonText = label, loadingButtonText = stringResource(R.string.question_revealing_answer),
-            isLoading = loading, enabled = enabled, textSize = 11.sp,
+            isLoading = loading, enabled = enabled || onDisabledClick != null, textSize = 11.sp,
             leadingIcon = {
                 if (hideIcon) Image(painterResource(R.drawable.question_clear_topic), null,
                     Modifier.size(20.dp), colorFilter = ColorFilter.tint(Color.White))

@@ -60,7 +60,8 @@ private fun UsageCard(usage: DashboardUsage, enabled: Boolean, onUpgrade: () -> 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.account_plan, usage.plan.lowercase(Locale.ROOT)
-                        .replaceFirstChar { it.titlecase(Locale.ROOT) }), color = AppTheme.colors.primaryText,
+                        .split('_').joinToString(" ") { word -> word.replaceFirstChar { it.titlecase(Locale.ROOT) } }),
+                        color = AppTheme.colors.primaryText,
                         fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
                     Text(if (usage.questions?.unlimited == true) stringResource(R.string.account_unlimited_questions)

@@ -3,6 +3,27 @@
 Product: `interview-trainer-pro`. Auto-renewing base plans: `weekly`, `monthly`.
 Prices and regular base-plan offer tokens come from Google Play ProductDetails, never from app constants.
 
+## Release signing certificate
+
+Verified with `:app:signingReport` on 2026-10-19 for the `release` variant.
+
+- Application ID: `com.oniolla.interviewer`.
+- Keystore: `interviewtrainer-release.keystore` in the project root.
+- Key alias: `interviewtrainer`.
+
+| Fingerprint | Value |
+| --- | --- |
+| SHA-1 | `21:3D:E4:84:4D:54:4C:30:2B:11:67:C2:EB:72:75:0A:60:53:94:36` |
+| SHA-256 | `8F:06:C4:47:80:68:28:AE:33:E0:03:56:E9:02:2A:CE:1B:46:6B:F6:D1:15:F2:F9:91:DF:B9:88:59:AD:9D:B0` |
+
+To check the current fingerprints, run from the project root:
+
+```shell
+./gradlew :app:signingReport --console=plain
+```
+
+These are the fingerprints of the local release certificate used to sign the uploaded AAB. With Play App Signing, APKs installed from Google Play are signed with the **app signing certificate**, which may differ from this upload certificate. For Google sign-in and Android App Links in Play-distributed builds, use the app signing certificate fingerprints from the app signing page in Play Console. See [Android app signing documentation](https://developer.android.com/studio/publish/app-signing).
+
 ## Backend contract
 
 - `GET /me/subscription` replaces `GET /me/usage` for quotas and subscription state.

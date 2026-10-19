@@ -3,5 +3,14 @@
 # This avoids the IllegalAccessError seen after repackaging these classes out of kotlin.text.
 -keeppackagenames kotlin.text
 
+# Gson reflects over API request/response models, including DTOs without @SerializedName.
+# Keep their classes, constructors and members so JSON field names and reflective access stay stable.
+-keep class com.oniolla.interviewer.data.model.** { *; }
+-keep class com.oniolla.interviewer.data.payload.** { *; }
+-keep class com.oniolla.interviewer.data.CustomError { *; }
+
+# Preserve generic field types and Gson annotations used by the API models.
+-keepattributes Signature,RuntimeVisibleAnnotations,AnnotationDefault
+
 # OkHttp, Retrofit, Gson, Hilt, Room and coroutines supply their own consumer rules.
-# Do not blanket-keep those libraries or the application's DTO packages.
+# The rest of the application and those libraries remain eligible for R8 optimization.

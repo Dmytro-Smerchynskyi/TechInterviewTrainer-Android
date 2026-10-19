@@ -279,7 +279,8 @@ class HomeActivity : ComponentActivity() {
                             onRetryQuestionUsage = viewModel::refreshQuestionUsage,
                             onPro = viewModel::openPaywall,
                             onStartInterview = {
-                                if (subscriptionState.subscription?.aiEvaluations?.remaining?.let { it <= 0 } == true) {
+                                if (interviewState.activeId == null &&
+                                    subscriptionState.subscription?.aiEvaluations?.remaining?.let { it <= 0 } == true) {
                                     viewModel.openPaywall()
                                 } else interviewViewModel.open()
                             },

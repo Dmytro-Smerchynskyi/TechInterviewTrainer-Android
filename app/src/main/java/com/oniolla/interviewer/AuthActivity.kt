@@ -35,6 +35,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -101,6 +103,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oniolla.interviewer.data.model.Specialization
 import com.oniolla.interviewer.ui.AuthViewModel
+import com.oniolla.interviewer.ui.AuthLegalNotice
 import com.oniolla.interviewer.ui.isResumedAndUnlocked
 import com.oniolla.interviewer.ui.runWhenResumedAndUnlocked
 import com.oniolla.interviewer.ui.PasswordResetScreen
@@ -553,13 +556,22 @@ fun SignUp(
         modifier = Modifier
             .fillMaxSize()
             .imePadding()
-            .background(AppTheme.colors.background)
+            .background(AppTheme.colors.background),
+        containerColor = AppTheme.colors.background,
+        bottomBar = {
+            AuthLegalNotice(
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                enabled = !isLoading
+            )
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
                 .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
+                .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp)
         ) {
             Spacer(modifier = Modifier.height(50.dp))
@@ -695,13 +707,22 @@ fun Login(
         modifier = Modifier
             .fillMaxSize()
             .imePadding()
-            .background(AppTheme.colors.background)
+            .background(AppTheme.colors.background),
+        containerColor = AppTheme.colors.background,
+        bottomBar = {
+            AuthLegalNotice(
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                enabled = !isLoading
+            )
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
                 .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
+                .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp)
         ) {
             Spacer(modifier = Modifier.height(50.dp))

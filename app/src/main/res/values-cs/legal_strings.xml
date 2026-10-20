@@ -1,0 +1,9 @@
+<resources>
+    <string name="legal_group">Právní informace</string>
+    <string name="legal_terms_of_use">Podmínky použití</string>
+    <string name="legal_privacy_policy">Zásady ochrany osobních údajů</string>
+    <string name="auth_legal_notice">Pokračováním souhlasíte s %1$s a %2$s.</string>
+    <string name="legal_open_failed">Odkaz se nepodařilo otevřít. Zkuste to znovu.</string>
+    <string name="legal_terms_link">Podmínkami použití</string>
+    <string name="legal_privacy_link">Zásadami ochrany osobních údajů</string>
+</resources>

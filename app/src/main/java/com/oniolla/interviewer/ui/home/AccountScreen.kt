@@ -47,6 +47,8 @@ import com.oniolla.interviewer.EmailConfirmation
 import com.oniolla.interviewer.MainButton
 import com.oniolla.interviewer.R
 import com.oniolla.interviewer.ui.GoogleActionButton
+import com.oniolla.interviewer.ui.LegalLinks
+import com.oniolla.interviewer.ui.rememberLegalUrlOpener
 import com.oniolla.interviewer.ui.theme.AppTheme
 import java.util.Locale
 
@@ -112,6 +114,7 @@ fun AccountScreens(
 @Composable
 private fun AccountOverview(state: AccountViewState, onBack: () -> Unit,
     onEdit: (AccountPage) -> Unit, onRetryProfile: () -> Unit) {
+    val openLegalUrl = rememberLegalUrlOpener()
     Scaffold(containerColor = AppTheme.colors.background) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
@@ -165,6 +168,12 @@ private fun AccountOverview(state: AccountViewState, onBack: () -> Unit,
                         enabled = !state.isSaving)
                 }
             }
+            AccountSection(stringResource(R.string.legal_group))
+            AccountRow(stringResource(R.string.legal_terms_of_use), enabled = !state.isSaving,
+                onClick = { openLegalUrl(LegalLinks.TERMS) })
+            Spacer(Modifier.height(8.dp))
+            AccountRow(stringResource(R.string.legal_privacy_policy), enabled = !state.isSaving,
+                onClick = { openLegalUrl(LegalLinks.PRIVACY) })
             AccountSection(stringResource(R.string.account_danger_zone))
             AccountRow(stringResource(R.string.profile_delete_account),
                 stringResource(R.string.account_delete_description), enabled = !state.isSaving,
@@ -181,7 +190,7 @@ private fun AccountSection(title: String) {
 }
 
 @Composable
-private fun AccountRow(title: String, subtitle: String, enabled: Boolean, onClick: (() -> Unit)? = null,
+private fun AccountRow(title: String, subtitle: String? = null, enabled: Boolean, onClick: (() -> Unit)? = null,
     destructive: Boolean = false) {
     val iconColor = if (destructive) AppTheme.colors.red else AppTheme.colors.homeIcon
     SettingsRowSurface(Modifier.fillMaxWidth().heightIn(min = 54.dp), onClick, enabled) {
@@ -193,7 +202,8 @@ private fun AccountRow(title: String, subtitle: String, enabled: Boolean, onClic
                 Text(title, color = if (destructive) AppTheme.colors.red else AppTheme.colors.primaryText,
                     fontSize = 11.sp, lineHeight = 14.sp,
                     fontWeight = FontWeight.SemiBold)
-                Text(subtitle, color = AppTheme.colors.secondaryText, fontSize = 9.sp, lineHeight = 12.sp)
+                if (subtitle != null) Text(subtitle, color = AppTheme.colors.secondaryText,
+                    fontSize = 9.sp, lineHeight = 12.sp)
             }
             if (onClick != null) FigmaIcon("chevron", Modifier.size(18.dp), iconColor)
         }

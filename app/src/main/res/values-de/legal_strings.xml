@@ -1,0 +1,9 @@
+<resources>
+    <string name="legal_group">Rechtliches</string>
+    <string name="legal_terms_of_use">Nutzungsbedingungen</string>
+    <string name="legal_privacy_policy">Datenschutzerklärung</string>
+    <string name="auth_legal_notice">Indem du fortfährst, stimmst du den %1$s und der %2$s zu.</string>
+    <string name="legal_open_failed">Der Link konnte nicht geöffnet werden. Bitte versuche es erneut.</string>
+    <string name="legal_terms_link">Nutzungsbedingungen</string>
+    <string name="legal_privacy_link">Datenschutzerklärung</string>
+</resources>

@@ -1,0 +1,9 @@
+<resources>
+    <string name="legal_group">Правова інформація</string>
+    <string name="legal_terms_of_use">Умови використання</string>
+    <string name="legal_privacy_policy">Політика конфіденційності</string>
+    <string name="auth_legal_notice">Продовжуючи, ви погоджуєтеся з %1$s та %2$s.</string>
+    <string name="legal_open_failed">Не вдалося відкрити посилання. Спробуйте ще раз.</string>
+    <string name="legal_terms_link">Умовами використання</string>
+    <string name="legal_privacy_link">Політикою конфіденційності</string>
+</resources>

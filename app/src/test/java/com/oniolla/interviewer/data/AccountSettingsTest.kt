@@ -276,30 +276,62 @@ class AccountSettingsTest {
     }
 
     @Test fun rejectedGoogleDeletionProofKeepsSessionAndRetryRequestsANewToken() = runTest(dispatcher) {
-        val f = Fixture().apply { providers = listOf("GOOGLE") }
-        val vm = f.vm()
-        open(vm)
-        val session = f.tokens.snapshot()
-        vm.edit(AccountPage.DELETE)
-        f.failPath = "/me"
-        f.failStatus = 401
-        f.failCode = "REAUTHENTICATION_REQUIRED"
-        vm.submit()
-        val first = requireNotNull(vm.state.value.googleRequestId)
-        vm.googleTokenReceived(first, "rejected-proof")
-        vm.state.first { !it.isSaving && it.actionError != null }
-        assertFalse(vm.state.value.sessionExpired)
-        assertEquals(session, f.tokens.snapshot())
-        assertEquals(0, f.calls("/auth/refresh"))
-        f.failPath = null
-        vm.submit()
-        val second = requireNotNull(vm.state.value.googleRequestId)
-        assertNotEquals(first, second)
-        vm.googleTokenReceived(first, "stale-proof")
-        assertEquals(1, f.requests.count { it.method == "DELETE" })
-        vm.googleTokenReceived(second, "fresh-proof")
-        vm.state.first { it.accountDeleted }
-        assertEquals("fresh-proof", f.payload(f.requests.last { it.method == "DELETE" })["idToken"].asString)
+        for (code in listOf("REAUTHENTICATION_REQUIRED", "REAUTHENTICATION_FAILED")) {
+            val f = Fixture().apply { providers = listOf("GOOGLE") }
+            val vm = f.vm()
+            open(vm)
+            val session = f.tokens.snapshot()
+            vm.edit(AccountPage.DELETE)
+            f.failPath = "/me"
+            f.failStatus = 401
+            f.failCode = code
+            vm.submit()
+            val first = requireNotNull(vm.state.value.googleRequestId)
+            vm.googleTokenReceived(first, "rejected-proof")
+            vm.state.first { !it.isSaving && it.actionError != null }
+            assertFalse(vm.state.value.sessionExpired)
+            assertFalse(vm.state.value.accountDeleted)
+            assertEquals(AccountPage.DELETE, vm.state.value.page)
+            assertNotNull(vm.state.value.googleError)
+            assertEquals(session, f.tokens.snapshot())
+            assertEquals(0, f.calls("/auth/refresh"))
+            f.failPath = null
+            vm.submit()
+            val second = requireNotNull(vm.state.value.googleRequestId)
+            assertNotEquals(first, second)
+            vm.googleTokenReceived(first, "stale-proof")
+            assertEquals(1, f.requests.count { it.method == "DELETE" })
+            vm.googleTokenReceived(second, "fresh-proof")
+            vm.state.first { it.accountDeleted }
+            assertEquals("fresh-proof", f.payload(f.requests.last { it.method == "DELETE" })["idToken"].asString)
+        }
+    }
+
+    @Test fun rejectedDeletionProofAfterBearerRefreshKeepsTheRenewedSession() = runTest(dispatcher) {
+        for (code in listOf("REAUTHENTICATION_REQUIRED", "REAUTHENTICATION_FAILED")) {
+            val f = Fixture().apply { providers = listOf("GOOGLE") }
+            val vm = f.vm()
+            open(vm)
+            val sessionVersion = f.tokens.sessionVersion
+            vm.edit(AccountPage.DELETE)
+            f.unauthorizedPath = "/me"
+            f.failPath = "/me"
+            f.failStatus = 401
+            f.failCode = code
+            vm.submit()
+            vm.googleTokenReceived(requireNotNull(vm.state.value.googleRequestId), "rejected-proof")
+            vm.state.first { !it.isSaving && it.actionError != null }
+            assertFalse(vm.state.value.sessionExpired)
+            assertFalse(vm.state.value.accountDeleted)
+            assertEquals("refreshed", f.tokens.accessToken)
+            assertEquals("refreshed-refresh", f.tokens.refreshToken)
+            assertEquals(sessionVersion, f.tokens.sessionVersion)
+            assertEquals(1, f.calls("/auth/refresh"))
+            val deletions = f.requests.filter { it.method == "DELETE" }
+            assertEquals(2, deletions.size)
+            assertTrue(deletions.all { f.payload(it)["idToken"].asString == "rejected-proof" })
+            assertEquals(AccountPage.DELETE, vm.state.value.page)
+        }
     }
 
     @Test fun deletePayloadRejectsMissingBlankOrAmbiguousProofs() {

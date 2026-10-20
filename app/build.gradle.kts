@@ -17,8 +17,8 @@ android {
         applicationId = "com.oniolla.interviewer"
         minSdk = 24
         targetSdk = 37
-        versionCode = 7
-        versionName = "1.0.7"
+        versionCode = 8
+        versionName = "1.0.8"
 
         val googleWebClientId = providers.gradleProperty("GOOGLE_WEB_CLIENT_ID")
             .orElse(providers.environmentVariable("GOOGLE_WEB_CLIENT_ID")).getOrElse("")

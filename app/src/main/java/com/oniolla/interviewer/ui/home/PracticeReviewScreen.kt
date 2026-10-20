@@ -63,19 +63,19 @@ internal fun PracticeReviewScreen(state: PracticeViewState, onBack: () -> Unit,
                 }
                 Spacer(Modifier.height(14.dp))
             }
-            ReviewAnswer(state, result.userAnswer ?: state.answer)
             if (!result.overallFeedback.isNullOrBlank()) {
-                Spacer(Modifier.height(14.dp))
                 PracticeInfo(stringResource(R.string.practice_feedback), result.overallFeedback)
+                Spacer(Modifier.height(14.dp))
             }
             if (result.strengths.isNotEmpty() || result.improvements.isNotEmpty()) {
-                Spacer(Modifier.height(14.dp))
                 PracticeCard(corner = 15.dp) {
                     if (result.strengths.isNotEmpty()) FeedbackList(stringResource(R.string.practice_strengths), result.strengths)
                     if (result.strengths.isNotEmpty() && result.improvements.isNotEmpty()) Spacer(Modifier.height(16.dp))
                     if (result.improvements.isNotEmpty()) FeedbackList(stringResource(R.string.practice_improvements), result.improvements)
                 }
+                Spacer(Modifier.height(14.dp))
             }
+            ReviewAnswer(state, result.userAnswer ?: state.answer)
             if (result.referenceAnswerAvailable && !result.referenceAnswer.isNullOrBlank()) {
                 Spacer(Modifier.height(14.dp))
                 PracticeCard(Modifier.fillMaxWidth().heightIn(min = 102.dp), corner = 15.dp) {

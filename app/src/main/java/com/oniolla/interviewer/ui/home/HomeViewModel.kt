@@ -1,5 +1,7 @@
 package com.oniolla.interviewer.ui.home
 
+import com.oniolla.interviewer.analytics.AnalyticsEvent
+import com.oniolla.interviewer.analytics.AppAnalytics
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -50,7 +52,8 @@ class HomeViewModel @Inject constructor(
     private val setQuestionSavedUseCase: SetQuestionSavedUseCase,
     private val getFavoriteQuestionsUseCase: GetFavoriteQuestionsUseCase,
     private val getStatsUseCase: GetStatsUseCase,
-    private val getQuestionAnswerUseCase: GetQuestionAnswerUseCase
+    private val getQuestionAnswerUseCase: GetQuestionAnswerUseCase,
+    private val analytics: AppAnalytics = AppAnalytics.None
 ) : ViewModel() {
     private val _stateFlow = MutableStateFlow(HomeViewState(
         paywallOpen = savedStateHandle.get<Boolean>("paywallOpen") ?: false,
@@ -176,6 +179,7 @@ class HomeViewModel @Inject constructor(
         val detail = _stateFlow.value.questionDetail ?: return
         if (!detail.canReveal) return
         if (detail.answer is ContentViewState.Ready) {
+            if (!detail.isAnswerVisible) analytics.track(AnalyticsEvent.ANSWER_OPENED, mapOf("source" to "cache"))
             _stateFlow.update { state ->
                 state.copy(questionDetail = state.questionDetail?.let {
                     it.copy(isAnswerVisible = !it.isAnswerVisible)
@@ -192,7 +196,11 @@ class HomeViewModel @Inject constructor(
             val result = getQuestionAnswerUseCase(id)
             currentCoroutineContext().ensureActive()
             if (generation != detailGeneration || _stateFlow.value.questionDetail?.question?.id != id) return@launch
-            if (result is ContentResult.Success) revealedQuestionIds.add(id)
+            if (result is ContentResult.Success) {
+                revealedQuestionIds.add(id)
+                if (!detail.question.answerRevealed) analytics.track(AnalyticsEvent.ANSWER_REVEALED)
+                analytics.track(AnalyticsEvent.ANSWER_OPENED, mapOf("source" to "network"))
+            }
             _stateFlow.update { state ->
                 fun updated(list: ContentViewState<QuestionsContent>): ContentViewState<QuestionsContent> {
                     val content = (list as? ContentViewState.Ready)?.content ?: return list
@@ -637,7 +645,8 @@ class HomeViewModel @Inject constructor(
     }
 
     fun openPaywall() {
-        if (_stateFlow.value.sessionExpired) return
+        if (_stateFlow.value.sessionExpired || _stateFlow.value.paywallOpen) return
+        analytics.track(AnalyticsEvent.PAYWALL_OPENED)
         savedStateHandle["paywallOpen"] = true
         _stateFlow.update { it.copy(paywallOpen = true) }
     }

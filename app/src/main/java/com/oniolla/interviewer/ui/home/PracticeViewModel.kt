@@ -1,5 +1,7 @@
 package com.oniolla.interviewer.ui.home
 
+import com.oniolla.interviewer.analytics.AnalyticsEvent
+import com.oniolla.interviewer.analytics.AppAnalytics
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,7 +29,8 @@ import javax.inject.Inject
 @HiltViewModel
 class PracticeViewModel @Inject constructor(
     private val evaluate: EvaluateQuestionUseCase,
-    private val savedState: SavedStateHandle
+    private val savedState: SavedStateHandle,
+    private val analytics: AppAnalytics = AppAnalytics.None
 ) : ViewModel() {
     private val gson = Gson()
     private val restoredQuestion = savedState.get<String>("practiceQuestion")?.let {
@@ -125,6 +128,9 @@ class PracticeViewModel @Inject constructor(
         val request = EvaluateQuestionRequest(question.id, current.answer, current.grade)
         _state.update { it.copy(page = PracticePage.EVALUATING, answerError = null, voiceError = null) }
         evaluationJob = viewModelScope.launch {
+            analytics.track(AnalyticsEvent.AI_EVALUATION_STARTED, mapOf(
+                "context" to "practice", "grade" to current.grade.name,
+                "input_mode" to if (current.mode == AnswerMode.VOICE) "voice" else "text"))
             val result = evaluate(request)
             currentCoroutineContext().ensureActive()
             when (result) {

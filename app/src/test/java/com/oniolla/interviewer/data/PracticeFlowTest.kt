@@ -1,5 +1,6 @@
 package com.oniolla.interviewer.data
 
+import com.oniolla.interviewer.analytics.AnalyticsEvent
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import com.google.gson.Gson
@@ -42,6 +43,7 @@ class PracticeFlowTest {
     }
     private inner class Fixture {
         val tokens = Tokens()
+        val analytics = RecordingAnalytics()
         val requests = CopyOnWriteArrayList<Request>()
         var status = 200
         var errorCode = "EVALUATION_FAILED"
@@ -110,7 +112,7 @@ class PracticeFlowTest {
 
         fun question() = QuestionResponse(4, "Question", "ANDROID", QuestionTopic(7, "flow", "Flow"),
             "MEDIUM", "JUNIOR", "SENIOR", tags = listOf("Flow", "Replay"), answerRevealed = false)
-        fun vm(handle: SavedStateHandle = SavedStateHandle()) = PracticeViewModel(useCase, handle)
+        fun vm(handle: SavedStateHandle = SavedStateHandle()) = PracticeViewModel(useCase, handle, analytics)
             .also { stores += ViewModelStore().apply { put("practice", it) } }
         fun calls(path: String) = requests.count { it.url.encodedPath == path }
         fun start(vm: PracticeViewModel, answer: String = "My answer") {
@@ -168,6 +170,9 @@ class PracticeFlowTest {
         assertFalse(vm.state.value.question!!.answerRevealed)
         assertEquals(8, f.usage.current()!!.answerReveals!!.remaining)
         assertEquals(1, f.attempts)
+        assertEquals(1, f.analytics.count(AnalyticsEvent.AI_EVALUATION_STARTED))
+        assertEquals(mapOf("context" to "practice", "grade" to "SENIOR", "input_mode" to "text"),
+            f.analytics.events.single().parameters)
         assertEquals(0, f.calls("/questions/4/answer"))
         assertTrue(vm.takeContentRefresh())
         assertFalse(vm.takeContentRefresh())
@@ -182,6 +187,7 @@ class PracticeFlowTest {
         runCurrent()
         assertEquals(PracticePage.ANSWERING, vm.state.value.page)
         assertTrue(f.requests.isEmpty())
+        assertTrue(f.analytics.events.isEmpty())
     }
 
     @Test fun recordingAndTranscribingBlockEvaluationAndEditingKeepsTheTranscript() = runTest(dispatcher) {

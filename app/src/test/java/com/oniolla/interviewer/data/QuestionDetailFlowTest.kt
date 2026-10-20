@@ -1,5 +1,6 @@
 package com.oniolla.interviewer.data
 
+import com.oniolla.interviewer.analytics.AnalyticsEvent
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import com.google.gson.Gson
@@ -45,6 +46,7 @@ class QuestionDetailFlowTest {
 
     private inner class Fixture {
         val tokens = Tokens()
+        val analytics = RecordingAnalytics()
         val requests = CopyOnWriteArrayList<Request>()
         val mutations = Channel<Request>(Channel.UNLIMITED)
         var reveals = 8
@@ -148,7 +150,7 @@ class QuestionDetailFlowTest {
         fun vm() = HomeViewModel(GetDashboardUseCase(repository, auth), GetTopicsUseCase(repository),
             GetQuestionsUseCase(repository), SavedStateHandle(mapOf("homeTab" to "QUESTIONS")),
             TopicCatalogUseCase(repository), SetQuestionSavedUseCase(repository),
-            GetFavoriteQuestionsUseCase(repository), GetStatsUseCase(repository), GetQuestionAnswerUseCase(repository))
+            GetFavoriteQuestionsUseCase(repository), GetStatsUseCase(repository), GetQuestionAnswerUseCase(repository), analytics)
             .also { stores += ViewModelStore().apply { put("home", it) } }
     }
 
@@ -286,6 +288,19 @@ class QuestionDetailFlowTest {
         assertEquals(35.0, detail(vm).question.progress!!.lastScore, 0.0)
     }
 
+    @Test fun paywallTracksEachOpeningButNotRepeatedCallsWhileAlreadyOpen() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.vm()
+        ready(vm)
+        vm.openPaywall()
+        vm.openPaywall()
+        assertEquals(1, f.analytics.count(AnalyticsEvent.PAYWALL_OPENED))
+        vm.closePaywall()
+        vm.openPaywall()
+        assertEquals(2, f.analytics.count(AnalyticsEvent.PAYWALL_OPENED))
+        assertTrue(f.analytics.events.all { it.parameters.isEmpty() })
+    }
+
     @Test fun openingUsesTheLoadedQuestionAndDoesNotRequestTheAnswer() = runTest(dispatcher) {
         val f = Fixture()
         val vm = f.vm()
@@ -312,6 +327,9 @@ class QuestionDetailFlowTest {
         assertSame(ContentViewState.Loading, detail(vm).answer)
         vm.revealQuestionAnswer()
         revealed(vm)
+        assertEquals(1, f.analytics.count(AnalyticsEvent.ANSWER_REVEALED))
+        assertEquals(1, f.analytics.count(AnalyticsEvent.ANSWER_OPENED))
+        assertEquals(mapOf("source" to "network"), f.analytics.events.last().parameters)
         val answer = (detail(vm).answer as ContentViewState.Ready).content
         assertEquals("Reference answer 4", answer.referenceAnswer)
         assertEquals("en", answer.language)
@@ -328,6 +346,7 @@ class QuestionDetailFlowTest {
         runCurrent()
         assertEquals(1, f.calls("/questions/4/answer"))
         assertEquals(2, f.calls("/me/subscription"))
+        assertEquals(1, f.analytics.count(AnalyticsEvent.ANSWER_OPENED)) // Hiding is not opening.
     }
 
     @Test fun aPreviouslyRevealedAnswerCanBeLoadedWithNoCreditsAndShownFromCache() = runTest(dispatcher) {
@@ -349,6 +368,9 @@ class QuestionDetailFlowTest {
         vm.revealQuestionAnswer()
         assertTrue(detail(vm).isAnswerVisible)
         assertSame(cached, detail(vm).answer)
+        assertEquals(0, f.analytics.count(AnalyticsEvent.ANSWER_REVEALED))
+        assertEquals(2, f.analytics.count(AnalyticsEvent.ANSWER_OPENED))
+        assertEquals(mapOf("source" to "cache"), f.analytics.events.last().parameters)
         runCurrent()
         assertEquals(1, f.calls("/questions/4/answer"))
         assertEquals(1, f.calls("/me/subscription"))
@@ -437,6 +459,7 @@ class QuestionDetailFlowTest {
         assertFalse(detail(vm).question.answerRevealed)
         assertFalse(list(vm).items.single().answerRevealed)
         assertTrue(detail(vm).isAnswerVisible)
+        assertTrue(f.analytics.events.isEmpty())
     }
 
     @Test fun answerRevealedIsParsedFromTheQuestionResponse() {

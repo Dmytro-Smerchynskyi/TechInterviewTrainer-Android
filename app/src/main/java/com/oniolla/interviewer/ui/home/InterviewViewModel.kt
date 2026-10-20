@@ -1,5 +1,7 @@
 package com.oniolla.interviewer.ui.home
 
+import com.oniolla.interviewer.analytics.AnalyticsEvent
+import com.oniolla.interviewer.analytics.AppAnalytics
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,7 +16,8 @@ import javax.inject.Inject
 @HiltViewModel
 class InterviewViewModel @Inject constructor(
     private val useCase: InterviewUseCase,
-    private val saved: SavedStateHandle
+    private val saved: SavedStateHandle,
+    private val analytics: AppAnalytics = AppAnalytics.None
 ) : ViewModel() {
     private val _state = MutableStateFlow(InterviewViewState(practice = PracticeViewState(
         grade = PracticeGrade.entries.firstOrNull { it.name == saved.get<String>("interviewGrade") }
@@ -90,6 +93,7 @@ class InterviewViewModel @Inject constructor(
                 is ContentResult.Success -> {
                     uncertainCreate = false
                     changed = true
+                    analytics.track(AnalyticsEvent.INTERVIEW_STARTED, mapOf("grade" to result.content.grade))
                     acceptInterview(result.content)
                     loadCurrent(result.content)
                 }
@@ -194,6 +198,9 @@ class InterviewViewModel @Inject constructor(
                     else -> { answerFailure(server); return@launch }
                 }
             }
+            analytics.track(AnalyticsEvent.AI_EVALUATION_STARTED, mapOf(
+                "context" to "interview", "grade" to state.practice.grade.name,
+                "input_mode" to if (state.practice.mode == AnswerMode.VOICE) "voice" else "text"))
             when (val result = useCase.answer(id, questionId, state.practice.answer)) {
                 is EvaluationResult.Success -> acceptEvaluation(result.evaluation)
                 is EvaluationResult.LimitReached -> {
@@ -250,6 +257,9 @@ class InterviewViewModel @Inject constructor(
             when (val result = useCase.finish(id)) {
                 is ContentResult.Success -> {
                     changed = true
+                    analytics.track(AnalyticsEvent.INTERVIEW_COMPLETED, mapOf(
+                        "grade" to result.content.grade,
+                        "completion" to if (result.content.questions.all { it.evaluation != null }) "full" else "partial"))
                     acceptInterview(result.content)
                     showSummary(result.content)
                     refreshHistory()

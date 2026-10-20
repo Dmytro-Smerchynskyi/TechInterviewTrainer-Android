@@ -1,5 +1,6 @@
 package com.oniolla.interviewer.data
 
+import com.oniolla.interviewer.analytics.AnalyticsEvent
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import com.google.gson.Gson
@@ -39,6 +40,7 @@ class InterviewFlowTest {
     private inner class Fixture {
         val gson = Gson()
         val tokens = Tokens()
+        val analytics = RecordingAnalytics()
         val requests = CopyOnWriteArrayList<Request>()
         var active = false
         var paginate = false
@@ -141,7 +143,7 @@ class InterviewFlowTest {
             useCase = InterviewUseCase(repository, home)
         }
 
-        fun vm(handle: SavedStateHandle = SavedStateHandle()) = InterviewViewModel(useCase, handle).also {
+        fun vm(handle: SavedStateHandle = SavedStateHandle()) = InterviewViewModel(useCase, handle, analytics).also {
             stores += ViewModelStore().apply { put("interview", it) }
         }
         fun calls(path: String) = requests.count { it.url.encodedPath == path }
@@ -173,6 +175,7 @@ class InterviewFlowTest {
         assertEquals(1, f.calls("/interviews/interview"))
         assertEquals(1, f.calls("/interviews/interview/current-question"))
         assertEquals(0, f.creations)
+        assertTrue(f.analytics.events.isEmpty())
         vm.close()
         runCurrent()
         assertEquals(2, f.calls("/interviews/history"))
@@ -203,6 +206,8 @@ class InterviewFlowTest {
         vm.state.first { it.page == InterviewPage.ANSWERING }
         assertEquals(1, f.creations)
         assertEquals("SENIOR", f.payload("/interviews")["grade"].asString)
+        assertEquals(1, f.analytics.count(AnalyticsEvent.INTERVIEW_STARTED))
+        assertEquals(mapOf("grade" to "SENIOR"), f.analytics.events.single().parameters)
         assertEquals("Bearer access", f.requests.first { it.url.encodedPath == "/interviews" }.header("Authorization"))
     }
 
@@ -218,6 +223,9 @@ class InterviewFlowTest {
         assertEquals(82, review.practice.result!!.displayedScore)
         assertFalse(review.isLast)
         assertEquals(1, f.evaluations)
+        assertEquals(1, f.analytics.count(AnalyticsEvent.AI_EVALUATION_STARTED))
+        assertEquals(mapOf("context" to "interview", "grade" to "MIDDLE", "input_mode" to "text"),
+            f.analytics.events.last().parameters)
         val body = f.payload("/interviews/interview/answers")
         assertEquals(4L, body["questionId"].asLong)
         assertEquals("Answer", body["answer"].asString)
@@ -238,6 +246,7 @@ class InterviewFlowTest {
         vm.evaluate()
         assertTrue(vm.state.first { it.page == InterviewPage.REVIEW }.isLast)
         assertEquals(0, f.calls("/interviews/interview/finish"))
+        assertEquals(0, f.analytics.count(AnalyticsEvent.INTERVIEW_COMPLETED))
         vm.next()
         assertTrue(vm.state.value.actionLoading)
         vm.next()
@@ -247,6 +256,8 @@ class InterviewFlowTest {
         assertEquals(3, stats.content.summary.dueCount)
         assertEquals(42.0, stats.content.weakTopics.single().mastery, 0.0)
         assertEquals(1, f.calls("/interviews/interview/finish"))
+        assertEquals(1, f.analytics.count(AnalyticsEvent.INTERVIEW_COMPLETED))
+        assertEquals("full", f.analytics.events.last().parameters["completion"])
         assertNull(f.requests.single { it.url.encodedPath == "/interviews/interview/finish" }.body?.let {
             Buffer().also(it::writeTo).readUtf8().takeIf { value -> value.isNotBlank() }
         })
@@ -268,6 +279,7 @@ class InterviewFlowTest {
         vm.finish()
         vm.state.first { it.page == InterviewPage.SUMMARY }
         assertEquals(0, f.evaluations)
+        assertEquals("partial", f.analytics.events.last().parameters["completion"])
     }
 
     @Test fun failedFinishKeepsReviewAndAllowsRetry() = runTest(dispatcher) {
@@ -280,9 +292,11 @@ class InterviewFlowTest {
         vm.state.first { it.error != null && !it.actionLoading }
         assertEquals(InterviewPage.REVIEW, vm.state.value.page)
         assertNotNull(vm.state.value.practice.result)
+        assertEquals(0, f.analytics.count(AnalyticsEvent.INTERVIEW_COMPLETED))
         f.failFinish = false
         vm.next()
         vm.state.first { it.page == InterviewPage.SUMMARY }
+        assertEquals(1, f.analytics.count(AnalyticsEvent.INTERVIEW_COMPLETED))
     }
 
     @Test fun lostCreationResponseRecoversExistingInterviewInsteadOfCreatingAnother() = runTest(dispatcher) {
@@ -308,6 +322,7 @@ class InterviewFlowTest {
         vm.state.first { it.page == InterviewPage.REVIEW }
         assertEquals(1, f.evaluations)
         assertEquals(1, f.calls("/interviews/interview/answers"))
+        assertEquals(1, f.analytics.count(AnalyticsEvent.AI_EVALUATION_STARTED))
     }
 
     @Test fun restoredDraftIsKeptOnlyForSameCurrentQuestionAndNeverAutoSubmitted() = runTest(dispatcher) {

@@ -38,10 +38,13 @@ data class ProfileViewState(
     val specialization: AuthViewState.SpecializationSelection = AuthViewState.SpecializationSelection(),
     val language: AuthViewState.PreparationLanguageSelection = AuthViewState.PreparationLanguageSelection(Specialization.ANDROID),
     val isSigningOut: Boolean = false,
+    val deleteAccountDialog: Boolean = false,
+    val isDeletingAccount: Boolean = false,
+    val deleteAccountError: Boolean = false,
     val signedOut: Boolean = false,
     val sessionExpired: Boolean = false
 ) {
-    val isSaving get() = isSigningOut || specialization.isLoading || language.isSaving
+    val isSaving get() = isSigningOut || isDeletingAccount || specialization.isLoading || language.isSaving
 }
 
 @HiltViewModel
@@ -121,7 +124,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun loadProfile() {
-        if (profileJob?.isActive == true) return
+        if (_state.value.isSaving || profileJob?.isActive == true) return
         _state.update { it.copy(profile = ContentViewState.Loading) }
         profileJob = viewModelScope.launch {
             val result = manage.profile()
@@ -239,6 +242,7 @@ class ProfileViewModel @Inject constructor(
     }
     fun dismissThemeDialog() { _state.update { it.copy(themeDialog = false) } }
     fun selectTheme(theme: ThemeMode) {
+        if (_state.value.isSaving) return
         manage.setTheme(theme)
         dismissThemeDialog()
     }
@@ -247,6 +251,7 @@ class ProfileViewModel @Inject constructor(
     fun back(): Boolean {
         if (_state.value.isSaving) return false
         if (_state.value.themeDialog) { dismissThemeDialog(); return false }
+        if (_state.value.deleteAccountDialog) { dismissDeleteAccountDialog(); return false }
         languagesJob?.cancel()
         when (_state.value.page) {
             ProfilePage.SPECIALIZATION, ProfilePage.LANGUAGE -> show(ProfilePage.PROFILE)
@@ -262,8 +267,40 @@ class ProfileViewModel @Inject constructor(
         return false
     }
 
+    fun showDeleteAccountDialog() {
+        if (_state.value.page != ProfilePage.ACCOUNT || _state.value.isSaving || _state.value.sessionExpired) return
+        _state.update { it.copy(deleteAccountDialog = true, deleteAccountError = false) }
+    }
+
+    fun dismissDeleteAccountDialog() {
+        if (_state.value.isDeletingAccount) return
+        _state.update { it.copy(deleteAccountDialog = false, deleteAccountError = false) }
+    }
+
+    fun deleteAccount() {
+        if (_state.value.page != ProfilePage.ACCOUNT || !_state.value.deleteAccountDialog || _state.value.isSaving) return
+        languagesJob?.cancel()
+        profileJob?.cancel()
+        usageJob?.cancel()
+        _state.update { it.copy(isDeletingAccount = true, deleteAccountError = false) }
+        viewModelScope.launch {
+            when (manage.deleteAccount()) {
+                is ContentResult.Success -> {
+                    show(ProfilePage.CLOSED)
+                    _state.update { it.copy(isDeletingAccount = false, deleteAccountDialog = false,
+                        signedOut = true, profile = ContentViewState.NotLoaded, usage = ContentViewState.NotLoaded,
+                        subscription = null, streakDays = null) }
+                }
+                is ContentResult.Error -> _state.update {
+                    it.copy(isDeletingAccount = false, deleteAccountError = true)
+                }
+                ContentResult.SessionExpired -> _state.update { it.copy(isDeletingAccount = false, sessionExpired = true) }
+            }
+        }
+    }
+
     fun signOut() {
-        if (_state.value.isSigningOut) return
+        if (_state.value.isSaving) return
         languagesJob?.cancel()
         usageJob?.cancel()
         _state.update { it.copy(isSigningOut = true) }

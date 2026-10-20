@@ -74,6 +74,9 @@ class ProfileSettingsTest {
         var streak = 7
         var updateStatus = 200
         var usageStatus = 200
+        var deleteStatus = 204
+        var expireDeleteAccess = false
+        var beforeDelete: (() -> Unit)? = null
         var logoutStatus = 204
         var logoutOffline = false
         var beforeLogout: (() -> Unit)? = null
@@ -97,11 +100,19 @@ class ProfileSettingsTest {
                     beforeLogout?.invoke()
                     if (logoutOffline) throw java.io.IOException("Offline")
                 }
-                val code = if (path == "/auth/logout") logoutStatus
-                    else if (path == "/me/subscription") usageStatus else if (request.method == "PUT") updateStatus else 200
+                val deleting = path == "/me" && request.method == "DELETE"
+                if (deleting) beforeDelete?.invoke()
+                val code = when {
+                    deleting && expireDeleteAccess && request.header("Authorization") == "Bearer access" -> 401
+                    deleting -> deleteStatus
+                    path == "/auth/logout" -> logoutStatus
+                    path == "/me/subscription" -> usageStatus
+                    request.method == "PUT" -> updateStatus
+                    else -> 200
+                }
                 if (request.method == "PUT") beforeUpdate?.invoke()
-                val body = if (code >= 400) """{"error":{"code":"FAILED","message":"Unable to update profile"}}"""
-                    else when (path) {
+                val body = if (code >= 400) """{"error":{"code":"${if (code == 401) "UNAUTHORIZED" else "FAILED"}","message":"Unable to update profile"}}"""
+                    else if (deleting) "" else when (path) {
                         "/me/specialization" -> {
                             specialization = payload(request).get("specialization").asString
                             profileBody()
@@ -131,6 +142,7 @@ class ProfileSettingsTest {
                             body
                         }
                         "/auth/logout" -> ""
+                        "/auth/refresh" -> """{"accessToken":"renewed","refreshToken":"renewed-refresh","expiresIn":900}"""
                         "/auth/register" -> """{"message":"Account created"}"""
                         else -> error("Unexpected path $path")
                     }
@@ -512,6 +524,140 @@ class ProfileSettingsTest {
         assertEquals(1, f.calls("/questions"))
         assertEquals(1, f.calls("/questions/saved"))
         assertEquals(8, f.cache.observe(f.tokens.sessionVersion).first()!!.summary.streakDays)
+    }
+
+    @Test fun deleteRequiresConfirmationAndCancelDoesNotSendARequest() = runTest(dispatcher) {
+        val f = Fixture()
+        val vm = f.profileVm()
+        vm.open()
+        readyProfile(vm)
+        vm.deleteAccount()
+        vm.showDeleteAccountDialog()
+        assertFalse(vm.state.value.deleteAccountDialog)
+        vm.openAccount()
+        vm.showDeleteAccountDialog()
+        assertTrue(vm.state.value.deleteAccountDialog)
+        vm.dismissDeleteAccountDialog()
+        assertFalse(vm.state.value.deleteAccountDialog)
+        vm.showDeleteAccountDialog()
+        assertFalse(vm.back())
+        assertFalse(vm.state.value.deleteAccountDialog)
+        assertEquals(ProfilePage.ACCOUNT, vm.state.value.page)
+        assertTrue(f.requests.none { it.method == "DELETE" })
+        assertNotNull(f.tokens.refreshToken)
+    }
+
+    @Test fun deletingAccountClearsTheSameLocalDataAsLogoutBeforeNavigating() = runTest(dispatcher) {
+        val f = Fixture()
+        f.seedData()
+        val vm = f.profileVm()
+        vm.open()
+        readyProfile(vm)
+        vm.openAccount()
+        vm.showDeleteAccountDialog()
+        vm.deleteAccount()
+        vm.state.first { it.signedOut }
+        val request = f.requests.single { it.method == "DELETE" }
+        assertEquals("/me", request.url.encodedPath)
+        assertEquals("Bearer access", request.header("Authorization"))
+        assertNull(request.body)
+        assertNull(request.url.query)
+        assertEquals(0, f.calls("/auth/logout"))
+        assertNull(f.tokens.accessToken)
+        assertNull(f.tokens.refreshToken)
+        assertFalse(f.database.topicDao().hasCatalog("seed"))
+        assertTrue(f.prefs.all.isEmpty())
+        assertEquals(ThemeMode.SYSTEM, f.preferences.theme.value)
+        assertNull(f.cache.observe(f.tokens.sessionVersion).first())
+        assertNull(f.manage.currentUsage())
+        assertSame(ContentViewState.NotLoaded, vm.state.value.profile)
+        assertEquals(ProfilePage.CLOSED, vm.state.value.page)
+        assertFalse(vm.state.value.deleteAccountDialog)
+    }
+
+    @Test fun failedDeleteKeepsAccountAndDataAndAllowsRetry() = runTest(dispatcher) {
+        val f = Fixture().apply { deleteStatus = 500 }
+        f.seedData()
+        val vm = f.profileVm()
+        vm.open()
+        readyProfile(vm)
+        vm.openAccount()
+        vm.showDeleteAccountDialog()
+        vm.deleteAccount()
+        vm.state.first { it.deleteAccountError }
+        assertFalse(vm.state.value.signedOut)
+        assertFalse(vm.state.value.isSaving)
+        assertTrue(vm.state.value.deleteAccountDialog)
+        assertEquals("refresh", f.tokens.refreshToken)
+        assertTrue(f.database.topicDao().hasCatalog("seed"))
+        assertEquals(ThemeMode.DARK, f.preferences.theme.value)
+        assertNotNull(f.cache.observe(f.tokens.sessionVersion).first())
+        f.deleteStatus = 204
+        vm.deleteAccount()
+        vm.state.first { it.signedOut }
+        assertEquals(2, f.requests.count { it.method == "DELETE" })
+    }
+
+    @Test fun deleteLocksUiAndPreventsDismissalLogoutAndDuplicateRequests() = runTest(dispatcher) {
+        val started = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val f = Fixture()
+        f.beforeDelete = { started.complete(Unit); check(release.await(5, TimeUnit.SECONDS)) }
+        val vm = f.profileVm()
+        vm.open()
+        readyProfile(vm)
+        vm.openAccount()
+        try {
+            vm.showDeleteAccountDialog()
+            vm.deleteAccount()
+            started.await()
+            assertTrue(vm.state.value.isDeletingAccount)
+            assertTrue(vm.state.value.isSaving)
+            vm.deleteAccount()
+            vm.dismissDeleteAccountDialog()
+            vm.signOut()
+            assertFalse(vm.back())
+            assertTrue(vm.state.value.deleteAccountDialog)
+            assertEquals(1, f.requests.count { it.method == "DELETE" })
+            assertEquals(0, f.calls("/auth/logout"))
+            assertNotNull(f.tokens.refreshToken)
+        } finally { release.countDown() }
+        vm.state.first { it.signedOut }
+    }
+
+    @Test fun deleteRefreshesAnExpiredAccessTokenThenRetriesTheAuthorizedRequest() = runTest(dispatcher) {
+        val f = Fixture().apply { expireDeleteAccess = true }
+        f.seedData()
+        val vm = f.profileVm()
+        vm.open()
+        readyProfile(vm)
+        vm.openAccount()
+        vm.showDeleteAccountDialog()
+        vm.deleteAccount()
+        vm.state.first { it.signedOut }
+        val requests = f.requests.filter { it.method == "DELETE" }
+        assertEquals(2, requests.size)
+        assertEquals("Bearer renewed", requests.last().header("Authorization"))
+        assertEquals(1, f.calls("/auth/refresh"))
+        assertTrue(requests.all { it.body == null })
+        assertNull(f.tokens.refreshToken)
+    }
+
+    @Test fun lateDeletionResponseCannotEraseAnotherUserSession() = runTest(dispatcher) {
+        val started = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val f = Fixture()
+        f.seedData()
+        f.beforeDelete = { started.complete(Unit); check(release.await(5, TimeUnit.SECONDS)) }
+        val deletion = async { runCatching { f.auth.deleteAccount() } }
+        try {
+            started.await()
+            f.tokens.saveSession("other-access", "other-refresh")
+        } finally { release.countDown() }
+        assertTrue(deletion.await().exceptionOrNull() is kotlinx.coroutines.CancellationException)
+        assertEquals("other-access", f.tokens.accessToken)
+        assertEquals("other-refresh", f.tokens.refreshToken)
+        assertTrue(f.database.topicDao().hasCatalog("seed"))
     }
 
     @Test fun signOutClearsRoomTokensPreferencesProfileAndStatsBeforeNavigating() = runTest(dispatcher) {

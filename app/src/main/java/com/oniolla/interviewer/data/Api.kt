@@ -188,6 +188,9 @@ interface Api {
     @GET("me")
     suspend fun me(@Tag session: SessionSnapshot? = null): MeResponse
 
+    @DELETE("me")
+    suspend fun deleteAccount(@Tag session: SessionSnapshot? = null)
+
     @POST("auth/email/verify")
     suspend fun verifyEmail(@Body verifyEmailPayload: VerifyEmailPayload): LoginResponse
 

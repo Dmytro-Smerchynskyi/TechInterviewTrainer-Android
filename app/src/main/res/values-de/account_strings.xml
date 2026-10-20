@@ -36,5 +36,13 @@
     <string name="account_back">Zurück zu den Kontoeinstellungen</string>
     <string name="account_verify_identity">Bestätige deine Identität</string>
     <string name="account_resend_password_description">Gib dein aktuelles Passwort ein, um den Bestätigungscode erneut zu senden.</string>
+    <string name="profile_delete_account">Konto löschen</string>
+    <string name="profile_delete_title">Konto löschen?</string>
+    <string name="profile_delete_message">Dein Konto und dein Trainingsverlauf werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.</string>
+    <string name="profile_delete_cancel">Abbrechen</string>
+    <string name="profile_deleting_account">Wird gelöscht…</string>
+    <string name="profile_delete_error">Dein Konto konnte nicht gelöscht werden. Bitte versuche es erneut.</string>
+    <string name="account_danger_zone">Gefahrenbereich</string>
+    <string name="account_delete_description">Konto und Trainingsverlauf dauerhaft löschen.</string>
 </resources>
 

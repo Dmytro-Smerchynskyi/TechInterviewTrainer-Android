@@ -36,4 +36,12 @@
     <string name="account_back">Назад до налаштувань облікового запису</string>
     <string name="account_verify_identity">Підтвердіть свою особу</string>
     <string name="account_resend_password_description">Введіть поточний пароль, щоб повторно надіслати код підтвердження.</string>
+    <string name="profile_delete_account">Видалити обліковий запис</string>
+    <string name="profile_delete_title">Видалити обліковий запис?</string>
+    <string name="profile_delete_message">Ваш обліковий запис та історію тренувань буде видалено назавжди. Цю дію неможливо скасувати.</string>
+    <string name="profile_delete_cancel">Скасувати</string>
+    <string name="profile_deleting_account">Видалення…</string>
+    <string name="profile_delete_error">Не вдалося видалити обліковий запис. Спробуйте ще раз.</string>
+    <string name="account_danger_zone">Небезпечна зона</string>
+    <string name="account_delete_description">Назавжди видалити обліковий запис та історію тренувань.</string>
 </resources>

@@ -36,5 +36,13 @@
     <string name="account_back">Назад к настройкам аккаунта</string>
     <string name="account_verify_identity">Подтвердите личность</string>
     <string name="account_resend_password_description">Введите текущий пароль, чтобы повторно отправить код подтверждения.</string>
+    <string name="profile_delete_account">Удалить аккаунт</string>
+    <string name="profile_delete_title">Удалить аккаунт?</string>
+    <string name="profile_delete_message">Ваш аккаунт и история тренировок будут удалены навсегда. Это действие нельзя отменить.</string>
+    <string name="profile_delete_cancel">Отмена</string>
+    <string name="profile_deleting_account">Удаление…</string>
+    <string name="profile_delete_error">Не удалось удалить аккаунт. Попробуйте ещё раз.</string>
+    <string name="account_danger_zone">Опасная зона</string>
+    <string name="account_delete_description">Удалить аккаунт и историю тренировок навсегда.</string>
 </resources>
 

@@ -36,5 +36,13 @@
     <string name="account_back">Torna alle impostazioni account</string>
     <string name="account_verify_identity">Verifica la tua identità</string>
     <string name="account_resend_password_description">Inserisci la password attuale per inviare di nuovo il codice di verifica.</string>
+    <string name="profile_delete_account">Elimina account</string>
+    <string name="profile_delete_title">Eliminare il tuo account?</string>
+    <string name="profile_delete_message">Il tuo account e la cronologia degli allenamenti verranno eliminati definitivamente. Questa azione è irreversibile.</string>
+    <string name="profile_delete_cancel">Annulla</string>
+    <string name="profile_deleting_account">Eliminazione…</string>
+    <string name="profile_delete_error">Impossibile eliminare il tuo account. Riprova.</string>
+    <string name="account_danger_zone">Zona pericolosa</string>
+    <string name="account_delete_description">Elimina definitivamente account e cronologia degli allenamenti.</string>
 </resources>
 

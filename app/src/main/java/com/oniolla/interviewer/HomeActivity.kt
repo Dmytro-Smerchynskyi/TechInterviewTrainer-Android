@@ -122,8 +122,11 @@ class HomeActivity : ComponentActivity() {
                     }
                 }
                 val profileOpen = profileState.page != ProfilePage.CLOSED
-                val back: () -> Unit = {
-                    if (profileState.page == ProfilePage.ACCOUNT) {
+                val back: () -> Unit = back@ {
+                    if (profileState.isDeletingAccount) return@back
+                    if (profileState.deleteAccountDialog) {
+                        profileViewModel.dismissDeleteAccountDialog()
+                    } else if (profileState.page == ProfilePage.ACCOUNT) {
                         if (accountViewModel.back()) {
                             profileViewModel.finishAccount(
                                 (accountViewModel.state.value.profile as? ContentViewState.Ready)?.content,
@@ -223,7 +226,13 @@ class HomeActivity : ComponentActivity() {
                             onDismissResendPassword = accountViewModel::dismissResendPassword,
                             onChangeEmailAddress = accountViewModel::changeEmailAddress,
                             onPaste = accountViewModel::pasteCode,
-                            onRetryProfile = accountViewModel::loadProfile
+                            onRetryProfile = accountViewModel::loadProfile,
+                            onDeleteAccount = profileViewModel::showDeleteAccountDialog,
+                            onDismissDeleteAccount = profileViewModel::dismissDeleteAccountDialog,
+                            onConfirmDeleteAccount = profileViewModel::deleteAccount,
+                            showDeleteAccountDialog = profileState.deleteAccountDialog,
+                            isDeletingAccount = profileState.isDeletingAccount,
+                            deleteAccountError = profileState.deleteAccountError
                         ) else if (destination == "profile") ProfileScreens(
                             state = profileState,
                             onBack = back,

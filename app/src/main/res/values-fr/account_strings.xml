@@ -36,5 +36,13 @@
     <string name="account_back">Retour aux paramètres du compte</string>
     <string name="account_verify_identity">Confirmez votre identité</string>
     <string name="account_resend_password_description">Saisissez votre mot de passe actuel pour renvoyer le code de confirmation.</string>
+    <string name="profile_delete_account">Supprimer le compte</string>
+    <string name="profile_delete_title">Supprimer votre compte ?</string>
+    <string name="profile_delete_message">Votre compte et votre historique d’entraînement seront définitivement supprimés. Cette action est irréversible.</string>
+    <string name="profile_delete_cancel">Annuler</string>
+    <string name="profile_deleting_account">Suppression…</string>
+    <string name="profile_delete_error">Impossible de supprimer votre compte. Veuillez réessayer.</string>
+    <string name="account_danger_zone">Zone dangereuse</string>
+    <string name="account_delete_description">Supprimez définitivement votre compte et votre historique d’entraînement.</string>
 </resources>
 

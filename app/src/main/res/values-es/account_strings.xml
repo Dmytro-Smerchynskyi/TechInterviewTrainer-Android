@@ -36,5 +36,13 @@
     <string name="account_back">Volver a los ajustes de la cuenta</string>
     <string name="account_verify_identity">Verifica tu identidad</string>
     <string name="account_resend_password_description">Introduce tu contraseña actual para reenviar el código de verificación.</string>
+    <string name="profile_delete_account">Eliminar cuenta</string>
+    <string name="profile_delete_title">¿Eliminar tu cuenta?</string>
+    <string name="profile_delete_message">Tu cuenta y tu historial de práctica se eliminarán de forma permanente. Esta acción no se puede deshacer.</string>
+    <string name="profile_delete_cancel">Cancelar</string>
+    <string name="profile_deleting_account">Eliminando…</string>
+    <string name="profile_delete_error">No se pudo eliminar tu cuenta. Inténtalo de nuevo.</string>
+    <string name="account_danger_zone">Zona de peligro</string>
+    <string name="account_delete_description">Elimina permanentemente tu cuenta y tu historial de práctica.</string>
 </resources>
 

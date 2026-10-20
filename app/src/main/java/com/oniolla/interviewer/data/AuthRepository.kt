@@ -70,14 +70,24 @@ class AuthRepository @Inject constructor(
         } catch (_: ApiException) {
             // Offline or already revoked: still allow the user to leave this device.
         } finally {
-            withContext(NonCancellable) {
-                val cleared = synchronized(tokenStorage) {
-                    if (tokenStorage.sessionVersion != session.version) false
-                    else { clearSession(); true }
-                }
-                if (cleared) localUserData?.clear()
-            }
+            clearSessionData(session.version)
         }
+    }
+
+    suspend fun deleteAccount() {
+        val session = sessionRefresh.authorizedApiCall { session ->
+            api.deleteAccount(session)
+            session
+        }
+        clearSessionData(session.version)
+    }
+
+    private suspend fun clearSessionData(sessionVersion: Long) = withContext(NonCancellable) {
+        val cleared = synchronized(tokenStorage) {
+            if (tokenStorage.sessionVersion != sessionVersion) false
+            else { clearSession(); true }
+        }
+        if (cleared) localUserData?.clear()
     }
 
     suspend fun login(loginPayload: LoginPayload): LoginResponse =

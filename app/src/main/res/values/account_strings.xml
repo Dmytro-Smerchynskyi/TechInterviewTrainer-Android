@@ -36,4 +36,12 @@
     <string name="account_back">Back to account settings</string>
     <string name="account_verify_identity">Verify your identity</string>
     <string name="account_resend_password_description">Enter your current password to resend the verification code.</string>
+    <string name="profile_delete_account">Delete Account</string>
+    <string name="profile_delete_title">Delete your account?</string>
+    <string name="profile_delete_message">Your account and training history will be permanently deleted. This action cannot be undone.</string>
+    <string name="profile_delete_cancel">Cancel</string>
+    <string name="profile_deleting_account">Deleting…</string>
+    <string name="profile_delete_error">Couldn’t delete your account. Please try again.</string>
+    <string name="account_danger_zone">Danger Zone</string>
+    <string name="account_delete_description">Permanently delete your account and training history.</string>
 </resources>

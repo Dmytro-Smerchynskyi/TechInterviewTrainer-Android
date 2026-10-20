@@ -102,7 +102,7 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 12.dp, end = 20.dp, top = 12.dp, bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 val backDescription = stringResource(R.string.profile_back)
-                Surface(onClick = onBack, enabled = !state.isSigningOut,
+                Surface(onClick = onBack, enabled = !state.isSaving,
                     modifier = Modifier.size(28.dp).semantics { contentDescription = backDescription },
                     color = Color.Transparent, shape = CircleShape) {
                     Box(contentAlignment = Alignment.Center) {
@@ -136,7 +136,7 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
                 Text(stringResource(R.string.profile_data), color = AppTheme.colors.primaryText,
                     fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(8.dp))
-                Surface(onClick = onSignOut, enabled = !state.isSigningOut,
+                Surface(onClick = onSignOut, enabled = !state.isSaving,
                     modifier = Modifier.fillMaxWidth().height(38.dp), shape = RoundedCornerShape(19.dp),
                     color = AppTheme.colors.container, border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
                     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center,
@@ -181,7 +181,7 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
                 val specializationText = specialization?.let { stringResource(it.titleResource) }
                     ?: profile.content.specialization.orEmpty()
                 ProfilePreference(stringResource(R.string.specialization), specializationText,
-                    enabled = !state.isSigningOut, onClick = onSpecialization) {
+                    enabled = !state.isSaving, onClick = onSpecialization) {
                     ProfileBadge(specialization?.badge ?: "?", AppTheme.colors.success)
                 }
                 Spacer(Modifier.height(6.dp))
@@ -191,22 +191,22 @@ private fun ProfileScreen(state: ProfileViewState, onBack: () -> Unit, onRetry: 
                     else Locale.forLanguageTag(language).getDisplayName(locale)
                         .replaceFirstChar { it.titlecase(locale) }
                 ProfilePreference(stringResource(R.string.preparation_language), languageName,
-                    enabled = !state.isSigningOut, onClick = onLanguage) {
+                    enabled = !state.isSaving, onClick = onLanguage) {
                     ProfileBadge(language.substringBefore('-').uppercase(Locale.ROOT).take(3), AppTheme.colors.info)
                 }
                 Spacer(Modifier.height(6.dp))
                 ProfilePreference(stringResource(R.string.profile_theme), themeLabel(state.theme),
-                    enabled = !state.isSigningOut, onClick = onTheme) {
+                    enabled = !state.isSaving, onClick = onTheme) {
                     Image(painterResource(R.drawable.profile_icon_settings), null, Modifier.size(20.dp),
                         colorFilter = ColorFilter.tint(AppTheme.colors.homeIcon))
                 }
                 Spacer(Modifier.height(6.dp))
                 ProfilePreference(stringResource(R.string.profile_about),
                     stringResource(R.string.profile_version, BuildConfig.VERSION_NAME),
-                    enabled = !state.isSigningOut, chevron = false, onClick = null) {
+                    enabled = !state.isSaving, chevron = false, onClick = null) {
                     FigmaIcon("code", Modifier.size(20.dp), AppTheme.colors.homeIcon)
                 }
-                ProfileUsage(state.usage, !state.isSigningOut, onRetryUsage, onUpgrade, state.subscription)
+                ProfileUsage(state.usage, !state.isSaving, onRetryUsage, onUpgrade, state.subscription)
                 Spacer(Modifier.height(20.dp))
             }
         }

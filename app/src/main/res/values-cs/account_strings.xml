@@ -36,5 +36,13 @@
     <string name="account_back">Zpět do nastavení účtu</string>
     <string name="account_verify_identity">Ověřte svou totožnost</string>
     <string name="account_resend_password_description">Zadejte aktuální heslo pro opětovné odeslání ověřovacího kódu.</string>
+    <string name="profile_delete_account">Smazat účet</string>
+    <string name="profile_delete_title">Smazat účet?</string>
+    <string name="profile_delete_message">Váš účet a historie tréninků budou trvale smazány. Tuto akci nelze vrátit zpět.</string>
+    <string name="profile_delete_cancel">Zrušit</string>
+    <string name="profile_deleting_account">Mazání…</string>
+    <string name="profile_delete_error">Účet se nepodařilo smazat. Zkuste to znovu.</string>
+    <string name="account_danger_zone">Nebezpečná zóna</string>
+    <string name="account_delete_description">Trvale smazat účet a historii tréninků.</string>
 </resources>
 

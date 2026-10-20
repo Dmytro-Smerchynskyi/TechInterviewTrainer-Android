@@ -17,6 +17,18 @@ fun AccountDarkPreview() { InterviewTrainerTheme(darkTheme = true) { AccountScre
 
 @Preview(widthDp = 390, heightDp = 844)
 @Composable
+fun AccountDeleteDarkPreview() {
+    InterviewTrainerTheme(darkTheme = true) { AccountScreens(accountPreview, showDeleteAccountDialog = true) }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun AccountDeleteLightPreview() {
+    InterviewTrainerTheme(darkTheme = false) { AccountScreens(accountPreview, showDeleteAccountDialog = true) }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
 fun AccountLightPreview() { InterviewTrainerTheme(darkTheme = false) { AccountScreens(accountPreview) } }
 
 @Preview(widthDp = 390, heightDp = 844)

@@ -17,6 +17,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
@@ -62,13 +64,20 @@ fun AccountScreens(
     onChangeEmailAddress: () -> Unit = {},
     onPaste: (String?) -> Unit = {},
     onRetryProfile: () -> Unit = {},
-    onDismissResendPassword: () -> Unit = {}
+    onDismissResendPassword: () -> Unit = {},
+    onDeleteAccount: () -> Unit = {},
+    onDismissDeleteAccount: () -> Unit = {},
+    onConfirmDeleteAccount: () -> Unit = {},
+    showDeleteAccountDialog: Boolean = false,
+    isDeletingAccount: Boolean = false,
+    deleteAccountError: Boolean = false
 ) {
     AnimatedContent(state.page, modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
         transitionSpec = { fadeIn(tween(250)).togetherWith(fadeOut(tween(250))).using(null) },
         label = "account pages") { page ->
         when (page) {
-            AccountPage.OVERVIEW -> AccountOverview(state, onBack, onEdit, onRetryProfile)
+            AccountPage.OVERVIEW -> AccountOverview(state.copy(isSaving = state.isSaving || isDeletingAccount),
+                onBack, onEdit, onRetryProfile, onDeleteAccount)
             AccountPage.CODE -> EmailConfirmation(state.email, state.code, state.errors[AccountField.CODE],
                 state.isSaving, state.isResending, { onUpdate(AccountField.CODE, it) },
                 { onFocused(AccountField.CODE) }, onSubmit, onResend, onChangeEmailAddress, onPaste,
@@ -85,6 +94,8 @@ fun AccountScreens(
             else -> AccountEditor(state.copy(page = page), onBack, onUpdate, onFocused, onSubmit)
         }
     }
+    if (showDeleteAccountDialog) DeleteAccountDialog(isDeletingAccount, deleteAccountError,
+        onDismissDeleteAccount, onConfirmDeleteAccount)
     if (state.page == AccountPage.CODE && state.showResendPasswordDialog) {
         AlertDialog(
             onDismissRequest = onDismissResendPassword,
@@ -110,8 +121,49 @@ fun AccountScreens(
 }
 
 @Composable
+private fun DeleteAccountDialog(isDeletingAccount: Boolean, hasError: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnBackPress = !isDeletingAccount,
+            dismissOnClickOutside = !isDeletingAccount),
+        containerColor = AppTheme.colors.container,
+        icon = {
+            Image(painterResource(R.drawable.profile_warning), null, Modifier.size(32.dp),
+                colorFilter = ColorFilter.tint(AppTheme.colors.warning))
+        },
+        title = {
+            Text(stringResource(R.string.profile_delete_title), color = AppTheme.colors.primaryText,
+                fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.profile_delete_message), color = AppTheme.colors.secondaryText,
+                    fontSize = 14.sp, lineHeight = 20.sp)
+                if (hasError) Text(stringResource(R.string.profile_delete_error),
+                    color = AppTheme.colors.red, fontSize = 14.sp, lineHeight = 20.sp)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = !isDeletingAccount) {
+                if (isDeletingAccount) {
+                    CircularProgressIndicator(Modifier.size(16.dp), color = AppTheme.colors.red, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(stringResource(if (isDeletingAccount) R.string.profile_deleting_account
+                    else R.string.profile_delete_account), color = AppTheme.colors.red)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isDeletingAccount) {
+                Text(stringResource(R.string.profile_delete_cancel), color = AppTheme.colors.secondaryText)
+            }
+        }
+    )
+}
+
+@Composable
 private fun AccountOverview(state: AccountViewState, onBack: () -> Unit,
-    onEdit: (AccountPage) -> Unit, onRetryProfile: () -> Unit) {
+    onEdit: (AccountPage) -> Unit, onRetryProfile: () -> Unit, onDeleteAccount: () -> Unit) {
     Scaffold(containerColor = AppTheme.colors.background) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
@@ -165,6 +217,10 @@ private fun AccountOverview(state: AccountViewState, onBack: () -> Unit,
                         enabled = !state.isSaving)
                 }
             }
+            AccountSection(stringResource(R.string.account_danger_zone))
+            AccountRow(stringResource(R.string.profile_delete_account),
+                stringResource(R.string.account_delete_description), enabled = !state.isSaving,
+                onClick = onDeleteAccount, destructive = true)
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -177,18 +233,21 @@ private fun AccountSection(title: String) {
 }
 
 @Composable
-private fun AccountRow(title: String, subtitle: String, enabled: Boolean, onClick: (() -> Unit)? = null) {
+private fun AccountRow(title: String, subtitle: String, enabled: Boolean, onClick: (() -> Unit)? = null,
+    destructive: Boolean = false) {
+    val iconColor = if (destructive) AppTheme.colors.red else AppTheme.colors.homeIcon
     SettingsRowSurface(Modifier.fillMaxWidth().heightIn(min = 54.dp), onClick, enabled) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Image(painterResource(R.drawable.profile_icon_settings), null, Modifier.size(20.dp),
-                colorFilter = ColorFilter.tint(AppTheme.colors.homeIcon))
+            Image(painterResource(if (destructive) R.drawable.profile_warning else R.drawable.profile_icon_settings),
+                null, Modifier.size(20.dp), colorFilter = ColorFilter.tint(iconColor))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(title, color = AppTheme.colors.primaryText, fontSize = 11.sp, lineHeight = 14.sp,
+                Text(title, color = if (destructive) AppTheme.colors.red else AppTheme.colors.primaryText,
+                    fontSize = 11.sp, lineHeight = 14.sp,
                     fontWeight = FontWeight.SemiBold)
                 Text(subtitle, color = AppTheme.colors.secondaryText, fontSize = 9.sp, lineHeight = 12.sp)
             }
-            if (onClick != null) FigmaIcon("chevron", Modifier.size(18.dp), AppTheme.colors.homeIcon)
+            if (onClick != null) FigmaIcon("chevron", Modifier.size(18.dp), iconColor)
         }
     }
 }

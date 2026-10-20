@@ -12,5 +12,8 @@
 # Preserve generic field types and Gson annotations used by the API models.
 -keepattributes Signature,RuntimeVisibleAnnotations,AnnotationDefault
 
+# Retain source file names and line numbers for readable Crashlytics stack traces.
+-keepattributes SourceFile,LineNumberTable
+
 # OkHttp, Retrofit, Gson, Hilt, Room and coroutines supply their own consumer rules.
 # The rest of the application and those libraries remain eligible for R8 optimization.

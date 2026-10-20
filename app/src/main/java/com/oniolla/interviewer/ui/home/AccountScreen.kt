@@ -17,8 +17,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
@@ -64,20 +62,13 @@ fun AccountScreens(
     onChangeEmailAddress: () -> Unit = {},
     onPaste: (String?) -> Unit = {},
     onRetryProfile: () -> Unit = {},
-    onDismissResendPassword: () -> Unit = {},
-    onDeleteAccount: () -> Unit = {},
-    onDismissDeleteAccount: () -> Unit = {},
-    onConfirmDeleteAccount: () -> Unit = {},
-    showDeleteAccountDialog: Boolean = false,
-    isDeletingAccount: Boolean = false,
-    deleteAccountError: Boolean = false
+    onDismissResendPassword: () -> Unit = {}
 ) {
     AnimatedContent(state.page, modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
         transitionSpec = { fadeIn(tween(250)).togetherWith(fadeOut(tween(250))).using(null) },
         label = "account pages") { page ->
         when (page) {
-            AccountPage.OVERVIEW -> AccountOverview(state.copy(isSaving = state.isSaving || isDeletingAccount),
-                onBack, onEdit, onRetryProfile, onDeleteAccount)
+            AccountPage.OVERVIEW -> AccountOverview(state, onBack, onEdit, onRetryProfile)
             AccountPage.CODE -> EmailConfirmation(state.email, state.code, state.errors[AccountField.CODE],
                 state.isSaving, state.isResending, { onUpdate(AccountField.CODE, it) },
                 { onFocused(AccountField.CODE) }, onSubmit, onResend, onChangeEmailAddress, onPaste,
@@ -94,8 +85,6 @@ fun AccountScreens(
             else -> AccountEditor(state.copy(page = page), onBack, onUpdate, onFocused, onSubmit)
         }
     }
-    if (showDeleteAccountDialog) DeleteAccountDialog(isDeletingAccount, deleteAccountError,
-        onDismissDeleteAccount, onConfirmDeleteAccount)
     if (state.page == AccountPage.CODE && state.showResendPasswordDialog) {
         AlertDialog(
             onDismissRequest = onDismissResendPassword,
@@ -121,49 +110,8 @@ fun AccountScreens(
 }
 
 @Composable
-private fun DeleteAccountDialog(isDeletingAccount: Boolean, hasError: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(dismissOnBackPress = !isDeletingAccount,
-            dismissOnClickOutside = !isDeletingAccount),
-        containerColor = AppTheme.colors.container,
-        icon = {
-            Image(painterResource(R.drawable.profile_warning), null, Modifier.size(32.dp),
-                colorFilter = ColorFilter.tint(AppTheme.colors.warning))
-        },
-        title = {
-            Text(stringResource(R.string.profile_delete_title), color = AppTheme.colors.primaryText,
-                fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.profile_delete_message), color = AppTheme.colors.secondaryText,
-                    fontSize = 14.sp, lineHeight = 20.sp)
-                if (hasError) Text(stringResource(R.string.profile_delete_error),
-                    color = AppTheme.colors.red, fontSize = 14.sp, lineHeight = 20.sp)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm, enabled = !isDeletingAccount) {
-                if (isDeletingAccount) {
-                    CircularProgressIndicator(Modifier.size(16.dp), color = AppTheme.colors.red, strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text(stringResource(if (isDeletingAccount) R.string.profile_deleting_account
-                    else R.string.profile_delete_account), color = AppTheme.colors.red)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isDeletingAccount) {
-                Text(stringResource(R.string.profile_delete_cancel), color = AppTheme.colors.secondaryText)
-            }
-        }
-    )
-}
-
-@Composable
 private fun AccountOverview(state: AccountViewState, onBack: () -> Unit,
-    onEdit: (AccountPage) -> Unit, onRetryProfile: () -> Unit, onDeleteAccount: () -> Unit) {
+    onEdit: (AccountPage) -> Unit, onRetryProfile: () -> Unit) {
     Scaffold(containerColor = AppTheme.colors.background) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
@@ -220,7 +168,7 @@ private fun AccountOverview(state: AccountViewState, onBack: () -> Unit,
             AccountSection(stringResource(R.string.account_danger_zone))
             AccountRow(stringResource(R.string.profile_delete_account),
                 stringResource(R.string.account_delete_description), enabled = !state.isSaving,
-                onClick = onDeleteAccount, destructive = true)
+                onClick = { onEdit(AccountPage.DELETE) }, destructive = true)
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -267,19 +215,23 @@ private fun AccountBack(onClick: () -> Unit, enabled: Boolean) {
 private fun AccountEditor(state: AccountViewState, onBack: () -> Unit,
     onUpdate: (AccountField, String) -> Unit, onFocused: (AccountField) -> Unit, onSubmit: () -> Unit) {
     val password = state.page == AccountPage.PASSWORD
+    val deleting = state.page == AccountPage.DELETE
     val title = when (state.page) {
         AccountPage.NAME -> R.string.account_change_name
         AccountPage.EMAIL -> R.string.account_change_email
+        AccountPage.DELETE -> R.string.profile_delete_title
         else -> if (state.hasPassword) R.string.account_change_password else R.string.account_set_password
     }
     val subtitle = when (state.page) {
         AccountPage.NAME -> R.string.account_name_description
         AccountPage.EMAIL -> R.string.account_email_description
+        AccountPage.DELETE -> R.string.profile_delete_message
         else -> R.string.account_password_description
     }
     val button = when (state.page) {
         AccountPage.NAME -> R.string.account_save_name
         AccountPage.EMAIL -> R.string.account_send_code
+        AccountPage.DELETE -> R.string.profile_delete_account
         else -> if (state.hasPassword) R.string.account_change_password_button else R.string.account_set_password_button
     }
     Scaffold(modifier = Modifier.fillMaxSize().imePadding(), containerColor = AppTheme.colors.background) { padding ->
@@ -288,18 +240,21 @@ private fun AccountEditor(state: AccountViewState, onBack: () -> Unit,
             horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth().padding(top = 12.dp)) { AccountBack(onBack, !state.isSaving) }
             Spacer(Modifier.height(44.dp))
-            Box(Modifier.size(80.dp).background(AppTheme.colors.link.copy(alpha = 0.11f), CircleShape)
+            Box(Modifier.size(80.dp).background(
+                (if (deleting) AppTheme.colors.red else AppTheme.colors.link).copy(alpha = 0.11f), CircleShape)
                 .clip(CircleShape), contentAlignment = Alignment.Center) {
                 val icon = when (state.page) {
                     AccountPage.NAME -> R.drawable.account_user_mark
                     AccountPage.EMAIL -> R.drawable.account_mail_mark
+                    AccountPage.DELETE -> R.drawable.profile_warning
                     else -> R.drawable.account_lock_mark
                 }
                 Surface(Modifier.fillMaxSize(), shape = CircleShape, color = Color.Transparent,
-                    border = BorderStroke(1.dp, AppTheme.colors.stroke)) {
+                    border = BorderStroke(1.dp, if (deleting) AppTheme.colors.red.copy(alpha = 0.35f) else AppTheme.colors.stroke)) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(painterResource(icon), null, Modifier.size(32.dp),
-                            tint = if (state.page == AccountPage.EMAIL) AppTheme.colors.link else AppTheme.colors.secondaryText)
+                            tint = if (deleting) AppTheme.colors.red else
+                                if (state.page == AccountPage.EMAIL) AppTheme.colors.link else AppTheme.colors.secondaryText)
                     }
                 }
             }
@@ -325,6 +280,11 @@ private fun AccountEditor(state: AccountViewState, onBack: () -> Unit,
                             onUpdate, onFocused, onSubmit)
                     }
                 }
+                AccountPage.DELETE -> if (state.hasPassword) {
+                    AccountInput(state, AccountField.CURRENT_PASSWORD, state.currentPassword, R.string.account_current_password,
+                        R.string.password_placeholder, R.drawable.lock, KeyboardType.Password, ImeAction.Done,
+                        onUpdate, onFocused, onSubmit)
+                }
                 AccountPage.PASSWORD -> {
                     if (state.hasPassword) {
                         AccountInput(state, AccountField.CURRENT_PASSWORD, state.currentPassword, R.string.account_current_password,
@@ -342,11 +302,12 @@ private fun AccountEditor(state: AccountViewState, onBack: () -> Unit,
                 }
                 else -> Unit
             }
-            val google = !state.hasPassword && state.page in listOf(AccountPage.EMAIL, AccountPage.PASSWORD)
+            val google = !state.hasPassword && state.page in listOf(AccountPage.EMAIL, AccountPage.PASSWORD, AccountPage.DELETE)
             val buttonModifier = Modifier.fillMaxWidth().padding(top = if (password) 42.dp else 16.dp)
             val loadingLabel = stringResource(when {
                 state.googleRequestId != null -> R.string.google_signing_in
                 state.page == AccountPage.EMAIL -> R.string.sending_verification_code
+                deleting -> R.string.profile_deleting_account
                 else -> R.string.account_saving
             })
             if (google) {
@@ -354,10 +315,12 @@ private fun AccountEditor(state: AccountViewState, onBack: () -> Unit,
                     enabled = !state.isSaving && state.profile is ContentViewState.Ready,
                     loading = state.isSaving, onClick = onSubmit,
                     modifier = buttonModifier, loadingLabel = loadingLabel)
-                AccountGoogleError(state.googleError)
             } else MainButton(buttonModifier, onClick = onSubmit, buttonText = stringResource(button),
                 enabled = !state.isSaving && state.profile is ContentViewState.Ready,
-                loadingButtonText = loadingLabel, isLoading = state.isSaving)
+                loadingButtonText = loadingLabel, isLoading = state.isSaving,
+                gradientColors = if (deleting) listOf(AppTheme.colors.red.copy(alpha = 0.9f), AppTheme.colors.red) else null)
+            AccountGoogleError(if (deleting && state.actionError != null)
+                stringResource(R.string.profile_delete_error) else state.googleError)
             Spacer(Modifier.height(32.dp))
         }
     }

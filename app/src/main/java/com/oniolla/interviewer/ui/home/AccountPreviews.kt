@@ -18,13 +18,31 @@ fun AccountDarkPreview() { InterviewTrainerTheme(darkTheme = true) { AccountScre
 @Preview(widthDp = 390, heightDp = 844)
 @Composable
 fun AccountDeleteDarkPreview() {
-    InterviewTrainerTheme(darkTheme = true) { AccountScreens(accountPreview, showDeleteAccountDialog = true) }
+    InterviewTrainerTheme(darkTheme = true) { AccountScreens(accountPreview.copy(page = AccountPage.DELETE)) }
 }
 
 @Preview(widthDp = 390, heightDp = 844)
 @Composable
 fun AccountDeleteLightPreview() {
-    InterviewTrainerTheme(darkTheme = false) { AccountScreens(accountPreview, showDeleteAccountDialog = true) }
+    InterviewTrainerTheme(darkTheme = false) { AccountScreens(accountPreview.copy(page = AccountPage.DELETE)) }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun AccountDeleteGooglePreview() {
+    InterviewTrainerTheme(darkTheme = true) {
+        val profile = (accountPreview.profile as ContentViewState.Ready).content
+        AccountScreens(accountPreview.copy(page = AccountPage.DELETE,
+            profile = ContentViewState.Ready(profile.copy(linkedProviders = listOf("GOOGLE")))))
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+fun AccountDeletingPreview() {
+    InterviewTrainerTheme(darkTheme = false) {
+        AccountScreens(accountPreview.copy(page = AccountPage.DELETE, isSaving = true))
+    }
 }
 
 @Preview(widthDp = 390, heightDp = 844)

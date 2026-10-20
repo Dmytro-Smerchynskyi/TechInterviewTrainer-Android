@@ -74,9 +74,10 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    suspend fun deleteAccount() {
+    suspend fun deleteAccount(currentPassword: String? = null, idToken: String? = null) {
+        val payload = com.oniolla.interviewer.data.payload.DeleteAccountPayload(currentPassword, idToken)
         val session = sessionRefresh.authorizedApiCall { session ->
-            api.deleteAccount(session)
+            withPasswordValidation { api.deleteAccount(payload, session) }
             session
         }
         clearSessionData(session.version)

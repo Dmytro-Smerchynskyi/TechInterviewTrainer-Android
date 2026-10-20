@@ -23,6 +23,9 @@ class ManageAccountUseCase @Inject constructor(private val repository: AuthRepos
         mutation { repository.changePassword(current, next) }
     suspend fun setPassword(value: String, idToken: String) = loadContent { repository.setPassword(value, idToken) }
 
+    suspend fun deleteAccount(currentPassword: String? = null, idToken: String? = null) =
+        mutation { repository.deleteAccount(currentPassword, idToken) }
+
     private suspend fun mutation(call: suspend () -> Unit): AccountMutationResult = try {
         call()
         AccountMutationResult(ContentResult.Success(Unit))

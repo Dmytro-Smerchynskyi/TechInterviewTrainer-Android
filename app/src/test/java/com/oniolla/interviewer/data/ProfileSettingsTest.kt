@@ -179,6 +179,11 @@ class ProfileSettingsTest {
         fun profileVm(): ProfileViewModel = ProfileViewModel(manage, GetPreparationLanguagesUseCase(auth), SavedStateHandle())
             .also { vm -> stores += ViewModelStore().apply { put("profile", vm) } }
 
+        fun accountVm() = AccountViewModel(ManageAccountUseCase(auth), SavedStateHandle())
+            .also { vm -> stores += ViewModelStore().apply { put("account", vm) } }
+
+        fun payloadForTest(request: Request) = payload(request)
+
         fun homeVm(): HomeViewModel = HomeViewModel(GetDashboardUseCase(home, auth),
             GetTopicsUseCase(home), GetQuestionsUseCase(home), SavedStateHandle(),
             TopicCatalogUseCase(home), SetQuestionSavedUseCase(home),
@@ -526,23 +531,22 @@ class ProfileSettingsTest {
         assertEquals(8, f.cache.observe(f.tokens.sessionVersion).first()!!.summary.streakDays)
     }
 
-    @Test fun deleteRequiresConfirmationAndCancelDoesNotSendARequest() = runTest(dispatcher) {
+    private suspend fun readyAccount(vm: AccountViewModel) {
+        vm.open(null)
+        vm.state.first { it.profile is ContentViewState.Ready }
+    }
+
+    @Test fun leavingDeletionFormDoesNotSendARequestAndClearsPassword() = runTest(dispatcher) {
         val f = Fixture()
-        val vm = f.profileVm()
-        vm.open()
-        readyProfile(vm)
-        vm.deleteAccount()
-        vm.showDeleteAccountDialog()
-        assertFalse(vm.state.value.deleteAccountDialog)
-        vm.openAccount()
-        vm.showDeleteAccountDialog()
-        assertTrue(vm.state.value.deleteAccountDialog)
-        vm.dismissDeleteAccountDialog()
-        assertFalse(vm.state.value.deleteAccountDialog)
-        vm.showDeleteAccountDialog()
+        val vm = f.accountVm()
+        readyAccount(vm)
+        vm.submit()
+        vm.edit(AccountPage.DELETE)
+        vm.update(AccountField.CURRENT_PASSWORD, "current-password")
+        assertEquals(AccountPage.DELETE, vm.state.value.page)
         assertFalse(vm.back())
-        assertFalse(vm.state.value.deleteAccountDialog)
-        assertEquals(ProfilePage.ACCOUNT, vm.state.value.page)
+        assertEquals(AccountPage.OVERVIEW, vm.state.value.page)
+        assertEquals("", vm.state.value.currentPassword)
         assertTrue(f.requests.none { it.method == "DELETE" })
         assertNotNull(f.tokens.refreshToken)
     }
@@ -550,17 +554,18 @@ class ProfileSettingsTest {
     @Test fun deletingAccountClearsTheSameLocalDataAsLogoutBeforeNavigating() = runTest(dispatcher) {
         val f = Fixture()
         f.seedData()
-        val vm = f.profileVm()
-        vm.open()
-        readyProfile(vm)
-        vm.openAccount()
-        vm.showDeleteAccountDialog()
-        vm.deleteAccount()
-        vm.state.first { it.signedOut }
+        val vm = f.accountVm()
+        readyAccount(vm)
+        vm.edit(AccountPage.DELETE)
+        vm.update(AccountField.CURRENT_PASSWORD, "current-password")
+        vm.submit()
+        vm.state.first { it.accountDeleted }
         val request = f.requests.single { it.method == "DELETE" }
         assertEquals("/me", request.url.encodedPath)
         assertEquals("Bearer access", request.header("Authorization"))
-        assertNull(request.body)
+        val body = f.payloadForTest(request)
+        assertEquals(setOf("currentPassword"), body.keySet())
+        assertEquals("current-password", body["currentPassword"].asString)
         assertNull(request.url.query)
         assertEquals(0, f.calls("/auth/logout"))
         assertNull(f.tokens.accessToken)
@@ -571,75 +576,71 @@ class ProfileSettingsTest {
         assertNull(f.cache.observe(f.tokens.sessionVersion).first())
         assertNull(f.manage.currentUsage())
         assertSame(ContentViewState.NotLoaded, vm.state.value.profile)
-        assertEquals(ProfilePage.CLOSED, vm.state.value.page)
-        assertFalse(vm.state.value.deleteAccountDialog)
+        assertEquals("", vm.state.value.currentPassword)
     }
 
-    @Test fun failedDeleteKeepsAccountAndDataAndAllowsRetry() = runTest(dispatcher) {
+    @Test fun failedDeleteKeepsAccountPasswordAndDataAndAllowsRetry() = runTest(dispatcher) {
         val f = Fixture().apply { deleteStatus = 500 }
         f.seedData()
-        val vm = f.profileVm()
-        vm.open()
-        readyProfile(vm)
-        vm.openAccount()
-        vm.showDeleteAccountDialog()
-        vm.deleteAccount()
-        vm.state.first { it.deleteAccountError }
-        assertFalse(vm.state.value.signedOut)
+        val vm = f.accountVm()
+        readyAccount(vm)
+        vm.edit(AccountPage.DELETE)
+        vm.update(AccountField.CURRENT_PASSWORD, "current-password")
+        vm.submit()
+        vm.state.first { it.actionError != null }
+        assertFalse(vm.state.value.accountDeleted)
         assertFalse(vm.state.value.isSaving)
-        assertTrue(vm.state.value.deleteAccountDialog)
+        assertEquals(AccountPage.DELETE, vm.state.value.page)
+        assertEquals("current-password", vm.state.value.currentPassword)
         assertEquals("refresh", f.tokens.refreshToken)
         assertTrue(f.database.topicDao().hasCatalog("seed"))
         assertEquals(ThemeMode.DARK, f.preferences.theme.value)
         assertNotNull(f.cache.observe(f.tokens.sessionVersion).first())
         f.deleteStatus = 204
-        vm.deleteAccount()
-        vm.state.first { it.signedOut }
+        vm.submit()
+        vm.state.first { it.accountDeleted }
         assertEquals(2, f.requests.count { it.method == "DELETE" })
     }
 
-    @Test fun deleteLocksUiAndPreventsDismissalLogoutAndDuplicateRequests() = runTest(dispatcher) {
+    @Test fun deleteLocksBackEditingAndDuplicateRequests() = runTest(dispatcher) {
         val started = CompletableDeferred<Unit>()
         val release = CountDownLatch(1)
         val f = Fixture()
         f.beforeDelete = { started.complete(Unit); check(release.await(5, TimeUnit.SECONDS)) }
-        val vm = f.profileVm()
-        vm.open()
-        readyProfile(vm)
-        vm.openAccount()
+        val vm = f.accountVm()
+        readyAccount(vm)
+        vm.edit(AccountPage.DELETE)
+        vm.update(AccountField.CURRENT_PASSWORD, "current-password")
         try {
-            vm.showDeleteAccountDialog()
-            vm.deleteAccount()
+            vm.submit()
             started.await()
-            assertTrue(vm.state.value.isDeletingAccount)
             assertTrue(vm.state.value.isSaving)
-            vm.deleteAccount()
-            vm.dismissDeleteAccountDialog()
-            vm.signOut()
+            vm.submit()
+            vm.edit(AccountPage.NAME)
+            vm.update(AccountField.CURRENT_PASSWORD, "changed-password")
             assertFalse(vm.back())
-            assertTrue(vm.state.value.deleteAccountDialog)
+            assertEquals(AccountPage.DELETE, vm.state.value.page)
+            assertEquals("current-password", vm.state.value.currentPassword)
             assertEquals(1, f.requests.count { it.method == "DELETE" })
-            assertEquals(0, f.calls("/auth/logout"))
             assertNotNull(f.tokens.refreshToken)
         } finally { release.countDown() }
-        vm.state.first { it.signedOut }
+        vm.state.first { it.accountDeleted }
     }
 
-    @Test fun deleteRefreshesAnExpiredAccessTokenThenRetriesTheAuthorizedRequest() = runTest(dispatcher) {
+    @Test fun deleteRefreshesAnExpiredAccessTokenThenRetriesWithTheOriginalProof() = runTest(dispatcher) {
         val f = Fixture().apply { expireDeleteAccess = true }
         f.seedData()
-        val vm = f.profileVm()
-        vm.open()
-        readyProfile(vm)
-        vm.openAccount()
-        vm.showDeleteAccountDialog()
-        vm.deleteAccount()
-        vm.state.first { it.signedOut }
+        val vm = f.accountVm()
+        readyAccount(vm)
+        vm.edit(AccountPage.DELETE)
+        vm.update(AccountField.CURRENT_PASSWORD, "current-password")
+        vm.submit()
+        vm.state.first { it.accountDeleted }
         val requests = f.requests.filter { it.method == "DELETE" }
         assertEquals(2, requests.size)
         assertEquals("Bearer renewed", requests.last().header("Authorization"))
         assertEquals(1, f.calls("/auth/refresh"))
-        assertTrue(requests.all { it.body == null })
+        assertTrue(requests.all { f.payloadForTest(it)["currentPassword"].asString == "current-password" })
         assertNull(f.tokens.refreshToken)
     }
 
@@ -649,7 +650,7 @@ class ProfileSettingsTest {
         val f = Fixture()
         f.seedData()
         f.beforeDelete = { started.complete(Unit); check(release.await(5, TimeUnit.SECONDS)) }
-        val deletion = async { runCatching { f.auth.deleteAccount() } }
+        val deletion = async { runCatching { f.auth.deleteAccount(currentPassword = "current-password") } }
         try {
             started.await()
             f.tokens.saveSession("other-access", "other-refresh")

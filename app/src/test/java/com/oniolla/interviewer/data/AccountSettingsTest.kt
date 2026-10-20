@@ -76,11 +76,11 @@ class AccountSettingsTest {
                     val request = chain.request()
                     requests += request
                     val path = request.url.encodedPath
-                    if (path != "/me" && path != "/me/subscription" && path != "/auth/refresh") beforeMutation?.invoke()
+                    if (request.method == "DELETE" || (path != "/me" && path != "/me/subscription" && path != "/auth/refresh")) beforeMutation?.invoke()
                     var status = 200
                     val body = when {
-                        path in setOf("/auth/password/change", "/auth/email/change/request",
-                            "/auth/email/change/resend") && rejectCurrentPassword &&
+                        (path in setOf("/auth/password/change", "/auth/email/change/request",
+                            "/auth/email/change/resend") || (path == "/me" && request.method == "DELETE")) && rejectCurrentPassword &&
                             (path != unauthorizedPath || request.header("Authorization") == "Bearer refreshed") -> {
                             status = passwordErrorStatus
                             """{"error":{"code":"$passwordErrorCode","message":"Current password is incorrect."}}"""
@@ -119,6 +119,7 @@ class AccountSettingsTest {
                             }
                         }
                         path == "/auth/email/resend-code" -> """{"message":"Sent"}"""
+                        path == "/me" && request.method == "DELETE" -> { status = 204; "" }
                         path == "/me" -> profile()
                         path == "/me/subscription" -> """{"plan":"FREE","answerReveals":{"used":12,"limit":20,"remaining":8},
                             "aiEvaluations":{"used":8,"reserved":0,"limit":20,"remaining":12,"periodEndsAt":null,"resetAt":null},
@@ -178,6 +179,142 @@ class AccountSettingsTest {
     private fun resetPassword(vm: AuthViewModel, password: String = "new-password") {
         vm.passwordText.value = password
         vm.resetConfirmationText.value = password
+    }
+
+    @Test fun deletionValidatesPasswordAndKeepsItInViewModelMemoryOnly() = runTest(dispatcher) {
+        val f = Fixture()
+        val handle = SavedStateHandle()
+        val vm = f.vm(handle)
+        open(vm)
+        vm.edit(AccountPage.DELETE)
+        vm.update(AccountField.CURRENT_PASSWORD, "short")
+        vm.submit()
+        assertNotNull(vm.state.value.errors[AccountField.CURRENT_PASSWORD])
+        assertEquals("short", vm.state.value.currentPassword)
+        assertTrue(f.requests.none { it.method == "DELETE" })
+        vm.update(AccountField.CURRENT_PASSWORD, "current-password")
+        assertEquals(setOf("accountPage"), handle.keys())
+        assertEquals("current-password", vm.state.value.currentPassword)
+        val restored = f.vm(handle)
+        open(restored)
+        assertEquals(AccountPage.DELETE, restored.state.value.page)
+        assertEquals("", restored.state.value.currentPassword)
+        assertEquals("current-password", vm.state.value.currentPassword)
+        vm.back()
+        assertEquals("", vm.state.value.currentPassword)
+    }
+
+    @Test fun wrongDeletionPasswordIsInlineAndDoesNotRefreshOrExpireTheSession() = runTest(dispatcher) {
+        for (status in listOf(400, 401)) {
+            val f = Fixture().apply { rejectCurrentPassword = true; passwordErrorStatus = status }
+            val vm = f.vm()
+            open(vm)
+            val session = f.tokens.snapshot()
+            vm.edit(AccountPage.DELETE)
+            vm.update(AccountField.CURRENT_PASSWORD, "wrong-password")
+            vm.submit()
+            vm.state.first { !it.isSaving && it.errors[AccountField.CURRENT_PASSWORD] != null }
+            assertEquals("wrong-password", vm.state.value.currentPassword)
+            assertFalse(vm.state.value.sessionExpired)
+            assertFalse(vm.state.value.accountDeleted)
+            assertEquals(session, f.tokens.snapshot())
+            assertEquals(0, f.calls("/auth/refresh"))
+            val request = f.requests.single { it.method == "DELETE" }
+            assertEquals(setOf("currentPassword"), f.payload(request).keySet())
+        }
+    }
+
+    @Test fun googleDeletionRequestsAProofAndSendsOnlyIdTokenBeforeClearingSession() = runTest(dispatcher) {
+        val f = Fixture().apply { providers = listOf("GOOGLE") }
+        val handle = SavedStateHandle()
+        val vm = f.vm(handle)
+        open(vm)
+        vm.edit(AccountPage.DELETE)
+        vm.submit()
+        val id = requireNotNull(vm.state.value.googleRequestId)
+        assertTrue(vm.state.value.isSaving)
+        assertFalse(vm.back())
+        vm.submit()
+        assertEquals(id, vm.state.value.googleRequestId)
+        assertTrue(f.requests.none { it.method == "DELETE" })
+        vm.googleTokenReceived(id, "fresh-delete-id-token")
+        vm.state.first { it.accountDeleted }
+        val request = f.requests.single { it.method == "DELETE" }
+        assertEquals("/me", request.url.encodedPath)
+        assertEquals("Bearer access", request.header("Authorization"))
+        val body = f.payload(request)
+        assertEquals(setOf("idToken"), body.keySet())
+        assertEquals("fresh-delete-id-token", body["idToken"].asString)
+        assertNull(f.tokens.refreshToken)
+        assertEquals("", vm.state.value.currentPassword)
+        assertTrue(handle.keys().isEmpty())
+        assertEquals(0, f.calls("/auth/google"))
+        assertEquals(1, f.requests.count { it.method == "GET" && it.url.encodedPath == "/me" })
+    }
+
+    @Test fun cancelledFailedAndStaleGoogleDeletionCallbacksNeverDeleteAccount() = runTest(dispatcher) {
+        val f = Fixture().apply { providers = listOf("GOOGLE") }
+        val vm = f.vm()
+        open(vm)
+        val session = f.tokens.snapshot()
+        vm.edit(AccountPage.DELETE)
+        vm.submit()
+        val first = requireNotNull(vm.state.value.googleRequestId)
+        vm.googleReauthenticationCancelled(first)
+        assertFalse(vm.state.value.isSaving)
+        vm.googleTokenReceived(first, "late-token")
+        vm.submit()
+        val second = requireNotNull(vm.state.value.googleRequestId)
+        assertNotEquals(first, second)
+        vm.googleReauthenticationFailed(second, "Google unavailable")
+        vm.googleTokenReceived(second, "late-token")
+        assertEquals("Google unavailable", vm.state.value.googleError)
+        assertFalse(vm.state.value.isSaving)
+        assertFalse(vm.state.value.accountDeleted)
+        assertTrue(f.requests.none { it.method == "DELETE" })
+        assertEquals(session, f.tokens.snapshot())
+    }
+
+    @Test fun rejectedGoogleDeletionProofKeepsSessionAndRetryRequestsANewToken() = runTest(dispatcher) {
+        val f = Fixture().apply { providers = listOf("GOOGLE") }
+        val vm = f.vm()
+        open(vm)
+        val session = f.tokens.snapshot()
+        vm.edit(AccountPage.DELETE)
+        f.failPath = "/me"
+        f.failStatus = 401
+        f.failCode = "REAUTHENTICATION_REQUIRED"
+        vm.submit()
+        val first = requireNotNull(vm.state.value.googleRequestId)
+        vm.googleTokenReceived(first, "rejected-proof")
+        vm.state.first { !it.isSaving && it.actionError != null }
+        assertFalse(vm.state.value.sessionExpired)
+        assertEquals(session, f.tokens.snapshot())
+        assertEquals(0, f.calls("/auth/refresh"))
+        f.failPath = null
+        vm.submit()
+        val second = requireNotNull(vm.state.value.googleRequestId)
+        assertNotEquals(first, second)
+        vm.googleTokenReceived(first, "stale-proof")
+        assertEquals(1, f.requests.count { it.method == "DELETE" })
+        vm.googleTokenReceived(second, "fresh-proof")
+        vm.state.first { it.accountDeleted }
+        assertEquals("fresh-proof", f.payload(f.requests.last { it.method == "DELETE" })["idToken"].asString)
+    }
+
+    @Test fun deletePayloadRejectsMissingBlankOrAmbiguousProofs() {
+        assertThrows(IllegalArgumentException::class.java) {
+            com.oniolla.interviewer.data.payload.DeleteAccountPayload()
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            com.oniolla.interviewer.data.payload.DeleteAccountPayload(currentPassword = "")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            com.oniolla.interviewer.data.payload.DeleteAccountPayload(idToken = " ")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            com.oniolla.interviewer.data.payload.DeleteAccountPayload("password123", "token")
+        }
     }
 
     @Test fun passwordResetPostsExactPayloadWithoutBearerAndReturnsToLogin() = runTest(dispatcher) {

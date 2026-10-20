@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class AccountPage { OVERVIEW, NAME, EMAIL, CODE, PASSWORD }
+enum class AccountPage { OVERVIEW, NAME, EMAIL, CODE, PASSWORD, DELETE }
 enum class AccountField { NAME, EMAIL, CURRENT_PASSWORD, NEW_PASSWORD, CONFIRM_PASSWORD, CODE }
 
 data class AccountViewState(
@@ -35,7 +35,9 @@ data class AccountViewState(
     val googleError: String? = null,
     val showResendPasswordDialog: Boolean = false,
     val sessionExpired: Boolean = false,
-    val changed: Boolean = false
+    val changed: Boolean = false,
+    val actionError: String? = null,
+    val accountDeleted: Boolean = false
 ) {
     val hasPassword get() = (profile as? ContentViewState.Ready)?.content?.linkedProviders
         ?.any { it.equals("PASSWORD", ignoreCase = true) } == true
@@ -76,13 +78,13 @@ class AccountViewModel @Inject constructor(
 
     private fun show(page: AccountPage) {
         savedState["accountPage"] = page.name
-        _state.update { it.copy(page = page, errors = emptyMap(), googleError = null) }
+        _state.update { it.copy(page = page, errors = emptyMap(), googleError = null, actionError = null) }
     }
 
     fun edit(page: AccountPage) {
         if (_state.value.isSaving) return
         val profile = (_state.value.profile as? ContentViewState.Ready)?.content ?: return
-        if (page !in listOf(AccountPage.NAME, AccountPage.EMAIL, AccountPage.PASSWORD)) return
+        if (page !in listOf(AccountPage.NAME, AccountPage.EMAIL, AccountPage.PASSWORD, AccountPage.DELETE)) return
         _state.update { it.copy(name = profile.displayName, email = "", code = "",
             currentPassword = "", newPassword = "", confirmPassword = "") }
         savedState.remove<String>("pendingNewEmail")
@@ -92,7 +94,7 @@ class AccountViewModel @Inject constructor(
     fun update(field: AccountField, value: String) {
         if (_state.value.isSaving) return
         _state.update {
-            val clean = it.copy(errors = it.errors - field, googleError = null)
+            val clean = it.copy(errors = it.errors - field, googleError = null, actionError = null)
             when (field) {
                 AccountField.NAME -> clean.copy(name = value)
                 AccountField.EMAIL -> clean.copy(email = value)
@@ -135,11 +137,12 @@ class AccountViewModel @Inject constructor(
             }
             AccountPage.CODE -> if (state.code.length != 6 || state.code.any { it !in '0'..'9' })
                 errors[AccountField.CODE] = "Enter the 6-digit code"
+            AccountPage.DELETE -> if (state.hasPassword) password(AccountField.CURRENT_PASSWORD, state.currentPassword)
             AccountPage.OVERVIEW -> return
         }
-        _state.update { it.copy(errors = errors, googleError = null) }
+        _state.update { it.copy(errors = errors, googleError = null, actionError = null) }
         if (errors.isNotEmpty()) return
-        if (!state.hasPassword && state.page in listOf(AccountPage.EMAIL, AccountPage.PASSWORD)) {
+        if (!state.hasPassword && state.page in listOf(AccountPage.EMAIL, AccountPage.PASSWORD, AccountPage.DELETE)) {
             requestGoogle(state, resend = false)
         } else {
             _state.update { it.copy(isSaving = true) }
@@ -211,6 +214,28 @@ class AccountViewModel @Inject constructor(
                         handleCredentials(result.result, state)
                     } else handleCredentials(manage.setPassword(state.newPassword, requireNotNull(idToken)), state)
                 }
+                AccountPage.DELETE -> {
+                    val result = manage.deleteAccount(
+                        currentPassword = state.currentPassword.takeIf { state.hasPassword }, idToken = idToken)
+                    passwordError(result)
+                    when (val outcome = result.result) {
+                        is ContentResult.Success -> {
+                            profileJob?.cancel()
+                            savedState.remove<String>("pendingNewEmail")
+                            savedState.remove<String>("accountPage")
+                            savedState.remove<Boolean>("accountChanged")
+                            _state.update { it.copy(isSaving = false, accountDeleted = true,
+                                currentPassword = "", newPassword = "", confirmPassword = "", errors = emptyMap(),
+                                profile = ContentViewState.NotLoaded, googleError = null, actionError = null) }
+                        }
+                        else -> {
+                            failed(outcome)
+                            if (outcome is ContentResult.Error && result.currentPasswordError == null) {
+                                _state.update { it.copy(actionError = outcome.message) }
+                            }
+                        }
+                    }
+                }
                 AccountPage.OVERVIEW -> Unit
             }
         }
@@ -271,7 +296,7 @@ class AccountViewModel @Inject constructor(
         _state.update { it.copy(isSaving = false, isResending = false,
             sessionExpired = result == ContentResult.SessionExpired,
             googleError = (result as? ContentResult.Error)?.message.takeIf { _ ->
-                !it.hasPassword && it.page in listOf(AccountPage.EMAIL, AccountPage.PASSWORD, AccountPage.CODE)
+                !it.hasPassword && it.page in listOf(AccountPage.EMAIL, AccountPage.PASSWORD, AccountPage.CODE, AccountPage.DELETE)
             },
             errors = if (showCodeError && result is ContentResult.Error && it.page == AccountPage.CODE)
                 it.errors + (AccountField.CODE to result.message) else it.errors) }

@@ -38,6 +38,7 @@ import retrofit2.http.Query
 import retrofit2.http.Tag
 import retrofit2.http.Path
 import retrofit2.http.DELETE
+import retrofit2.http.HTTP
 
 interface Api {
 
@@ -188,8 +189,9 @@ interface Api {
     @GET("me")
     suspend fun me(@Tag session: SessionSnapshot? = null): MeResponse
 
-    @DELETE("me")
-    suspend fun deleteAccount(@Tag session: SessionSnapshot? = null)
+    @HTTP(method = "DELETE", path = "me", hasBody = true)
+    suspend fun deleteAccount(@Body payload: com.oniolla.interviewer.data.payload.DeleteAccountPayload,
+        @Tag session: SessionSnapshot? = null)
 
     @POST("auth/email/verify")
     suspend fun verifyEmail(@Body verifyEmailPayload: VerifyEmailPayload): LoginResponse

@@ -41,7 +41,8 @@ object NetworkModule {
                         val path = chain.request().url.encodedPath
                         val sensitive = listOf("/billing/google/verify", "/me/subscription", "/auth/password/reset", "/auth/email/verify", "/auth/logout", "/auth/google", "/auth/password/set", "/auth/password/change",
                             "/auth/email/change/request", "/auth/email/change/resend", "/auth/email/change/confirm")
-                        if (sensitive.any(path::endsWith)) chain.proceed(chain.request())
+                        val deletingAccount = chain.request().method == "DELETE" && path.endsWith("/me")
+                        if (deletingAccount || sensitive.any(path::endsWith)) chain.proceed(chain.request())
                         else httpLogger.intercept(chain)
                     }
                 }
